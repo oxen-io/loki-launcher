@@ -1,0 +1,6 @@
+[submodule "src/loki-network"]
+	path = src/loki-network
+	url = https://github.com/loki-project/loki-network.git
+[submodule "src/loki"]
+	path = src/loki
+	url = https://github.com/loki-project/loki
