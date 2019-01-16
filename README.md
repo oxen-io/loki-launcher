@@ -1,6 +1,9 @@
 # loki-daemon-launcher
 Integration of lokid with lokinet for Service Nodes
 
+BUILD
+`make` will build `launcher`
+
 Goals
 shell script or c/c++ program to facilitate the launching and validation of settings for lokid and lokinet
 
@@ -16,7 +19,4 @@ Deployment platforms by priorty:
 Building the binaries are out of scope, however I'll include some platforms scripts as we have them. Tough to support all distros.
 
 TODO
-- get binaries built for development
-  + lokinet
-  - lokid
-
+- jsonrpc compatible params
