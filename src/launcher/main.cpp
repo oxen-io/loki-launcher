@@ -309,14 +309,24 @@ int main(int argc, char const * argv[]) {
   printf("lokinet config [%s]\n", fpath.string().c_str());
   if (lokinet_config->Load(fpath.string().c_str())) {
     printf("Loaded\n");
-    // jsonrpc api
+    // make sure we're rootish or can execute the setuid binary
+    // hopefully lokinet config won't be root
     // read ~/.loki/[testnet]/key
-    // FIXME: how do we pass this identity into lokinet
+    // FIXME: Lokinet Issue 242
     // is DNS server/lokinet already running
     //   if it's already running, is it configured in a way we need?
     // .loki will not be available for SN
     // .snode will be available
     // ".exit" will be their own type of tun (similar to )
+    // make sure lokinet.ini has [lokid].enabled truish
+    // after lokid starts up, make sure [lokid].jsonrpc actually connects and works...
+    // [api].enable should be enabled for service registry
+    // should have a [bind] with working interface
+    // nodedb created and working? 
+    // how much of this is redundant and how much is actually needed
+    // lets split into two groups: already handled and not
+    // but that means we need to be able to detect the close of the lokinet fork
+    // also we'd need to know if lokinet got bootstrapped or not
   }
   printf("Hello World\n");
 }
