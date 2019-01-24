@@ -310,6 +310,13 @@ int main(int argc, char const * argv[]) {
   if (lokinet_config->Load(fpath.string().c_str())) {
     printf("Loaded\n");
     // jsonrpc api
+    // read ~/.loki/[testnet]/key
+    // FIXME: how do we pass this identity into lokinet
+    // is DNS server/lokinet already running
+    //   if it's already running, is it configured in a way we need?
+    // .loki will not be available for SN
+    // .snode will be available
+    // ".exit" will be their own type of tun (similar to )
   }
   printf("Hello World\n");
 }
