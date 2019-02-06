@@ -356,11 +356,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     "-framework IOKit"
   )
 endif()
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-  message(STATUS "Linux detected")
-  TARGET_LINK_LIBRARIES(Launcher
-    "-lpthread"
-  )
+
 target_link_libraries(mini_loki_common unbound)
 target_link_libraries(mini_loki_daemon
   ssl crypto
@@ -368,25 +364,31 @@ target_link_libraries(mini_loki_daemon
   mini_loki_common
 )
 target_link_libraries(mini_loki_cn_core mini_loki_common)
-target_link_libraries(mini_loki_cn_basic 
+target_link_libraries(mini_loki_cn_basic
   mini_loki_crypto
   mini_loki_common
 )
-target_link_libraries(mini_loki_rpc 
+target_link_libraries(mini_loki_rpc
   zmq
   ${BOOST_LIB_DIR}/libboost_serialization.a
   mini_loki_cn_proto
   mini_loki_upnp
 )
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  message(STATUS "Linux detected")
+  TARGET_LINK_LIBRARIES(Launcher
+    "-lpthread"
+  )
 endif()
 
 
 TARGET_LINK_LIBRARIES(Launcher
   mini_lokinet
   mini_loki
-  ssl crypto
-  unbound
-  zmq
+#  ssl crypto
+#  unbound
+#  zmq
   ${BOOST_LIB_DIR}/libboost_chrono.a
   ${BOOST_LIB_DIR}/libboost_system.a
   ${BOOST_LIB_DIR}/libboost_filesystem.a
