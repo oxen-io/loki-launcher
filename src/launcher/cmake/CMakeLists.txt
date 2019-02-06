@@ -141,7 +141,6 @@ include_directories ("../../loki/build/Linux/dev/release/external/miniupnp/miniu
 include_directories ("../../loki/build/Darwin/dev/release/translations")
 include_directories ("../../loki/build/Darwin/dev/release/external/miniupnp/miniupnpc")
 
-# hope this works on macos
 FIND_PACKAGE( Boost 1.58
   COMPONENTS
     chrono
@@ -153,8 +152,9 @@ FIND_PACKAGE( Boost 1.58
     thread
   REQUIRED
 )
+
 message(STATUS "Boost include => ${Boost_INCLUDE_DIR}")
-message(STATUS "Boost library => ${Boost_LIBRARY_DIR}") # empty?
+#message(STATUS "Boost library => ${Boost_LIBRARY_DIR}") # empty on mac/linux
 message(STATUS "Boost libraries => ${Boost_LIBRARIES}")
 include_directories(${Boost_INCLUDE_DIR})
 
@@ -274,7 +274,7 @@ set(MINI_LOKI_SERIALIZATION_SRC
 add_library(mini_loki_serialization ${MINI_LOKI_SERIALIZATION_SRC})
 target_link_libraries(mini_loki_daemon
   ssl crypto
-  boost_chrono
+  ${Boost_LIBRARIES}
   mini_loki_common
 )
 
@@ -383,7 +383,7 @@ set(MINI_LOKI_RPC_SRC
 add_library(mini_loki_rpc ${MINI_LOKI_RPC_SRC})
 target_link_libraries(mini_loki_rpc
   zmq
-  boost_serialization
+  ${Boost_LIBRARIES}
   mini_loki_epee
   mini_loki_cn_proto
   mini_loki_upnp
