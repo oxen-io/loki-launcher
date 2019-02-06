@@ -4,7 +4,9 @@ project (snode_launcher)
 set (Launcher_VERSION_MAJOR 0)
 set (Launcher_VERSION_MINOR 1)
 
+#
 # stolen from lokid cmake
+#
 
 # ARCH defines the target architecture, either by an explicit identifier or
 # one of the following two keywords. By default, ARCH a value of 'native':
@@ -95,10 +97,17 @@ option(NO_AES "Explicitly disable AES support" ${NO_AES})
   else()
     message(STATUS "AES support disabled")
   endif()
+#
 # end stolen from lokid cmake
+#
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -DLOKI_VERSION_MAJOR=2 -DLOKI_VERSION_MINOR=0 -DLOKI_VERSION_PATCH=3 -DLOKI_VERSION=\\\"2.0.3-rc\\\" -DDEFAULT_DB_TYPE=\\\"lmdb\\\" -DLOKI_RELEASE_NAME=\\\"putnamehere\\\" -DLOKI_VERSION_FULL=\\\"Wouldntyouliketoknow\\\"")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEFAULT_DB_TYPE=\\\"lmdb\\\"")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOKI_VERSION_MAJOR=2 -DLOKI_VERSION_MINOR=0 -DLOKI_VERSION_PATCH=3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOKI_VERSION=\\\"2.0.3-rc\\\" -DLOKI_RELEASE_NAME=\\\"putnamehere\\\" -DLOKI_VERSION_FULL=\\\"Wouldntyouliketoknow\\\"")
+
+# We start in src/launcher/cmake
 include_directories ("..")
 
 include_directories ("../../loki-network/llarp")
@@ -113,24 +122,60 @@ include_directories ("../../loki/external/unbound/libunbound")
 include_directories ("../../loki/external/rapidjson/include")
 include_directories ("../../loki/external/db_drivers/liblmdb")
 # FIXME: requires loki to be attempted to be built
+find_path(
+    TRANSLATION_FILES_INCLUDE_DIR
+    NAMES "translation_files.h"
+    PATHS "../../loki/build/release/translations" "../../loki/build/Linux/dev/release/translations" "../../loki/build/Darwin/dev/release/translations" "../../loki/build/release/translations"
+)
+message(STATUS "loki translation files => ${TRANSLATION_FILES_INCLUDE_DIR}")
+include_directories(${TRANSLATION_FILES_INCLUDE_DIR})
+if(NOT TRANSLATION_FILES_INCLUDE_DIR)
+  message(FATAL_ERROR "loki configure stage not ran, run make in src/loki or set TRANSLATION_FILES_INCLUDE_DIR")
+endif()
+
 include_directories ("../../loki/build/release/translations")
 include_directories ("../../loki/build/release/external/miniupnp/miniupnpc")
+# dev version
+include_directories ("../../loki/build/Linux/dev/release/translations")
+include_directories ("../../loki/build/Linux/dev/release/external/miniupnp/miniupnpc")
+include_directories ("../../loki/build/Darwin/dev/release/translations")
+include_directories ("../../loki/build/Darwin/dev/release/external/miniupnp/miniupnpc")
 
-find_path(
-    BOOST_INCLUDE_DIR
-    NAMES "boost/program_options/parsers.hpp"
-    PATHS "../../../depbuild/boost_1_64_0" /usr/local /usr
+# hope this works on macos
+FIND_PACKAGE( Boost 1.58
+  COMPONENTS
+    chrono
+    filesystem
+    program_options
+    regex
+    serialization
+    system
+    thread
+  REQUIRED
 )
-include_directories(${BOOST_INCLUDE_DIR})
-message(STATUS "boost include => ${BOOST_INCLUDE_DIR}")
+message(STATUS "Boost include => ${Boost_INCLUDE_DIR}")
+message(STATUS "Boost library => ${Boost_LIBRARY_DIR}") # empty?
+message(STATUS "Boost libraries => ${Boost_LIBRARIES}")
+include_directories(${Boost_INCLUDE_DIR})
 
-find_path(
-    BOOST_LIB_DIR
-    NAMES "libboost_chrono.a"
-    PATHS "../../../depbuild/boost_1_64_0/stage/lib" /usr/lib/x86_64-linux-gnu /usr/local /usr
-)
-link_directories(${BOOST_LIB_DIR})
-message(STATUS "boost lib => ${BOOST_LIB_DIR}")
+#find_path(
+#    BOOST_INCLUDE_DIR
+#    NAMES "boost/program_options/parsers.hpp"
+#    PATHS "../../../depbuild/boost_1_64_0" /usr/local /usr
+#)
+#include_directories(${BOOST_INCLUDE_DIR})
+#message(STATUS "boost include => ${BOOST_INCLUDE_DIR}")
+
+#find_path(
+#    BOOST_LIB_DIR
+#    NAMES "libboost_chrono.a"
+#    PATHS "../../../depbuild/boost_1_64_0/stage/lib" /usr/lib/x86_64-linux-gnu /usr/local /usr
+#)
+#link_directories(${BOOST_LIB_DIR})
+#message(STATUS "boost lib => ${BOOST_LIB_DIR}")
+
+# boost 1.61 (and higher) needs -D_GLIBCXX_USE_CXX11_ABI=1
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=1")
 
 find_path(
     UNBOUND_LIB_DIR
@@ -165,16 +210,22 @@ find_path(
 include_directories("${OPENSSL_DIR}/include")
 message(STATUS "openssl => ${OPENSSL_DIR}")
 
+#
+# Loki
+#
+
 set(MINI_LOKI_COMMON_SRC
   ../../loki/src/common/aligned.c
   ../../loki/src/common/base58.cpp
   ../../loki/src/common/command_line.cpp
   ../../loki/src/common/download.cpp
   ../../loki/src/common/dns_utils.cpp
-  ../../loki/src/common/exp2.cpp
+#  ../../loki/src/common/exp2.cpp
   ../../loki/src/common/i18n.cpp
+  ../../loki/src/common/loki.cpp
   ../../loki/src/common/notify.cpp
   ../../loki/src/common/password.cpp
+  ../../loki/src/common/pruning.cpp
   ../../loki/src/common/perf_timer.cpp
   ../../loki/src/common/util.cpp
   ../../loki/src/common/round.cpp
@@ -184,6 +235,7 @@ set(MINI_LOKI_COMMON_SRC
   ../../loki/src/common/threadpool.cpp
 )
 add_library(mini_loki_common ${MINI_LOKI_COMMON_SRC})
+target_link_libraries(mini_loki_common unbound)
 
 set(MINI_LOKI_CRYPTO_SRC
   ../../loki/src/crypto/chacha.c
@@ -220,18 +272,26 @@ set(MINI_LOKI_SERIALIZATION_SRC
   ../../loki/src/serialization/json_object.cpp
 )
 add_library(mini_loki_serialization ${MINI_LOKI_SERIALIZATION_SRC})
+target_link_libraries(mini_loki_daemon
+  ssl crypto
+  boost_chrono
+  mini_loki_common
+)
 
 set(MINI_LOKI_CN_CORE_SRC
   ../../loki/src/cryptonote_core/blockchain.cpp
   ../../loki/src/cryptonote_core/cryptonote_core.cpp
   ../../loki/src/cryptonote_core/cryptonote_tx_utils.cpp
-  ../../loki/src/cryptonote_core/quorum_cop.cpp
+  ../../loki/src/cryptonote_core/service_node_quorum_cop.cpp
   ../../loki/src/cryptonote_core/service_node_list.cpp
   ../../loki/src/cryptonote_core/service_node_rules.cpp
   ../../loki/src/cryptonote_core/service_node_deregister.cpp
   ../../loki/src/cryptonote_core/tx_pool.cpp
 )
 add_library(mini_loki_cn_core ${MINI_LOKI_CN_CORE_SRC})
+target_link_libraries(mini_loki_cn_core
+  mini_loki_ringct
+)
 
 set(MINI_LOKI_CN_BASIC_SRC
   ../../loki/src/cryptonote_basic/account.cpp
@@ -243,15 +303,21 @@ set(MINI_LOKI_CN_BASIC_SRC
 #  ../../loki/src/cryptonote_basic/service_node_deregister.cpp
 )
 add_library(mini_loki_cn_basic ${MINI_LOKI_CN_BASIC_SRC})
+target_link_libraries(mini_loki_cn_core mini_loki_common)
 
 set(MINI_LOKI_CN_PROTO_SRC
   ../../loki/src/cryptonote_protocol/cryptonote_protocol_handler-base.cpp
   ../../loki/src/cryptonote_protocol/block_queue.cpp
   ../../loki/src/cryptonote_protocol/cryptonote_protocol_handler.inl
 )
+target_link_libraries(mini_loki_cn_basic
+  mini_loki_crypto
+  mini_loki_common
+)
 add_library(mini_loki_cn_proto ${MINI_LOKI_CN_PROTO_SRC})
 
 set(MINI_LOKI_EPEE_SRC
+  ../../loki/contrib/epee/src/buffer.cpp
   ../../loki/contrib/epee/src/connection_basic.cpp
   ../../loki/contrib/epee/src/network_throttle-detail.cpp
   ../../loki/contrib/epee/src/http_auth.cpp
@@ -285,6 +351,25 @@ set(MINI_LOKI_UPNP_SRC
 )
 add_library(mini_loki_upnp ${MINI_LOKI_UPNP_SRC})
 
+set(MINI_LOKI_P2P_SRC
+  ../../loki/src/p2p/net_node.inl
+  ../../loki/src/p2p/net_node.cpp
+)
+add_library(mini_loki_p2p ${MINI_LOKI_P2P_SRC})
+
+set(MINI_LOKI_RINGCT_SRC
+  ../../loki/src/checkpoints/checkpoints.cpp
+  ../../loki/src/device/device.cpp
+  ../../loki/src/device/device_default.cpp
+  ../../loki/src/ringct/bulletproofs.cc
+  ../../loki/src/ringct/rctCryptoOps.c
+  ../../loki/src/ringct/rctSigs.cpp
+  ../../loki/src/ringct/rctOps.cpp
+  ../../loki/src/ringct/rctTypes.cpp
+  ../../loki/src/ringct/multiexp.cc
+)
+add_library(mini_loki_ringct ${MINI_LOKI_RINGCT_SRC})
+
 set(MINI_LOKI_RPC_SRC
   ../../loki/src/rpc/core_rpc_server.cpp
   ../../loki/src/rpc/rpc_args.cpp
@@ -296,26 +381,27 @@ set(MINI_LOKI_RPC_SRC
   ../../loki/src/rpc/instanciations.cpp
 )
 add_library(mini_loki_rpc ${MINI_LOKI_RPC_SRC})
+target_link_libraries(mini_loki_rpc
+  zmq
+  boost_serialization
+  mini_loki_epee
+  mini_loki_cn_proto
+  mini_loki_upnp
+  mini_loki_p2p
+)
 
 set(MINI_LOKI_SRC
   ../../loki/src/checkpoints/checkpoints.cpp
-  ../../loki/src/device/device.cpp
-  ../../loki/src/device/device_default.cpp
 #  ../../loki/src/crypto/slow-hash.c
   ../../loki/src/blockchain_db/blockchain_db.cpp
   ../../loki/src/blockchain_db/lmdb/db_lmdb.cpp
   ../../loki/external/db_drivers/liblmdb/mdb.c
   ../../loki/external/db_drivers/liblmdb/midl.c
   ../../loki/external/easylogging++/easylogging++.cc
-  ../../loki/src/p2p/net_node.inl
-  ../../loki/src/p2p/net_node.cpp
-  ../../loki/src/ringct/bulletproofs.cc
-  ../../loki/src/ringct/rctCryptoOps.c
-  ../../loki/src/ringct/rctSigs.cpp
-  ../../loki/src/ringct/rctOps.cpp
-  ../../loki/src/ringct/rctTypes.cpp
-  ../../loki/src/ringct/multiexp.cc
 )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAUTO_INITIALIZE_EASYLOGGINGPP")
+
+
 add_library(mini_loki ${MINI_LOKI_SRC})
 target_link_libraries(mini_loki
   mini_loki_common
@@ -329,6 +415,10 @@ target_link_libraries(mini_loki
   mini_loki_rpc
   mini_loki_serialization
 )
+
+#
+# Lokinet
+#
 
 set(MINI_LOKINET_SRC
   ../../loki-network/vendor/cppbackport-master/lib/fs/path.cpp
@@ -344,9 +434,12 @@ set(MINI_LOKINET_SRC
 )
 add_library(mini_lokinet ${MINI_LOKINET_SRC})
 
+#
+# Launcher
+#
+
 add_executable(Launcher
   ../main.cpp
-  ${MINI_LOKI_SRC}
 )
 #find_library(MACOS_POWER_LIBRARY IOPowerSources)
 
@@ -357,24 +450,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   )
 endif()
 
-target_link_libraries(mini_loki_common unbound)
-target_link_libraries(mini_loki_daemon
-  ssl crypto
-  ${BOOST_LIB_DIR}/libboost_chrono.a
-  mini_loki_common
-)
-target_link_libraries(mini_loki_cn_core mini_loki_common)
-target_link_libraries(mini_loki_cn_basic
-  mini_loki_crypto
-  mini_loki_common
-)
-target_link_libraries(mini_loki_rpc
-  zmq
-  ${BOOST_LIB_DIR}/libboost_serialization.a
-  mini_loki_cn_proto
-  mini_loki_upnp
-)
-
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   message(STATUS "Linux detected")
   TARGET_LINK_LIBRARIES(Launcher
@@ -382,18 +457,18 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   )
 endif()
 
-
+target_link_libraries(Launcher ${Boost_LIBRARIES})
 TARGET_LINK_LIBRARIES(Launcher
   mini_lokinet
   mini_loki
 #  ssl crypto
 #  unbound
 #  zmq
-  ${BOOST_LIB_DIR}/libboost_chrono.a
-  ${BOOST_LIB_DIR}/libboost_system.a
-  ${BOOST_LIB_DIR}/libboost_filesystem.a
-  ${BOOST_LIB_DIR}/libboost_regex.a
-  ${BOOST_LIB_DIR}/libboost_thread.a
-  ${BOOST_LIB_DIR}/libboost_program_options.a
-  ${BOOST_LIB_DIR}/libboost_serialization.a
+#  ${BOOST_LIB_DIR}/libboost_chrono.a
+#  ${BOOST_LIB_DIR}/libboost_system.a
+#  ${BOOST_LIB_DIR}/libboost_filesystem.a
+#  ${BOOST_LIB_DIR}/libboost_regex.a
+#  ${BOOST_LIB_DIR}/libboost_thread.a
+#  ${BOOST_LIB_DIR}/libboost_program_options.a
+#  ${BOOST_LIB_DIR}/libboost_serialization.a
 )
