@@ -117,12 +117,20 @@ include_directories ("../../loki/build/release/translations")
 include_directories ("../../loki/build/release/external/miniupnp/miniupnpc")
 
 find_path(
-    BOOST_DIR
+    BOOST_INCLUDE_DIR
     NAMES "boost/program_options/parsers.hpp"
     PATHS "../../../depbuild/boost_1_64_0" /usr/local /usr
 )
-include_directories(${BOOST_DIR})
-message(STATUS "boost => ${BOOST_DIR}")
+include_directories(${BOOST_INCLUDE_DIR})
+message(STATUS "boost include => ${BOOST_INCLUDE_DIR}")
+
+find_path(
+    BOOST_LIB_DIR
+    NAMES "libboost_chrono.a"
+    PATHS "../../../depbuild/boost_1_64_0/stage/lib" /usr/lib/x86_64-linux-gnu /usr/local /usr
+)
+link_directories(${BOOST_LIB_DIR})
+message(STATUS "boost lib => ${BOOST_LIB_DIR}")
 
 find_path(
     UNBOUND_LIB_DIR
@@ -194,6 +202,8 @@ set(MINI_LOKI_CRYPTO_SRC
   ../../loki/src/crypto/cn_slow_hash_hard_intel.cpp
   # FIXME: software only support
   ../../loki/src/crypto/cn_slow_hash_soft.cpp
+  # linux needed
+  ../../loki/src/crypto/crypto_ops_builder/verify.c
 )
 add_library(mini_loki_crypto ${MINI_LOKI_CRYPTO_SRC})
 
@@ -341,10 +351,35 @@ add_executable(Launcher
 #find_library(MACOS_POWER_LIBRARY IOPowerSources)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  message(STATUS "MacOS detected")
   TARGET_LINK_LIBRARIES(Launcher
     "-framework IOKit"
   )
 endif()
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  message(STATUS "Linux detected")
+  TARGET_LINK_LIBRARIES(Launcher
+    "-lpthread"
+  )
+target_link_libraries(mini_loki_common unbound)
+target_link_libraries(mini_loki_daemon
+  ssl crypto
+  ${BOOST_LIB_DIR}/libboost_chrono.a
+  mini_loki_common
+)
+target_link_libraries(mini_loki_cn_core mini_loki_common)
+target_link_libraries(mini_loki_cn_basic 
+  mini_loki_crypto
+  mini_loki_common
+)
+target_link_libraries(mini_loki_rpc 
+  zmq
+  ${BOOST_LIB_DIR}/libboost_serialization.a
+  mini_loki_cn_proto
+  mini_loki_upnp
+)
+endif()
+
 
 TARGET_LINK_LIBRARIES(Launcher
   mini_lokinet
@@ -352,11 +387,11 @@ TARGET_LINK_LIBRARIES(Launcher
   ssl crypto
   unbound
   zmq
-  ${BOOST_DIR}/stage/lib/libboost_chrono.a
-  ${BOOST_DIR}/stage/lib/libboost_system.a
-  ${BOOST_DIR}/stage/lib/libboost_filesystem.a
-  ${BOOST_DIR}/stage/lib/libboost_regex.a
-  ${BOOST_DIR}/stage/lib/libboost_thread.a
-  ${BOOST_DIR}/stage/lib/libboost_program_options.a
-  ${BOOST_DIR}/stage/lib/libboost_serialization.a
+  ${BOOST_LIB_DIR}/libboost_chrono.a
+  ${BOOST_LIB_DIR}/libboost_system.a
+  ${BOOST_LIB_DIR}/libboost_filesystem.a
+  ${BOOST_LIB_DIR}/libboost_regex.a
+  ${BOOST_LIB_DIR}/libboost_thread.a
+  ${BOOST_LIB_DIR}/libboost_program_options.a
+  ${BOOST_LIB_DIR}/libboost_serialization.a
 )
