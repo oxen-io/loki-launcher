@@ -70,7 +70,7 @@ if [ -f "boost_1_64_0.tar.bz2" ]; then
   # if we haven't extracted it yet
   if [ ! -d "boost_1_64_0" ]; then
     echo "Extracing Boost"
-    tar zxf boost_1_64_0.tar.bz2
+    tar jxf boost_1_64_0.tar.bz2
   fi
 fi
 
@@ -96,7 +96,7 @@ if [ -f "libpgm-5.2.122.tar.bz2" ]; then
   # if we haven't extracted it yet
   if [ ! -d "libpgm-5.2.122" ]; then
     echo "Extracing LibPGM"
-    tar zxf libpgm-5.2.122.tar.bz2
+    tar jxf libpgm-5.2.122.tar.bz2
   fi
 fi
 
@@ -105,7 +105,7 @@ if [ -f "expat-2.2.6.tar.bz2" ]; then
   # if we haven't extracted it yet
   if [ ! -d "expat-2.2.6" ]; then
     echo "Extracing LibExpat"
-    tar zxf expat-2.2.6.tar.bz2
+    tar jxf expat-2.2.6.tar.bz2
   fi
 fi
 
