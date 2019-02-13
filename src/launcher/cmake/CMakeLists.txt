@@ -97,22 +97,22 @@ option(NO_AES "Explicitly disable AES support" ${NO_AES})
   else()
     message(STATUS "AES support disabled")
   endif()
+
 #
 # end stolen from lokid cmake
 #
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPOSIX")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fPIC -fpermissive")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEFAULT_DB_TYPE=\\\"lmdb\\\"")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOKI_VERSION_MAJOR=2 -DLOKI_VERSION_MINOR=0 -DLOKI_VERSION_PATCH=3")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOKI_VERSION=\\\"2.0.3-rc\\\" -DLOKI_RELEASE_NAME=\\\"putnamehere\\\" -DLOKI_VERSION_FULL=\\\"Wouldntyouliketoknow\\\"")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOKI_VERSION_MAJOR=2 -DLOKI_VERSION_MINOR=0 -DLOKI_VERSION_PATCH=3")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOKI_VERSION=\\\"2.0.3-rc\\\" -DLOKI_RELEASE_NAME=\\\"putnamehere\\\" -DLOKI_VERSION_FULL=\\\"Wouldntyouliketoknow\\\"")
+
+message(STATUS "CXX FLAGS => ${CMAKE_CXX_FLAGS}")
 
 # We start in src/launcher/cmake
 include_directories ("..")
-
-include_directories ("../../loki-network/llarp")
-include_directories ("../../loki-network/vendor/cppbackport-master/lib")
-include_directories ("../../loki-network/crypto/include")
 
 include_directories ("../../loki/src")
 include_directories ("../../loki/contrib/epee/include")
@@ -398,6 +398,7 @@ set(MINI_LOKI_SRC
   ../../loki/external/db_drivers/liblmdb/mdb.c
   ../../loki/external/db_drivers/liblmdb/midl.c
   ../../loki/external/easylogging++/easylogging++.cc
+  ../../loki/build/release/version.cpp
 )
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAUTO_INITIALIZE_EASYLOGGINGPP")
 
@@ -420,19 +421,245 @@ target_link_libraries(mini_loki
 # Lokinet
 #
 
-set(MINI_LOKINET_SRC
+set(ABSEIL_DIR ../../loki-network/vendor/abseil-cpp)
+include_directories(${ABSEIL_DIR})
+#add_subdirectory(${ABSEIL_DIR})
+
+set(LOKINET_SRC
+  ../../loki-network/llarp/crypto/constants.cpp
+  ../../loki-network/llarp/crypto/crypto_libsodium.cpp
+  ../../loki-network/llarp/crypto/crypto.cpp
+  ../../loki-network/llarp/crypto/encrypted_frame.cpp
+  ../../loki-network/llarp/crypto/encrypted.cpp
+  ../../loki-network/llarp/crypto/types.cpp
+  ../../loki-network/llarp/dht/bucket.cpp
+  ../../loki-network/llarp/dht/context.cpp
+  ../../loki-network/llarp/dht/dht.cpp
+  ../../loki-network/llarp/dht/explorenetworkjob.cpp
+  ../../loki-network/llarp/dht/kademlia.cpp
+  ../../loki-network/llarp/dht/key.cpp
+  ../../loki-network/llarp/dht/localtaglookup.cpp
+  ../../loki-network/llarp/dht/localrouterlookup.cpp
+  ../../loki-network/llarp/dht/localserviceaddresslookup.cpp
+  ../../loki-network/llarp/dht/message.cpp
+  ../../loki-network/llarp/dht/messages/findintro.cpp
+  ../../loki-network/llarp/dht/messages/findrouter.cpp
+  ../../loki-network/llarp/dht/messages/gotintro.cpp
+  ../../loki-network/llarp/dht/messages/gotrouter.cpp
+  ../../loki-network/llarp/dht/messages/pubintro.cpp
+  ../../loki-network/llarp/dht/node.cpp
+  ../../loki-network/llarp/dht/publishservicejob.cpp
+  ../../loki-network/llarp/dht/recursiverouterlookup.cpp
+  ../../loki-network/llarp/dht/serviceaddresslookup.cpp
+  ../../loki-network/llarp/dht/taglookup.cpp
+  ../../loki-network/llarp/dht/tx.cpp
+  ../../loki-network/llarp/dht/txholder.cpp
+  ../../loki-network/llarp/dht/txowner.cpp
+  ../../loki-network/llarp/dns.cpp
+  ../../loki-network/llarp/dnsc.cpp
+  ../../loki-network/llarp/dnsd.cpp
+  ../../loki-network/llarp/exit/close_exit.cpp
+  ../../loki-network/llarp/exit/context.cpp
+  ../../loki-network/llarp/exit/endpoint.cpp
+  ../../loki-network/llarp/exit/grant_exit.cpp
+  ../../loki-network/llarp/exit/obtain_exit.cpp
+  ../../loki-network/llarp/exit/policy.cpp
+  ../../loki-network/llarp/exit/reject_exit.cpp
+  ../../loki-network/llarp/exit/session.cpp
+  ../../loki-network/llarp/exit/transfer_traffic.cpp
+  ../../loki-network/llarp/exit/update_exit.cpp
+  ../../loki-network/llarp/handlers/exit.cpp
+  ../../loki-network/llarp/handlers/null.cpp
+  ../../loki-network/llarp/handlers/tun.cpp
+  ../../loki-network/llarp/link/curvecp.cpp
+  ../../loki-network/llarp/link/encoder.cpp
+  ../../loki-network/llarp/link/iwp.cpp
+  ../../loki-network/llarp/link/server.cpp
+  ../../loki-network/llarp/link/session.cpp
+  ../../loki-network/llarp/link/utp.cpp
+  ../../loki-network/llarp/messages/dht.cpp
+  ../../loki-network/llarp/messages/dht_immediate.cpp
+  ../../loki-network/llarp/messages/discard.cpp
+  ../../loki-network/llarp/messages/exit.cpp
+  ../../loki-network/llarp/messages/link_intro.cpp
+  ../../loki-network/llarp/messages/link_message.cpp
+  ../../loki-network/llarp/messages/path_confirm.cpp
+  ../../loki-network/llarp/messages/path_latency.cpp
+  ../../loki-network/llarp/messages/path_transfer.cpp
+  ../../loki-network/llarp/messages/relay.cpp
+  ../../loki-network/llarp/messages/relay_commit.cpp
+  ../../loki-network/llarp/messages/transfer_traffic.cpp
+  ../../loki-network/llarp/net/address_info.cpp
+  ../../loki-network/llarp/net/exit_info.cpp
+  ../../loki-network/llarp/net/ip.cpp
+  ../../loki-network/llarp/net/net_int.cpp
+  #../../loki-network/llarp/net/net_addr.cpp
+  ../../loki-network/llarp/nodedb.cpp
+  ../../loki-network/llarp/path/path.cpp
+  ../../loki-network/llarp/path/path_types.cpp
+  ../../loki-network/llarp/path/pathbuilder.cpp
+  ../../loki-network/llarp/path/pathset.cpp
+  ../../loki-network/llarp/path/transit_hop.cpp
+  ../../loki-network/llarp/pow.cpp
+  ../../loki-network/llarp/profiling.cpp
+  ../../loki-network/llarp/router/router.cpp
+  ../../loki-network/llarp/router_contact.cpp
+  ../../loki-network/llarp/router_id.cpp
+  ../../loki-network/llarp/routing/dht_message.cpp
+  ../../loki-network/llarp/routing/handler.cpp
+  ../../loki-network/llarp/routing/message_parser.cpp
+  ../../loki-network/llarp/routing/message.cpp
+  ../../loki-network/llarp/routing/path_confirm.cpp
+  ../../loki-network/llarp/routing/path_latency.cpp
+  ../../loki-network/llarp/routing/path_transfer.cpp
+  ../../loki-network/llarp/rpc/rpc.cpp
+  ../../loki-network/llarp/service/Identity.cpp
+  ../../loki-network/llarp/service/Intro.cpp
+  ../../loki-network/llarp/service/IntroSet.cpp
+  ../../loki-network/llarp/service/address.cpp
+  ../../loki-network/llarp/service/config.cpp
+  ../../loki-network/llarp/service/context.cpp
+  ../../loki-network/llarp/service/endpoint.cpp
+  ../../loki-network/llarp/service/handler.cpp
+  ../../loki-network/llarp/service/info.cpp
+  ../../loki-network/llarp/service/lookup.cpp
+  ../../loki-network/llarp/service/protocol.cpp
+  ../../loki-network/llarp/service/tag.cpp
+  ../../loki-network/llarp/service/types.cpp
+  ../../loki-network/llarp/service/vanity.cpp
+  ../../loki-network/llarp/testnet.c
+
   ../../loki-network/vendor/cppbackport-master/lib/fs/path.cpp
   ../../loki-network/vendor/cppbackport-master/lib/fs/filestatus.cpp
   ../../loki-network/vendor/cppbackport-master/lib/fs/perms.cpp
   ../../loki-network/vendor/cppbackport-master/lib/fs/filetype.cpp
   ../../loki-network/llarp/config.cpp
-  ../../loki-network/llarp/net.cpp
-  ../../loki-network/llarp/net_addr.cpp
-  ../../loki-network/llarp/mem.cpp
-  ../../loki-network/llarp/str.cpp
-  ../../loki-network/llarp/logger.cpp
+  ../../loki-network/llarp/context.cpp
+  ../../loki-network/llarp/dns/rectypes.cpp
+  ../../loki-network/llarp/timer.cpp
+  ../../loki-network/llarp/ev/ev.cpp
+  ../../loki-network/llarp/util/bencode.cpp
+  ../../loki-network/llarp/util/buffer.cpp
+  ../../loki-network/llarp/util/ini.cpp
+  ../../loki-network/llarp/util/logic.cpp
+  ../../loki-network/llarp/util/logger.cpp
+  ../../loki-network/llarp/util/mem.cpp
+  ../../loki-network/llarp/util/str.cpp
+  ../../loki-network/llarp/util/time.cpp
+  ../../loki-network/llarp/util/threadpool.cpp
 )
-add_library(mini_lokinet ${MINI_LOKINET_SRC})
+
+set(NTRU_AVX_SRC
+  ../../loki-network/crypto/libntrup/src/avx/randomsmall.c
+  ../../loki-network/crypto/libntrup/src/avx/weight.c
+  ../../loki-network/crypto/libntrup/src/avx/swap.c
+  ../../loki-network/crypto/libntrup/src/avx/rq_round3.c
+  ../../loki-network/crypto/libntrup/src/avx/rq_recip3.c
+  ../../loki-network/crypto/libntrup/src/avx/small.c
+  ../../loki-network/crypto/libntrup/src/avx/randomweightw.c
+  ../../loki-network/crypto/libntrup/src/avx/dec.c
+  ../../loki-network/crypto/libntrup/src/avx/r3_recip.c
+  ../../loki-network/crypto/libntrup/src/avx/keypair.c
+  ../../loki-network/crypto/libntrup/src/avx/rq_rounded.c
+  ../../loki-network/crypto/libntrup/src/avx/mult.c
+  ../../loki-network/crypto/libntrup/src/avx/enc.c
+  ../../loki-network/crypto/libntrup/src/avx/int32_sort.c
+  ../../loki-network/crypto/libntrup/src/avx/rq.c
+  ../../loki-network/crypto/libntrup/src/avx/rq_mod3.c
+)
+
+set(NTRU_REF_SRC
+  ../../loki-network/crypto/libntrup/src/ref/randomsmall.c
+  ../../loki-network/crypto/libntrup/src/ref/swap.c
+  ../../loki-network/crypto/libntrup/src/ref/rq_round3.c
+  ../../loki-network/crypto/libntrup/src/ref/rq_recip3.c
+  ../../loki-network/crypto/libntrup/src/ref/small.c
+  ../../loki-network/crypto/libntrup/src/ref/rq_mult.c
+  ../../loki-network/crypto/libntrup/src/ref/randomweightw.c
+  ../../loki-network/crypto/libntrup/src/ref/random32.c
+  ../../loki-network/crypto/libntrup/src/ref/dec.c
+  ../../loki-network/crypto/libntrup/src/ref/r3_mult.c
+  ../../loki-network/crypto/libntrup/src/ref/r3_recip.c
+  ../../loki-network/crypto/libntrup/src/ref/keypair.c
+  ../../loki-network/crypto/libntrup/src/ref/rq_rounded.c
+  ../../loki-network/crypto/libntrup/src/ref/enc.c
+  ../../loki-network/crypto/libntrup/src/ref/int32_sort.c
+  ../../loki-network/crypto/libntrup/src/ref/rq.c
+)
+set(CRYPTOGRAPHY_SRC
+  ../../loki-network/crypto/libsodium/init.c
+  ../../loki-network/crypto/libsodium/runtime.c
+  ../../loki-network/crypto/verify/crypto_verify.c
+  ../../loki-network/crypto/secmem/secmem.c
+  ../../loki-network/crypto/csrng/randombytes_salsa20_random.c
+  ../../loki-network/crypto/csrng/randombytes.c
+  ../../loki-network/crypto/blake2b/blake2b-compress-avx2.c
+  ../../loki-network/crypto/blake2b/blake2b-compress-ref.c
+  ../../loki-network/crypto/blake2b/blake2b-compress-sse41.c
+  ../../loki-network/crypto/blake2b/blake2b-compress-ssse3.c
+  ../../loki-network/crypto/blake2b/blake2b-ref.c
+  ../../loki-network/crypto/blake2b/generichash_blake2b.c
+  ../../loki-network/crypto/chacha20/ref/chacha20_ref.c
+  ../../loki-network/crypto/chacha20/dolbeau/chacha20_dolbeau-ssse3.c
+  ../../loki-network/crypto/chacha20/dolbeau/chacha20_dolbeau-avx2.c
+  ../../loki-network/crypto/chacha20/stream_chacha20.c
+  ../../loki-network/crypto/salsa20/ref/salsa20_ref.c
+  ../../loki-network/crypto/salsa20/core_salsa_ref.c
+  ../../loki-network/crypto/salsa20/stream_salsa20.c
+  ../../loki-network/crypto/salsa20/xmm6/salsa20_xmm6-asm.S
+  ../../loki-network/crypto/salsa20/xmm6/salsa20_xmm6.c
+  ../../loki-network/crypto/salsa20/xmm6int/salsa20_xmm6int-avx2.c
+  ../../loki-network/crypto/salsa20/xmm6int/salsa20_xmm6int-sse2.c
+  ../../loki-network/crypto/xchacha20/hchacha.c
+  ../../loki-network/crypto/xchacha20/stream_xchacha20.c
+  ../../loki-network/crypto/curve25519/crypto_scalarmult.c
+  ../../loki-network/crypto/curve25519/ref10/x25519_ref10.c
+  ../../loki-network/crypto/curve25519/ref10/ed25519_ref10.c
+  ../../loki-network/crypto/curve25519/sandy2x/fe51_invert.c
+  ../../loki-network/crypto/curve25519/sandy2x/ladder_base.S
+  ../../loki-network/crypto/curve25519/sandy2x/curve25519_sandy2x.c
+  ../../loki-network/crypto/curve25519/sandy2x/consts.S
+  ../../loki-network/crypto/curve25519/sandy2x/fe51_nsquare.S
+  ../../loki-network/crypto/curve25519/sandy2x/fe51_mul.S
+  ../../loki-network/crypto/curve25519/sandy2x/fe51_pack.S
+  ../../loki-network/crypto/curve25519/sandy2x/fe_frombytes_sandy2x.c
+  ../../loki-network/crypto/curve25519/sandy2x/sandy2x.S
+  ../../loki-network/crypto/curve25519/sandy2x/ladder.S
+  ../../loki-network/crypto/curve25519/scalarmult_curve25519.c
+  ../../loki-network/crypto/ed25519/crypto_box.c
+  ../../loki-network/crypto/ed25519/crypto_sign.c
+  ../../loki-network/crypto/ed25519/ref10/open.c
+  ../../loki-network/crypto/ed25519/ref10/obsolete.c
+  ../../loki-network/crypto/ed25519/ref10/keypair.c
+  ../../loki-network/crypto/ed25519/ref10/sign.c
+  ../../loki-network/crypto/ed25519/sign_ed25519.c
+  ../../loki-network/crypto/sha512/sha512.c
+  ${NTRU_AVX_SRC}
+  ${NTRU_REF_SRC}
+  ../../loki-network/crypto/libntrup/src/ntru.cpp)
+
+set(UTP_SRC
+  ../../loki-network/libutp/utp_callbacks.cpp
+  ../../loki-network/libutp/utp_utils.cpp
+  ../../loki-network/libutp/utp_internal.cpp
+  ../../loki-network/libutp/utp_api.cpp
+  ../../loki-network/libutp/utp_packedsockaddr.cpp
+  ../../loki-network/libutp/utp_hash.cpp
+)
+
+add_library(lokinet ${LOKINET_SRC} ${CRYPTOGRAPHY_SRC} ${UTP_SRC}
+
+#  ../../loki-network/build/vendor/abseil-cpp/absl/types/libabsl_optional.a
+#  ../../loki-network/build/vendor/abseil-cpp/absl/types/libabsl_variant.a
+)
+target_include_directories (lokinet PUBLIC "../../loki-network/include")
+target_include_directories (lokinet PUBLIC "../../loki-network/llarp")
+#target_include_directories (lokinet PUBLIC "../../loki-network/vendor/abseil-cpp")
+target_include_directories (lokinet PUBLIC "../../loki-network/crypto/include")
+target_include_directories (lokinet PUBLIC "../../loki-network/vendor/cppbackport-master/lib")
+target_include_directories (lokinet PUBLIC "../../loki-network/llarp/util")
+#target_include_directories (lokinet PUBLIC "../../loki-network/include/llarp")
+#target_include_directories (lokinet PUBLIC "../../loki-network/libutp")
 
 #
 # Launcher
@@ -442,6 +669,11 @@ add_executable(Launcher
   ../main.cpp
 )
 #find_library(MACOS_POWER_LIBRARY IOPowerSources)
+target_include_directories (Launcher PUBLIC "../../loki-network/llarp")
+target_include_directories (Launcher PUBLIC "../../loki-network/include")
+target_include_directories (Launcher PUBLIC "../../loki-network/crypto/include")
+target_include_directories (Launcher PUBLIC "../../loki-network/vendor/cppbackport-master/lib")
+
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   message(STATUS "MacOS detected")
@@ -459,7 +691,7 @@ endif()
 
 target_link_libraries(Launcher ${Boost_LIBRARIES})
 TARGET_LINK_LIBRARIES(Launcher
-  mini_lokinet
+  lokinet
   mini_loki
 #  ssl crypto
 #  unbound
