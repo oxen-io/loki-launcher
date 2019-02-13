@@ -12,11 +12,16 @@
 #include "daemon/command_line_args.h" // daemon_args
 #include "blockchain_db/db_types.h"
 
+#include "version.h"
+
+
+#include <llarp.h> // llarp_main
+#include <config.hpp>
+#include <util/fs.hpp> // what's this for?
 #include <stdio.h>
-#include "config.hpp"
-#include "fs.hpp"
 #include <string>
 #include <fstream>
+
 
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
@@ -28,7 +33,151 @@ namespace bf = boost::filesystem;
 // maybe have a config file we load for launcher
 // and then we make another config to load lokid from
 
+struct llarp_main *ctx = 0;
+
+class t_daemon_lokinet final
+{
+public:
+  static void init_options(boost::program_options::options_description & option_spec)
+  {
+  }
+
+  // cstr
+  t_daemon_lokinet(
+      boost::program_options::variables_map const & vm
+    ) {
+    // set up internals
+    // zmq ports
+  }
+
+  // copy cstr
+  t_daemon_lokinet(t_daemon_lokinet && other)
+  {
+    if (this != &other)
+    {
+      //mp_internals = std::move(other.mp_internals);
+      //other.mp_internals.reset(nullptr);
+    }
+  };
+
+  // copy cstr
+  t_daemon_lokinet & operator=(t_daemon_lokinet && other)
+  {
+    if (this != &other)
+    {
+      //mp_internals = std::move(other.mp_internals);
+      //other.mp_internals.reset(nullptr);
+    }
+    return *this;
+  }
+
+  // dstr
+  ~t_daemon_lokinet() = default;
+
+  bool run(bool interactive = false)
+  {
+    printf("t_daemon_lokinet::run - setting up lokinet\n");
+    ctx = llarp_main_init("/Users/rtharp/.lokinet/lokinet-staging.ini", false);
+    if (!ctx) {
+      printf("Cant init lokinet\n");
+      return false;
+    }
+    int code = 1;
+    code = llarp_main_setup(ctx);
+    if(code != 0)
+    {
+      printf("Cant setup lokinet\n");
+      return false;
+    }
+    std::atomic<bool> stop(false), shutdown(false);
+    boost::thread stop_thread = boost::thread([&stop, &shutdown, this] {
+      MINFO("Starting lokinet");
+      printf("t_daemon_lokinet::run - Starting lokinet\n");
+      int ocode = llarp_main_run(ctx);
+      MINFO("Lokinet context died");
+      /*
+      while (!stop)
+        epee::misc_utils::sleep_no_w(100);
+      if (shutdown)
+      {
+        //this->stop_p2p();
+        MINFO("Lokinet got shutdown");
+        llarp_main_free(ctx);
+      }
+      */
+    });
+    //printf("Run epee\n");
+    /*
+    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+      stop = true;
+      stop_thread.join();
+    });
+    */
+    //printf("Run signal handler\n");
+    tools::signal_handler::install([&stop, &shutdown](int){ stop = shutdown = true; });
+
+    printf("t_daemon_lokinet::run - lokinet done\n");
+    return true;
+  }
+  void stop()
+  {
+    printf("t_daemon_lokinet::run - lokinet stop\n");
+  }
+};
+
+class t_executor_lokinet final
+{
+public:
+  //typedef t_daemon_lokinet t_daemon_lokinet;
+  static std::string const NAME;
+
+  std::string const & name()
+  {
+    return NAME;
+  }
+
+  static void init_options(
+    boost::program_options::options_description & configurable_options
+  )
+  {
+    t_daemon_lokinet::init_options(configurable_options);
+  }
+
+  t_daemon_lokinet create_daemon(
+    boost::program_options::variables_map const & vm
+  )
+  {
+    LOG_PRINT_L0("Lokinet '" << LOKI_RELEASE_NAME << "' (v" << LOKI_VERSION_FULL << ") Daemonised");
+    return t_daemon_lokinet{vm};
+  }
+
+  bool run_non_interactive(
+    boost::program_options::variables_map const & vm
+  )
+  {
+    return t_daemon_lokinet{vm}.run(false);
+  }
+};
+
+std::string const t_executor_lokinet::NAME = "Lokinet Daemon";
+
 int main(int argc, char const * argv[]) {
+
+  pid_t child_pid;
+  printf ("the main program process ID is %d\n", (int) getpid());
+  child_pid = fork ();
+  if (child_pid > 0)
+  {
+    printf ("this is the parent process, with id %d\n", (int) getpid ());
+    printf ("the child's process ID is %d\n",(int) child_pid );
+  }
+  else if (child_pid == 0)
+  {
+    printf ("this is the child process, with id %d\n", (int) getpid ());
+    return 0;
+  }
+  else
+    printf ("fork failed\n");
 
   tools::on_startup();
 
@@ -322,11 +471,23 @@ int main(int argc, char const * argv[]) {
     // after lokid starts up, make sure [lokid].jsonrpc actually connects and works...
     // [api].enable should be enabled for service registry
     // should have a [bind] with working interface
-    // nodedb created and working? 
+    // nodedb created and working?
     // how much of this is redundant and how much is actually needed
     // lets split into two groups: already handled and not
     // but that means we need to be able to detect the close of the lokinet fork
     // also we'd need to know if lokinet got bootstrapped or not
   }
-  printf("Hello World\n");
+  printf("Starting services\n");
+
+  printf("Starting lokinet executor\n");
+  t_executor_lokinet lokinet_instance_runner;
+  auto lokinet_daemon = lokinet_instance_runner.create_daemon(vm);
+  printf("Running lokinet executor\n");
+  lokinet_daemon.run();
+  printf("lokinet executor is setup\n");
+  // launch lokid
+  daemonize::t_executor lokid_instance_runner;
+  printf("Starting loki executor\n");
+  lokid_instance_runner.run_interactive(vm);
+  return 0;
 }
