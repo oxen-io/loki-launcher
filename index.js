@@ -10,7 +10,7 @@ const stdin     = process.openStdin()
 // TODO storage server
 
 const lokid_location = 'src/loki/build/release/bin/lokid'
-const lokinet_location = 'src/lokinet/lokinet'
+const lokinet_location = 'src/loki-network/lokinet'
 const lokid_testnet = true
 
 // reads ~/.loki/testnet/key
@@ -95,7 +95,7 @@ function readResolv(cb) {
   function checkDone() {
     checksLeft--
     if (checksLeft<=0) {
-      console.log('readSolve done')
+      console.log('readResolv done')
       cb(servers)
     }
   }
@@ -219,6 +219,7 @@ function jsonToINI(json) {
 }
 
 function findFreePort53(ips, index, cb) {
+  console.log('testing', ips[index], 'port 53')
   isDnsPort(ips[index], 53, function(res) {
     //console.log('no dns server on', tryIps[0], 53, res)
     if (res) {
@@ -283,7 +284,7 @@ bind=${lokinet_rpc_ip}:${lokinet_rpc_port}
 
 [lokid]
 enabled=true
-jsonrpc=${loki_rpc_ip}:${lokid_rpc_port}
+jsonrpc=${lokid_rpc_ip}:${lokid_rpc_port}
 username=${lokid_rpc_user}
 password=${lokid_rpc_pass}
 service-node-seed=${keyPath}
@@ -305,7 +306,7 @@ function launchLokinet(cb) {
     // '-v',
     lokinet = spawn(lokinet_location, [tmpPath]);
     lokinet.stdout.on('data', (data) => {
-      data = data.slice(0, data.length - 1)
+      data = data.toString().replace('\n', '')
       console.log(`lokinet: ${data}`)
     })
 
@@ -358,7 +359,7 @@ if (lokid_testnet) {
 const loki_daemon = spawn(lokid_location, lokid_options);
 
 loki_daemon.stdout.on('data', (data) => {
-  data = data.slice(0, data.length - 1)
+  data = data.toString().replace('\n', '')
   console.log(`lokid: ${data}`)
 })
 
