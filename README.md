@@ -1,4 +1,4 @@
-#Loki service node launcher
+# Loki service node launcher
 
 [Node Version](README_node.md)
 
