@@ -6,10 +6,12 @@ const net       = require('net')
 const { spawn } = require('child_process');
 const stdin     = process.openStdin()
 
-// FIXME handle HUP
 // TODO storage server
-
-const lokid_location = 'src/loki/build/release/bin/lokid'
+// FIXME:
+var lokid_location = 'src/loki/build/release/bin/lokid'
+if (os.platform() == 'linux') {
+  lokid_location = 'src/loki/build/Linux/dev/release/bin/lokid'
+}
 const lokinet_location = 'src/loki-network/lokinet'
 const lokid_testnet = true
 
@@ -18,13 +20,17 @@ const lokid_rpc_ip   = '127.0.0.1'
 const lokid_rpc_user = 'user'
 const lokid_rpc_pass = 'pass'
 const lokid_rpc_port = 38157
-const lokinet_rpc_ip   = '127.0.0.1'
-const lokinet_rpc_port = 28082
+const lokinet_bootstrap_url = 'http://206.81.100.174/n-st-1.signed'
+const lokinet_bootstrap = 'n-st-1.signed'
+const lokinet_rpc_ip    = '127.0.0.1'
+const lokinet_rpc_port  = 28082
 const lokinet_public_port = 1090
 const auto_config_test_host = 'www.google.com'
 const auto_config_test_port = 80
 
-process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_64_0/stage/lib'
+if (os.platform() == 'darwin') {
+  process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_64_0/stage/lib'
+}
 
 function getBoundIPv4s() {
   var nics = os.networkInterfaces()
@@ -126,6 +132,8 @@ function readResolv(cb) {
       servers.push(server)
     }
   }
+  checksLeft++
+  checkDone()
   /*
   const data = fs.readFileSync('/etc/resolv.conf', 'utf-8')
   const lines = data.split(/\n/)
@@ -273,7 +281,7 @@ bind=${free53Ip}:53
 dir=${homeDir}/.lokinet/netdb-staging
 
 [bootstrap]
-add-node=${homeDir}/.lokinet/n-st-1.signed
+add-node=${homeDir}/.lokinet/${lokinet_bootstrap}
 
 [bind]
 ${nic}=${lokinet_public_port}
@@ -364,7 +372,9 @@ loki_daemon.stdout.on('data', (data) => {
   var parts = data.toString().split(/\n/)
   parts.pop()
   data = parts.join('\n')
-  console.log(`lokid: ${data}`)
+  if (data.trim()) {
+    console.log(`lokid: ${data}`)
+  }
 })
 
 loki_daemon.stderr.on('data', (data) => {
@@ -377,6 +387,12 @@ loki_daemon.on('close', (code) => {
   if (lokinet && !lokinet.killed) {
     console.log('requesting lokinet be shutdown')
     process.kill(lokinet.pid)
+  }
+  if (!lokinet) {
+    console.log('lokinet is not running, trying to exit')
+    // may not be started yet or already dead..
+    // need to kill node
+    process.exit()
   }
 })
 
@@ -394,6 +410,17 @@ stdin.on( 'data', function( key ){
     process.exit()
   }
   // local echo, write the key to stdout all normal like
-  process.stdout.write(key)
-  loki_daemon.stdin.write(key)
+  if (!shuttingDown) {
+    // on ssh we don't need this
+    //process.stdout.write(key)
+    loki_daemon.stdin.write(key)
+  }
+})
+
+process.on('SIGHUP', () => {
+  console.log('shuttingDown?', shuttingDown)
+  console.log('loki_daemon status', loki_daemon)
+  console.log('lokinet status', lokinet)
+})
+
 })
