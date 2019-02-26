@@ -355,7 +355,7 @@ var lokid_options = ['--service-node', '--rpc-login='+lokid_rpc_user+':'+lokid_r
 if (lokid_testnet) {
   lokid_options.push('--testnet')
 }
-const loki_daemon = spawn(loki_location, lokid_options);
+const loki_daemon = spawn(lokid_location, lokid_options);
 
 loki_daemon.stdout.on('data', (data) => {
   data = data.slice(0, data.length - 1)
