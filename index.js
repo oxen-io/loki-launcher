@@ -306,7 +306,9 @@ function launchLokinet(cb) {
     // '-v',
     lokinet = spawn(lokinet_location, [tmpPath]);
     lokinet.stdout.on('data', (data) => {
-      data = data.toString().replace('\n', '')
+      var parts = data.toString().split(/\n/)
+      parts.pop()
+      data = parts.join('\n')
       console.log(`lokinet: ${data}`)
     })
 
@@ -359,7 +361,9 @@ if (lokid_testnet) {
 const loki_daemon = spawn(lokid_location, lokid_options);
 
 loki_daemon.stdout.on('data', (data) => {
-  data = data.toString().replace('\n', '')
+  var parts = data.toString().split(/\n/)
+  parts.pop()
+  data = parts.join('\n')
   console.log(`lokid: ${data}`)
 })
 
