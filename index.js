@@ -116,7 +116,7 @@ try {
 */
 
 var lokid_options = ['--service-node', '--rpc-login='+lokid_config.rpc_user+':'+lokid_config.rpc_pass+'']
-if (lokid_config.network.toLowerCase() == "test") {
+if (lokid_config.network.toLowerCase() == "test" || lokid_config.network.toLowerCase() == "testnet" || lokid_config.network.toLowerCase() == "test-net") {
   lokid_options.push('--testnet')
 } else
 if (lokid_config.network.toLowerCase() == "staging" || lokid_config.network.toLowerCase() == "stage") {
