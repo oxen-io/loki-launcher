@@ -5,7 +5,9 @@ const dns       = require('dns')
 const net       = require('net')
 const http      = require('http')
 const { spawn, exec } = require('child_process')
-const stdin     = process.openStdin()
+
+// FIXME: netid
+// FIXME: disable rpc if desired
 
 function getBoundIPv4s() {
   var nics = os.networkInterfaces()
@@ -22,6 +24,7 @@ function getBoundIPv4s() {
   return ipv4s
 }
 
+// FIXME test a list, continue down the list on failure
 var auto_config_test_port, auto_config_test_host
 function getNetworkIP(callback) {
   var socket = net.createConnection(auto_config_test_port, auto_config_test_host);
@@ -287,7 +290,7 @@ function generateSerivceNodeINI(config, cb) {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
-    console.log('Drafting lokinet config')
+    console.log('Drafting lokinet service node config')
     cb(`
 [dns]
 ${upstreams}
@@ -390,12 +393,7 @@ function generateClientINI(config, cb) {
       }
     }
     if (!ready) return
-    var keyPath = homeDir + '/.loki/'
-    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
-      keyPath += 'testnet/'
-    }
-    keyPath += 'key'
-    console.log('Drafting lokinet config')
+    console.log('Drafting lokinet client config')
     cb(`
 [dns]
 ${upstreams}
@@ -491,8 +489,8 @@ function launchLokinet(config, cb) {
     }
     console.log(iniData)
     fs.writeFileSync(tmpPath, iniData)
-    //
-    lokinet = spawn(config.binary_location, ['-v', tmpPath]);
+    //'-v',
+    lokinet = spawn(config.binary_location, [ tmpPath]);
     lokinet.stdout.on('data', (data) => {
       var parts = data.toString().split(/\n/)
       parts.pop()
@@ -518,15 +516,26 @@ function launchLokinet(config, cb) {
   })
 }
 
-function startServiceNode(config, cb) {
+function checkConfig(config) {
+  if (config === undefined) config = {}
+  if (config.auto_config_test_host === undefined ) config.auto_config_test_host='www.imdb.com'
+  if (config.auto_config_test_port === undefined ) config.auto_config_test_port=80
   auto_config_test_port = config.auto_config_test_port
   auto_config_test_host = config.auto_config_test_host
+
+  if (config.binary_location === undefined ) config.binary_location='/usr/local/bin/lokinet'
+  if (config.bootstrap_url === undefined ) config.bootstrap_url='https://i2p.rocks/self.signed'
+  if (config.rpc_ip === undefined ) config.rpc_ip='127.0.0.1'
+  if (config.rpc_port === undefined ) config.rpc_port=0
+}
+
+function startServiceNode(config, cb) {
+  checkConfig(config)
   config.ini_writer = generateSerivceNodeINI
   launchLokinet(config, cb)
 }
 function startClient(config, cb) {
-  auto_config_test_port = config.auto_config_test_port
-  auto_config_test_host = config.auto_config_test_host
+  checkConfig(config)
   config.ini_writer = generateClientINI
   launchLokinet(config, cb)
 }
