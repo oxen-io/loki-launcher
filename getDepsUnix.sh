@@ -54,6 +54,14 @@ echo "Checking for needed downloads"
 
 
 echo "Extracing needed files"
+#isGnuTar=$(tar --version | grep -q 'gnu')
+#if [ $? -eq 0 ]
+#then
+#    echo "Detected GNU tar"
+#else
+#    echo "Detected BSD tar"
+#fi
+
 #if ! type "openssl" > /dev/null; then
 # if we have openssl tarball
 if [ -f "openssl-1.1.1.tar.gz" ]; then
