@@ -93,6 +93,11 @@ function readResolv(cb) {
   var checksLeft = 0
 
   function checkDone() {
+    if (shuttingDown) {
+      //if (cb) cb()
+      console.log('not going to start lokinet, shutting down')
+      return
+    }
     checksLeft--
     if (checksLeft<=0) {
       console.log('readResolv done')
@@ -262,6 +267,11 @@ function generateSerivceNodeINI(config, cb) {
     lokinet_nodedb += '-staging'
   }
   function markDone(completeProcess) {
+    if (shuttingDown) {
+      //if (cb) cb()
+      console.log('not going to start lokinet, shutting down')
+      return
+    }
     done[completeProcess] = true
     let ready = true
     for(var i in done) {
@@ -474,6 +484,11 @@ function launchLokinet(config, cb) {
   }
 
   config.ini_writer(config, function (iniData) {
+    if (shuttingDown) {
+      //if (cb) cb()
+      console.log('not going to start lokinet, shutting down')
+      return
+    }
     console.log(iniData)
     fs.writeFileSync(tmpPath, iniData)
     //
