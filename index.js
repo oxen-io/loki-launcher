@@ -37,7 +37,7 @@ var lokinet_config = {
 
 // autoconfig
 if (lokid_config.rpc_port === 0) {
-  if (lokid_config.network.toLowerCase() == "test") {
+  if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
     lokid_config.rpc_port = 38157
   } else
   if (lokid_config.network.toLowerCase() == "staging" || lokid_config.network.toLowerCase() == "stage") {
