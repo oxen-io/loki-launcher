@@ -381,7 +381,7 @@ function generateClientINI(config, cb) {
     }
     if (!ready) return
     var keyPath = homeDir + '/.loki/'
-    if (config.lokid.network.toLowerCase() == "testnet") {
+    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
