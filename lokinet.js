@@ -4,7 +4,7 @@ const fs        = require('fs')
 const dns       = require('dns')
 const net       = require('net')
 const http      = require('http')
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process')
 const stdin     = process.openStdin()
 
 function getBoundIPv4s() {
@@ -454,6 +454,25 @@ function launchLokinet(config, cb) {
   //console.log('tmpPath', tmpPath)
   const tmpPath = tmpDir + '/' + randomString(8) + '.lokinet_ini'
 
+  if (os.platform() == 'linux') {
+    // not root-like
+    exec('getcap ' + config.binary_location, function (error, stdout, stderr) {
+      console.log('stdout', stdout)
+      if (stdout == '') {
+        if (process.getgid() != 0) {
+          conole.log(config.binary_location, 'does not have setcap')
+          process.exit()
+        } else {
+          // are root
+          console.log('going to try to setcap your binary, so you dont need root')
+          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_location, function (error, stdout, stderr) {
+            console.log('binary permissions upgraded')
+          })
+        }
+      }
+    })
+  }
+
   config.ini_writer(config, function (iniData) {
     console.log(iniData)
     fs.writeFileSync(tmpPath, iniData)
@@ -475,7 +494,6 @@ function launchLokinet(config, cb) {
       fs.unlinkSync(tmpPath) // clean up
       if (shuttingDown) {
         console.log('loki_daemon is also down, stopping launcher')
-        stdin.pause()
       } else {
         console.log('loki_daemon is still running, restarting lokinet')
         launchLokinet(config)
@@ -504,8 +522,11 @@ function isRunning() {
 }
 
 function stop() {
-  shuttingDown = true
-  process.kill(lokinet.pid)
+  if (lokinet) {
+    console.log('requesting lokinet be shutdown')
+    shuttingDown = true
+    process.kill(lokinet.pid)
+  }
 }
 
 module.exports = {
