@@ -140,17 +140,12 @@ loki_daemon.stderr.on('data', (data) => {
 
 loki_daemon.on('close', (code) => {
   console.log(`loki_daemon process exited with code ${code}`)
-  shuttingDown         = true
-  lokinet.shuttingDown = true
+  shuttingDown = true
+  stdin.pause()
   if (lokinet.isRunning()) {
-    console.log('requesting lokinet be shutdown')
     lokinet.stop()
-  }
-  if (!lokinet) {
+  } else {
     console.log('lokinet is not running, trying to exit')
-    // may not be started yet or already dead..
-    // need to kill node
-    process.exit()
   }
 })
 
