@@ -90,6 +90,67 @@ function isDnsPort(ip, port, cb) {
   })
 }
 
+function testDNSForLokinet(server, cb) {
+  const resolver = new dns.Resolver()
+  resolver.setServers([server])
+  resolver.resolve('localhost.loki', function(err, records) {
+    //if (err) console.error(err)
+    //console.log(server, 'dns test results', records)
+    cb(records !== undefined)
+  })
+}
+
+function findLokiNetDNS(cb) {
+  const localIPs = getBoundIPv4s()
+  function checkDone() {
+    if (shuttingDown) {
+      //if (cb) cb()
+      console.log('not going to start lokinet, shutting down')
+      return
+    }
+    checksLeft--
+    if (checksLeft<=0) {
+      console.log('readResolv done')
+      cb(servers)
+    }
+  }
+  /*
+  var resolvers = dns.getServers()
+  console.log('Current resolvers', resolvers)
+  // check local DNS servers in resolv config
+  for(var i in resolvers) {
+    const server = resolvers[i]
+    var idx = localIPs.indexOf(server)
+    if (idx != -1) {
+      // local DNS server
+      console.log('local DNS server detected', server)
+      checksLeft++
+      testDNSForLokinet(server, function(isLokinet) {
+        if (isLokinet) {
+          // lokinet
+          console.log(server, 'is a lokinet DNS server')
+          servers.push(server)
+        }
+        checkDone()
+      })
+    }
+  }
+  */
+  // maybe check all local ips too
+  for(var i in localIPs) {
+    const server = localIPs[i]
+    checksLeft++
+    testDNSForLokinet(server, function(isLokinet) {
+      if (isLokinet) {
+        // lokinet
+        console.log(server, 'is a lokinet DNS server')
+        servers.push(server)
+      }
+      checkDone()
+    })
+  }
+}
+
 function readResolv(cb) {
   const localIPs = getBoundIPv4s()
   var servers = []
@@ -115,13 +176,8 @@ function readResolv(cb) {
     var idx = localIPs.indexOf(server)
     if (idx != -1) {
       console.log('local DNS server detected', server)
-      const resolver = new dns.Resolver()
-      resolver.setServers([server])
-      checksLeft++
-      resolver.resolve('localhost.loki', function(err, records) {
-        //if (err) console.error(err)
-        //console.log('local dns test results', records)
-        if (records === undefined) {
+      testDNSForLokinet(server, function(isLokinet) {
+        if (!isLokinet) {
           // not lokinet
           console.log(server, 'is not a lokinet DNS server')
           servers.push(server)
@@ -556,6 +612,7 @@ function stop() {
 module.exports = {
   startServiceNode : startServiceNode,
   startClient      : startClient,
+  findLokiNetDNS   : findLokiNetDNS,
   isRunning        : isRunning,
   stop             : stop,
 }
