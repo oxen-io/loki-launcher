@@ -28,8 +28,6 @@ var lokinet_config = {
   // just make them the same for now
   // but build the system so they could be separate
   testnet : lokid_config.network == "test",
-  auto_config_test_host: 'www.google.com',
-  auto_config_test_port: 80,
 }
 //
 // end config
@@ -146,6 +144,8 @@ loki_daemon.on('close', (code) => {
     lokinet.stop()
   } else {
     console.log('lokinet is not running, trying to exit')
+    // lokinet could be waiting to start up
+    process.exit()
   }
 })
 
