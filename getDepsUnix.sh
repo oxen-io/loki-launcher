@@ -16,8 +16,8 @@ echo "Checking for needed downloads"
 #fi
 
   # if we don't have boost tarball get it
-  if [ ! -f "boost_1_64_0.tar.bz2" ]; then
-    curl -L https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2 > boost_1_64_0.tar.bz2
+  if [ ! -f "boost_1_69_0.tar.bz2" ]; then
+    curl -L https://sourceforge.net/projects/boost/files/boost/1.69.0/boost_1_69_0.tar.bz2 > boost_1_69_0.tar.bz2
   fi
 
   # may not need this one
@@ -74,11 +74,11 @@ fi
 #fi
 
 # if we have boost tarball
-if [ -f "boost_1_64_0.tar.bz2" ]; then
+if [ -f "boost_1_69_0.tar.bz2" ]; then
   # if we haven't extracted it yet
-  if [ ! -d "boost_1_64_0" ]; then
+  if [ ! -d "boost_1_69_0" ]; then
     echo "Extracing Boost"
-    tar jxf boost_1_64_0.tar.bz2
+    tar jxf boost_1_69_0.tar.bz2
   fi
 fi
 
@@ -157,8 +157,8 @@ if [ -d "openssl-1.1.1" ]; then
     fi
   cd ..
 fi
-if [ -d "boost_1_64_0" ]; then
-  cd boost_1_64_0
+if [ -d "boost_1_69_0" ]; then
+  cd boost_1_69_0
     if [ ! -f "b2" ]; then
       echo "Configuring Boost"
       ./bootstrap.sh

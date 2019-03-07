@@ -68,6 +68,7 @@ function httpGet(url, cb) {
     })
   }).on("error", (err) => {
     console.error("httpGet Error: " + err.message)
+    //console.log('err', err)
     cb()
   })
 }
@@ -323,7 +324,7 @@ function generateSerivceNodeINI(config, cb) {
   var lokinet_bootstrap_path = homeDir + '/.lokinet/bootstrap.signed'
   var lokinet_nodedb = homeDir + '/.lokinet/netdb'
   if (config.testnet) {
-    lokinet_nodedb += '-staging'
+    lokinet_nodedb += '-service'
   }
   function markDone(completeProcess) {
     if (shuttingDown) {
@@ -451,6 +452,10 @@ function generateClientINI(config, cb) {
     if (!ready) return
     console.log('Drafting lokinet client config')
     cb(`
+[router]
+netid=service
+nickname=ldl
+
 [dns]
 ${upstreams}
 bind=${lokinet_free53Ip}:53
@@ -521,8 +526,9 @@ function launchLokinet(config, cb) {
   if (os.platform() == 'linux') {
     // not root-like
     exec('getcap ' + config.binary_location, function (error, stdout, stderr) {
-      console.log('stdout', stdout)
-      if (stdout == '') {
+      //console.log('stdout', stdout)
+      // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
+      if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
         if (process.getgid() != 0) {
           conole.log(config.binary_location, 'does not have setcap')
           process.exit()
@@ -585,10 +591,32 @@ function checkConfig(config) {
   if (config.rpc_port === undefined ) config.rpc_port=0
 }
 
+function waitForUrl(url, cb) {
+  httpGet(url, function(data) {
+    //console.log('rpc data', data)
+    // will be undefined if down (ECONNREFUSED)
+    // if success
+    // <html><head><title>Unauthorized Access</title></head><body><h1>401 Unauthorized</h1></body></html>
+    if (data) {
+      cb()
+    } else {
+      setTimeout(function() {
+        waitForUrl(url, cb)
+      }, 1000)
+    }
+  })
+}
+
 function startServiceNode(config, cb) {
   checkConfig(config)
   config.ini_writer = generateSerivceNodeINI
-  launchLokinet(config, cb)
+  // test lokid rpc port first
+  var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
+  console.log('lokinet waiting for lokid RPC server')
+  // also need to make sure the service key file exists
+  waitForUrl(url, function() {
+    launchLokinet(config, cb)
+  })
 }
 function startClient(config, cb) {
   checkConfig(config)
@@ -602,11 +630,13 @@ function isRunning() {
 }
 
 function stop() {
-  if (lokinet) {
-    console.log('requesting lokinet be shutdown')
-    shuttingDown = true
-    process.kill(lokinet.pid)
+  if (!lokinet) {
+    console.warn('lokinet already stopped')
+    return
   }
+  console.log('requesting lokinet be shutdown')
+  shuttingDown = true
+  process.kill(lokinet.pid)
 }
 
 module.exports = {
