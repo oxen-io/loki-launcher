@@ -27,14 +27,14 @@ function getBoundIPv4s() {
 // FIXME test a list, continue down the list on failure
 var auto_config_test_port, auto_config_test_host
 function getNetworkIP(callback) {
-  var socket = net.createConnection(auto_config_test_port, auto_config_test_host);
+  var socket = net.createConnection(auto_config_test_port, auto_config_test_host)
   socket.on('connect', function() {
-    callback(undefined, socket.address().address);
-    socket.end();
-  });
+    callback(undefined, socket.address().address)
+    socket.end()
+  })
   socket.on('error', function(e) {
-    callback(e, 'error');
-  });
+    callback(e, 'error')
+  })
 }
 
 function getIfNameFromIP(ip) {
@@ -78,7 +78,7 @@ function randomString(len) {
   var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
   for (var i = 0; i < len; i++)
     text += possible.charAt(Math.floor(Math.random() * possible.length))
-  return text;
+  return text
 }
 
 function isDnsPort(ip, port, cb) {
@@ -552,7 +552,7 @@ function launchLokinet(config, cb) {
     console.log(iniData)
     fs.writeFileSync(tmpPath, iniData)
     //'-v',
-    lokinet = spawn(config.binary_location, [ tmpPath]);
+    lokinet = spawn(config.binary_location, [ tmpPath])
     lokinet.stdout.on('data', (data) => {
       var parts = data.toString().split(/\n/)
       parts.pop()
