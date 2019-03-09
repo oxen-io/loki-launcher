@@ -97,7 +97,7 @@ function testDNSForLokinet(server, cb) {
   resolver.resolve('localhost.loki', function(err, records) {
     //if (err) console.error(err)
     //console.log(server, 'dns test results', records)
-    cb(records !== undefined)
+    cb(records)
   })
 }
 
@@ -142,7 +142,7 @@ function findLokiNetDNS(cb) {
     const server = localIPs[i]
     checksLeft++
     testDNSForLokinet(server, function(isLokinet) {
-      if (isLokinet) {
+      if (isLokinet !== undefined) {
         // lokinet
         console.log(server, 'is a lokinet DNS server')
         servers.push(server)
@@ -178,7 +178,7 @@ function readResolv(cb) {
     if (idx != -1) {
       console.log('local DNS server detected', server)
       testDNSForLokinet(server, function(isLokinet) {
-        if (!isLokinet) {
+        if (isLokinet === undefined) {
           // not lokinet
           console.log(server, 'is not a lokinet DNS server')
           servers.push(server)
@@ -305,6 +305,7 @@ function findFreePort53(ips, index, cb) {
   })
 }
 
+var runningConfig = {}
 function generateSerivceNodeINI(config, cb) {
   const homeDir = os.homedir()
   //console.log('homeDir', homeDir)
@@ -326,6 +327,7 @@ function generateSerivceNodeINI(config, cb) {
   if (config.testnet) {
     lokinet_nodedb += '-service'
   }
+  var upstreamDNS_servers = []
   function markDone(completeProcess) {
     if (shuttingDown) {
       //if (cb) cb()
@@ -348,7 +350,43 @@ function generateSerivceNodeINI(config, cb) {
     }
     keyPath += 'key'
     console.log('Drafting lokinet service node config')
+    runningConfig = {
+      router: {
+        netid: 'service',
+        nickname: 'ldl',
+      },
+      dns: {
+        upstream: upstreamDNS_servers,
+        bind: lokinet_free53Ip + ':53',
+      },
+      netdb: {
+        dir: lokinet_nodedb,
+      },
+      bootstrap: {
+        'add-node': lokinet_bootstrap_path
+      },
+      bind: {
+      },
+      network: {
+      },
+      api: {
+        enabled: true,
+        bind: config.rpc_ip + ':' + config.rpc_port
+      },
+      lokid: {
+        enabled: true,
+        jsonrpc: config.lokid.rpc_ip + ':' + config.lokid.rpc_port,
+        username: config.lokid.rpc_user,
+        password: config.lokid.rpc_pass,
+        'service-node-seed': keyPath
+      }
+    }
+    runningConfig.bind[lokinet_nic] = config.public_port
     cb(`
+[router]
+netid=service
+nickname=ldl
+
 [dns]
 ${upstreams}
 bind=${lokinet_free53Ip}:53
@@ -363,7 +401,7 @@ add-node=${lokinet_bootstrap_path}
 ${lokinet_nic}=${config.public_port}
 
 [network]
-enabled=false
+#enabled=false
 
 [api]
 enabled=true
@@ -385,6 +423,7 @@ service-node-seed=${keyPath}
     markDone('bootstrap')
   })
   readResolv(function(servers) {
+    upstreamDNS_servers = servers
     upstreams = 'upstream='+servers.join('\nupstream=')
     markDone('upstream')
   })
@@ -439,6 +478,7 @@ function generateClientINI(config, cb) {
   if (config.testnet) {
     lokinet_nodedb += '-staging'
   }
+  var upstreamDNS_servers = []
   function markDone(completeProcess) {
     done[completeProcess] = true
     let ready = true
@@ -482,6 +522,7 @@ bind=${config.rpc_ip}:${config.rpc_port}
     markDone('bootstrap')
   })
   readResolv(function(servers) {
+    upstreamDNS_servers = servers
     upstreams = 'upstream='+servers.join('\nupstream=')
     markDone('upstream')
   })
@@ -626,6 +667,7 @@ function startClient(config, cb) {
 
 // return a truish value if so
 function isRunning() {
+  // should we block until port is responding?
   return lokinet
 }
 
@@ -639,12 +681,25 @@ function stop() {
   process.kill(lokinet.pid)
 }
 
+function getLokiNetIP(cb) {
+  console.log('wait for lokinet startup')
+  var url = 'http://'+runningConfig.api.bind+'/'
+  waitForUrl(url, function() {
+    console.log('lokinet seems to be running')
+    // where's our DNS server?
+    testDNSForLokinet(runningConfig.dns.bind, function(ips) {
+      cb(ips)
+    })
+  })
+}
+
 module.exports = {
   startServiceNode : startServiceNode,
   startClient      : startClient,
   findLokiNetDNS   : findLokiNetDNS,
   isRunning        : isRunning,
   stop             : stop,
+  getLokiNetIP     : getLokiNetIP,
 }
 
 //console.log('userInfo', os.userInfo('utf8'))
