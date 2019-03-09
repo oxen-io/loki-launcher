@@ -23,9 +23,9 @@ var lokid_config = {
 
 var lokinet_config = {
   binary_location : 'src/loki-network/lokinet',
-  bootstrap_url   : 'http://206.81.100.174/n-st-1.signed',
+  bootstrap_url   : 'http://206.81.100.174/n-sv-1.signed',
   rpc_ip          : '127.0.0.1',
-  rpc_port        : 28082,
+  rpc_port        : 28083,
   public_port     : 1090,
   // just make them the same for now
   // but build the system so they could be separate
@@ -33,9 +33,9 @@ var lokinet_config = {
 }
 
 var lokiStorageServer_config = {
-  binary_location: 'src/loki-storage-server/build/httpserver',
-  ip: '127.0.0.1',
-  port: 8080
+  binary_location : 'src/loki-storage-server/build/httpserver',
+  port            : 8080,
+  ip              : '127.0.0.1', // this will be overrode by lokinet
 }
 
 //
@@ -116,7 +116,14 @@ function launcherStorageServer(config, cb) {
   if (cb) cb()
 }
 
-//lokinet.startServiceNode(lokinet_config)
+lokinet.startServiceNode(lokinet_config, function() {
+  //console.log('trying to get IP information about lokinet')
+  lokinet.getLokiNetIP(function(ip) {
+    console.log('starting storageServer on', ip)
+    lokiStorageServer_config.ip = ip
+    launcherStorageServer(lokiStorageServer_config)
+  })
+})
 /*
 try {
   process.seteuid('rtharp')
@@ -125,7 +132,6 @@ try {
   console.log(`Failed to set uid: ${err}`)
 }
 */
-launcherStorageServer(lokiStorageServer_config)
 
 var loki_daemon
 if (1) {
