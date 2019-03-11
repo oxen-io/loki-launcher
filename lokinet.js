@@ -688,7 +688,7 @@ function getLokiNetIP(cb) {
     console.log('lokinet seems to be running')
     // where's our DNS server?
     testDNSForLokinet(runningConfig.dns.bind, function(ips) {
-      cb(ips)
+      cb(ips[0])
     })
   })
 }
