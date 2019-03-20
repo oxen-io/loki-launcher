@@ -10,6 +10,14 @@ const { spawn, exec } = require('child_process')
 // FIXME: netid
 // FIXME: disable rpc if desired
 
+function log() {
+  var args = []
+  for(var i in arguments) {
+    args.push(arguments[i])
+  }
+  console.log('LAUNCHER:', args.join(' '))
+}
+
 function getBoundIPv4s() {
   var nics = os.networkInterfaces()
   var ipv4s = []
@@ -25,8 +33,8 @@ function getBoundIPv4s() {
   return ipv4s
 }
 
-// FIXME test a list, continue down the list on failure
 var auto_config_test_port, auto_config_test_host
+// this doesn't need to connect completely to get our ip
 function getNetworkIP(callback) {
   var socket = net.createConnection(auto_config_test_port, auto_config_test_host)
   socket.on('connect', function() {
@@ -74,6 +82,7 @@ function httpGet(url, cb) {
   })
 }
 
+// used for generating temp filenames
 function randomString(len) {
   var text = ""
   var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -87,7 +96,7 @@ function isDnsPort(ip, port, cb) {
   resolver.setServers([ip + ':' + port])
   resolver.resolve(auto_config_test_host, function(err, records) {
     if (err) console.error('resolve error: ', err)
-    console.log(auto_config_test_host, records)
+    log(auto_config_test_host, records)
     cb(records !== undefined)
   })
 }
@@ -107,12 +116,12 @@ function findLokiNetDNS(cb) {
   function checkDone() {
     if (shuttingDown) {
       //if (cb) cb()
-      console.log('not going to start lokinet, shutting down')
+      log('not going to start lokinet, shutting down')
       return
     }
     checksLeft--
     if (checksLeft<=0) {
-      console.log('readResolv done')
+      log('readResolv done')
       cb(servers)
     }
   }
@@ -145,7 +154,7 @@ function findLokiNetDNS(cb) {
     testDNSForLokinet(server, function(isLokinet) {
       if (isLokinet !== undefined) {
         // lokinet
-        console.log(server, 'is a lokinet DNS server')
+        log(server, 'is a lokinet DNS server')
         servers.push(server)
       }
       checkDone()
@@ -161,34 +170,34 @@ function readResolv(cb) {
   function checkDone() {
     if (shuttingDown) {
       //if (cb) cb()
-      console.log('not going to start lokinet, shutting down')
+      log('not going to start lokinet, shutting down')
       return
     }
     checksLeft--
     if (checksLeft<=0) {
-      console.log('readResolv done')
+      log('readResolv done')
       cb(servers)
     }
   }
 
   var resolvers = dns.getServers()
-  console.log('Current resolvers', resolvers)
+  log('Current resolvers', resolvers)
   for(var i in resolvers) {
     const server = resolvers[i]
     var idx = localIPs.indexOf(server)
     if (idx != -1) {
-      console.log('local DNS server detected', server)
+      log('local DNS server detected', server)
       testDNSForLokinet(server, function(isLokinet) {
         if (isLokinet === undefined) {
           // not lokinet
-          console.log(server, 'is not a lokinet DNS server')
+          log(server, 'is not a lokinet DNS server')
           servers.push(server)
         }
         checkDone()
       })
     } else {
       // non-local
-      console.log('found remote DNS server', server)
+      log('found remote DNS server', server)
       servers.push(server)
     }
   }
@@ -295,16 +304,16 @@ function jsonToINI(json) {
 
 // this can really delay the start of lokinet
 function findFreePort53(ips, index, cb) {
-  console.log('testing', ips[index], 'port 53')
+  log('testing', ips[index], 'port 53')
   isDnsPort(ips[index], 53, function(res) {
     //console.log('isDnsPort res', res)
     // false
     if (!res) {
-      console.log('Found free port 53 on', ips[index], index)
+      log('Found free port 53 on', ips[index], index)
       cb(ips[index])
       return
     }
-    console.log('Port 53 is not free on', ips[index], index)
+    log('Port 53 is not free on', ips[index], index)
     if (index + 1 == ips.length) {
       cb()
       return
@@ -343,6 +352,10 @@ function mkDirByPathSync(targetDir, { isRelativeToScript = false } = {}) {
   }, initDir)
 }
 
+function makeMultiplatformPath(path) {
+  return path
+}
+
 function generateINI(config, markDone, cb) {
   const homeDir = os.homedir()
   //console.log('homeDir', homeDir)
@@ -354,13 +367,13 @@ function generateINI(config, markDone, cb) {
   var upstreams, lokinet_free53Ip, lokinet_nic
   var use_lokinet_rpc_port = config.rpc_port
   var lokinet_bootstrap_path = homeDir + '/.lokinet/bootstrap.signed'
-  // FIXME: ~/.lokinet exist?
   var lokinet_nodedb = homeDir + '/.lokinet/netdb'
   if (config.testnet) {
     lokinet_nodedb += '-service'
   }
   if (!fs.existsSync(lokinet_nodedb)) {
-
+    log('making', lokinet_nodedb)
+    mkDirByPathSync(lokinet_nodedb)
   }
   var upstreamDNS_servers = []
   var params = {
@@ -374,7 +387,7 @@ function generateINI(config, markDone, cb) {
   httpGet(config.bootstrap_url, function(bootstrapData) {
     const tmpRcPath = os.tmpdir() + '/' + randomString(8) + '.lokinet_signed'
     fs.writeFileSync(tmpRcPath, bootstrapData, 'binary')
-    console.log('boostrap wrote', bootstrapData.length, 'bytes to', tmpRcPath)
+    log('boostrap wrote', bootstrapData.length, 'bytes to', tmpRcPath)
     lokinet_bootstrap_path = tmpRcPath
     params.lokinet_bootstrap_path = tmpRcPath
     markDone('bootstrap', params)
@@ -385,21 +398,21 @@ function generateINI(config, markDone, cb) {
     upstreams = 'upstream='+servers.join('\nupstream=')
     markDone('upstream', params)
   })
-  console.log('trying', 'http://'+config.rpc_ip+':'+config.rpc_port)
+  log('trying', 'http://'+config.rpc_ip+':'+config.rpc_port)
   httpGet('http://'+config.rpc_ip+':'+config.rpc_port, function(testData) {
     //console.log('rpc has', testData)
     if (testData !== undefined) {
-      console.log('Bumping RPC port', testData)
+      log('Bumping RPC port', testData)
       use_lokinet_rpc_port = use_lokinet_rpc_port + 1
       params.use_lokinet_rpc_port = use_lokinet_rpc_port
     }
     markDone('rpcCheck', params)
   })
   getNetworkIP(function(e, ip) {
-    console.log('detected outgoing interface ip', ip)
+    log('detected outgoing interface ip', ip)
     lokinet_nic = getIfNameFromIP(ip)
     params.lokinet_nic = lokinet_nic
-    console.log('detected outgoing interface', lokinet_nic)
+    log('detected outgoing interface', lokinet_nic)
     var tryIps = ['127.0.0.1']
     if (os.platform() == 'linux') {
       tryIps.push('127.3.2.1')
@@ -412,7 +425,7 @@ function generateINI(config, markDone, cb) {
       }
       lokinet_free53Ip = free53Ip
       params.lokinet_free53Ip = free53Ip
-      console.log('binding DNS port 53 to', free53Ip)
+      log('binding DNS port 53 to', free53Ip)
       markDone('dnsBind', params)
     })
   })
@@ -430,7 +443,7 @@ function generateSerivceNodeINI(config, cb) {
   function markDone(completeProcess, params) {
     if (shuttingDown) {
       //if (cb) cb()
-      console.log('not going to start lokinet, shutting down')
+      log('not going to start lokinet, shutting down')
       return
     }
     done[completeProcess] = true
@@ -438,7 +451,7 @@ function generateSerivceNodeINI(config, cb) {
     for(var i in done) {
       if (!done[i]) {
         ready = false
-        console.log(i, 'is not ready')
+        log(i, 'is not ready')
         break
       }
     }
@@ -448,11 +461,10 @@ function generateSerivceNodeINI(config, cb) {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
-    console.log('markDone params', params)
-    console.log('Drafting lokinet service node config')
+    log('markDone params', params)
+    log('Drafting lokinet service node config')
     runningConfig = {
       router: {
-        netid: 'service',
         nickname: 'ldl',
       },
       dns: {
@@ -466,6 +478,7 @@ function generateSerivceNodeINI(config, cb) {
         'add-node': params.lokinet_bootstrap_path
       },
       bind: {
+        // will be set after
       },
       network: {
       },
@@ -481,7 +494,13 @@ function generateSerivceNodeINI(config, cb) {
         'service-node-seed': keyPath
       }
     }
-    runningConfig.network['ifaddr'] = '10.254.0.1/24' // hack for Ryan's box
+    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
+      runningConfig.router.netid = 'service'
+      runningConfig.network['ifaddr'] = '10.254.0.1/24' // hack for Ryan's box
+    }
+    // doesn't work
+    //runningConfig.network['type'] = 'null' // disable exit
+    //runningConfig.network['enabled'] = true;
     runningConfig.bind[params.lokinet_nic] = config.public_port
     cb(jsonToINI(runningConfig))
   }
@@ -502,7 +521,7 @@ function generateClientINI(config, cb) {
     for(var i in done) {
       if (!done[i]) {
         ready = false
-        console.log(i, 'is not ready')
+        log(i, 'is not ready')
         break
       }
     }
@@ -513,10 +532,9 @@ function generateClientINI(config, cb) {
     var lokinet_bootstrap_path = params.lokinet_bootstrap_path
     var lokinet_nic = params.lokinet_nic
     var use_lokinet_rpc_port = params.use_lokinet_rpc_port
-    console.log('Drafting lokinet client config')
+    log('Drafting lokinet client config')
     runningConfig = {
       router: {
-        netid: 'service',
         nickname: 'ldl',
       },
       dns: {
@@ -535,6 +553,9 @@ function generateClientINI(config, cb) {
         enabled: true,
         bind: config.rpc_ip + ':' + config.use_lokinet_rpc_port
       },
+    }
+    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
+      runningConfig.router.netid = 'service'
     }
     cb(jsonToINI(runningConfig))
   }
@@ -559,9 +580,9 @@ function launchLokinet(config, cb) {
           process.exit()
         } else {
           // are root
-          console.log('going to try to setcap your binary, so you dont need root')
+          log('going to try to setcap your binary, so you dont need root')
           exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_location, function (error, stdout, stderr) {
-            console.log('binary permissions upgraded')
+            log('binary permissions upgraded')
           })
         }
       }
@@ -571,10 +592,10 @@ function launchLokinet(config, cb) {
   config.ini_writer(config, function (iniData) {
     if (shuttingDown) {
       //if (cb) cb()
-      console.log('not going to start lokinet, shutting down')
+      log('not going to start lokinet, shutting down')
       return
     }
-    console.log(iniData)
+    log(iniData, 'as', tmpPath)
     fs.writeFileSync(tmpPath, iniData)
     //'-v',
     lokinet = spawn(config.binary_location, [ tmpPath])
@@ -590,12 +611,12 @@ function launchLokinet(config, cb) {
     })
 
     lokinet.on('close', (code) => {
-      console.log(`lokinet process exited with code ${code}`)
+      log(`lokinet process exited with code ${code}`)
       fs.unlinkSync(tmpPath) // clean up
       if (shuttingDown) {
-        console.log('loki_daemon is also down, stopping launcher')
+        log('loki_daemon is also down, stopping launcher')
       } else {
-        console.log('loki_daemon is still running, restarting lokinet')
+        log('loki_daemon is still running, restarting lokinet')
         launchLokinet(config)
       }
     })
@@ -628,7 +649,7 @@ function waitForUrl(url, cb) {
       // no data could me 404
       if (shuttingDown) {
         //if (cb) cb()
-        console.log('not going to start lokinet, shutting down')
+        log('not going to start lokinet, shutting down')
         return
       }
       setTimeout(function() {
@@ -643,7 +664,7 @@ function startServiceNode(config, cb) {
   config.ini_writer = generateSerivceNodeINI
   // test lokid rpc port first
   var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
-  console.log('lokinet waiting for lokid RPC server')
+  log('lokinet waiting for lokid RPC server')
   // also need to make sure the service key file exists
   waitForUrl(url, function() {
     launchLokinet(config, cb)
@@ -666,20 +687,20 @@ function stop() {
     console.warn('lokinet already stopped')
     return
   }
-  console.log('requesting lokinet be shutdown')
+  log('requesting lokinet be shutdown')
   shuttingDown = true
   process.kill(lokinet.pid)
 }
 
 function getLokiNetIP(cb) {
-  console.log('wait for lokinet startup')
+  log('wait for lokinet startup')
   var url = 'http://'+runningConfig.api.bind+'/'
   waitForUrl(url, function() {
-    console.log('lokinet seems to be running')
+    log('lokinet seems to be running')
     // where's our DNS server?
-    console.log('RunningConfig says our lokinet\'s DNS is on', runningConfig.dns.bind)
+    log('RunningConfig says our lokinet\'s DNS is on', runningConfig.dns.bind)
     testDNSForLokinet(runningConfig.dns.bind, function(ips) {
-      console.log('lokinet test', ips)
+      log('lokinet test', ips)
       if (ips && ips.length) {
         cb(ips[0])
       } else {
