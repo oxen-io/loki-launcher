@@ -1,4 +1,5 @@
 // no npm!
+const fs        = require('fs')
 const os        = require('os')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
@@ -63,6 +64,19 @@ if (os.platform() == 'darwin') {
   process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
 }
 
+if (!fs.existsSync(lokid_config.binary_location)) {
+  console.error('lokid is not at configured location', lokid_config.binary_location)
+  process.exit()
+}
+if (!fs.existsSync(lokinet_config.binary_location)) {
+  console.error('lokinet is not at configured location', lokid_config.binary_location)
+  process.exit()
+}
+if (!fs.existsSync(lokiStorageServer_config.binary_location)) {
+  console.error('storageServer is not at configured location', lokid_config.binary_location)
+  process.exit()
+}
+
 var shuttingDown = false
 
 //console.log('userInfo', os.userInfo('utf8'))
@@ -116,14 +130,16 @@ function launcherStorageServer(config, cb) {
   if (cb) cb()
 }
 
-lokinet.startServiceNode(lokinet_config, function() {
-  //console.log('trying to get IP information about lokinet')
-  lokinet.getLokiNetIP(function(ip) {
-    console.log('starting storageServer on', ip)
-    lokiStorageServer_config.ip = ip
-    launcherStorageServer(lokiStorageServer_config)
+if (1) {
+  lokinet.startServiceNode(lokinet_config, function() {
+    //console.log('trying to get IP information about lokinet')
+    lokinet.getLokiNetIP(function(ip) {
+      console.log('starting storageServer on', ip)
+      lokiStorageServer_config.ip = ip
+      launcherStorageServer(lokiStorageServer_config)
+    })
   })
-})
+}
 /*
 try {
   process.seteuid('rtharp')
@@ -133,18 +149,51 @@ try {
 }
 */
 
+function shutdown_everything() {
+  shuttingDown = true
+  stdin.pause()
+  if (storageServer) {
+    console.log('requesting storageServer be shutdown')
+    process.kill(storageServer.pid)
+  }
+  if (lokinet.isRunning()) {
+    lokinet.stop()
+  } else {
+    console.log('lokinet is not running, trying to exit')
+    // lokinet could be waiting to start up
+    process.exit()
+  }
+}
+
 var loki_daemon
 if (1) {
-  var lokid_options = ['--service-node', '--rpc-login='+lokid_config.rpc_user+':'+lokid_config.rpc_pass+'']
+  var lokid_options = ['--service-node']
+  lokid_options.push('--rpc-login='+lokid_config.rpc_user+':'+lokid_config.rpc_pass+'')
   if (lokid_config.network.toLowerCase() == "test" || lokid_config.network.toLowerCase() == "testnet" || lokid_config.network.toLowerCase() == "test-net") {
     lokid_options.push('--testnet')
+    // never hurts to have an extra peer
+    //lokid_options.push('--add-peer=206.81.100.174')
+    //lokid_options.push('--add-exclusive-node=206.81.100.174:38180')
+    lokid_options.push('--add-exclusive-node=159.69.40.252:38156')
   } else
   if (lokid_config.network.toLowerCase() == "staging" || lokid_config.network.toLowerCase() == "stage") {
     lokid_options.push('--stagenet')
   }
+  console.log('launching lokid with', lokid_options.join(' '))
+  //lokid_options = ['-i0', '-o0', '-e0', lokid_config.binary_location].concat(lokid_options)
+  //loki_daemon = spawn('stdbuf', lokid_options, {
 
-  loki_daemon = spawn(lokid_config.binary_location, lokid_options)
+  // hijack STDIN but not OUT/ERR
+  loki_daemon = spawn(lokid_config.binary_location, lokid_options, {
+    stdio: ['pipe', 'inherit', 'inherit'],
+    //shell: true
+  })
+  if (!loki_daemon) {
+    console.error('failed to start lokied, exiting...')
+    shutdown_everything()
+  }
 
+  /*
   loki_daemon.stdout.on('data', (data) => {
     var parts = data.toString().split(/\n/)
     parts.pop()
@@ -157,22 +206,11 @@ if (1) {
   loki_daemon.stderr.on('data', (data) => {
     console.log(`lokiderr: ${data}`)
   })
+  */
 
   loki_daemon.on('close', (code) => {
     console.log(`loki_daemon process exited with code ${code}`)
-    shuttingDown = true
-    stdin.pause()
-    if (storageServer) {
-      console.log('requesting storageServer be shutdown')
-      process.kill(storageServer.pid)
-    }
-    if (lokinet.isRunning()) {
-      lokinet.stop()
-    } else {
-      console.log('lokinet is not running, trying to exit')
-      // lokinet could be waiting to start up
-      process.exit()
-    }
+    shutdown_everything()
   })
 }
 
