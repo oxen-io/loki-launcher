@@ -61,8 +61,15 @@ function getIfNameFromIP(ip) {
   return ''
 }
 
+const urlparser = require('url')
+
 function httpGet(url, cb) {
-  http.get(url, {
+  const urlDetails = urlparser.parse(url)
+  http.get({
+    hostname: urlDetails.hostname,
+    protocol: urlDetails.protocol,
+    port: urlDetails.port,
+    path: urlDetails.path,
     timeout: 5000,
   }, (resp) => {
     resp.setEncoding('binary')
@@ -599,6 +606,11 @@ function launchLokinet(config, cb) {
     fs.writeFileSync(tmpPath, iniData)
     //'-v',
     lokinet = spawn(config.binary_location, [ tmpPath])
+
+    if (!lokinet) {
+      console.error('failed to start lokinet, exiting...')
+      process.exit()
+    }
     lokinet.stdout.on('data', (data) => {
       var parts = data.toString().split(/\n/)
       parts.pop()
