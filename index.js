@@ -6,46 +6,23 @@ const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 const lokinet   = require('./lokinet')
 
-// reads ~/.loki/[testnet/]key
 const ini_bytes = fs.readFileSync('launcher.ini')
 var config = ini.iniToJSON(ini_bytes.toString())
+var args = process.argv
+function stripArg(match) {
+  for(var i in args) {
+    var arg = args[i]
+    if (arg.match(match)) {
+      args.splice(i, 1)
+    }
+  }
+}
+
+stripArg('node')
+stripArg('index')
+
+console.log('Launcher arguments:', args)
 console.log('Launcher loaded config:', config)
-
-//
-// start config
-//
-
-/*
-var lokid_config = {
-  binary_location: 'src/loki/build/release/bin/lokid',
-  network : "test",
-  rpc_ip  : '127.0.0.1',
-  rpc_port: 0, // 0 means base on default network port
-  rpc_user: 'user',
-  rpc_pass: 'pass',
-}
-
-var lokinet_config = {
-  binary_location : 'src/loki-network/lokinet',
-  bootstrap_url   : 'http://206.81.100.174/n-sv-1.signed',
-  rpc_ip          : '127.0.0.1',
-  rpc_port        : 28083,
-  public_port     : 1090,
-  // just make them the same for now
-  // but build the system so they could be separate
-  testnet : lokid_config.network == "test",
-}
-
-var lokiStorageServer_config = {
-  binary_location : 'src/loki-storage-server/build/httpserver',
-  port            : 8080,
-  ip              : '127.0.0.1', // this will be overrode by lokinet
-}
-*/
-
-//
-// end config
-//
 
 // defaults
 if (config.network.testnet === undefined) {
@@ -180,17 +157,15 @@ if (1) {
   lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
   if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
     lokid_options.push('--testnet')
-    // never hurts to have an extra peer
-    //lokid_options.push('--add-peer=206.81.100.174')
-    //lokid_options.push('--add-exclusive-node=206.81.100.174:38180')
-    lokid_options.push('--add-exclusive-node=159.69.40.252:38156')
   } else
   if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
     lokid_options.push('--stagenet')
   }
+  // copy CLI options to lokid
+  for(var i in args) {
+    lokid_options.push(args[i])
+  }
   console.log('launching lokid with', lokid_options.join(' '))
-  //lokid_options = ['-i0', '-o0', '-e0', lokid_config.binary_location].concat(lokid_options)
-  //loki_daemon = spawn('stdbuf', lokid_options, {
 
   // hijack STDIN but not OUT/ERR
   loki_daemon = spawn(config.blockchain.binary_path, lokid_options, {
