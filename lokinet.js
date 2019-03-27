@@ -3,6 +3,7 @@ const os        = require('os')
 const fs        = require('fs')
 const dns       = require('dns')
 const net       = require('net')
+const ini       = require('./ini')
 const path      = require('path')
 const http      = require('http')
 const { spawn, exec } = require('child_process')
@@ -65,6 +66,7 @@ const urlparser = require('url')
 
 function httpGet(url, cb) {
   const urlDetails = urlparser.parse(url)
+  //console.log('httpGet', url)
   http.get({
     hostname: urlDetails.hostname,
     protocol: urlDetails.protocol,
@@ -83,7 +85,7 @@ function httpGet(url, cb) {
       cb(data)
     })
   }).on("error", (err) => {
-    console.error("httpGet Error: " + err.message)
+    console.error("httpGet Error: " + err.message, 'port', urlDetails.port)
     //console.log('err', err)
     cb()
   })
@@ -252,61 +254,6 @@ function readResolv(cb) {
   }
   return servers
   */
-}
-
-function iniToJSON(data) {
-  const lines = data.split(/\n/)
-  var section = 'unknown'
-  var config = {}
-  for(var i in lines) {
-    var line = lines[i].trim()
-    if (line.match(/#/)) {
-      var parts = line.split(/#/)
-      line = parts[0].trim()
-    }
-    // done reducing
-    if (!line) continue
-
-    // check for section
-    if (line[0] == '[' && line[line.length - 1] == ']') {
-      section = line.substring(1, line.length -1)
-      if (config[section] === undefined) config[section] = {}
-      //console.log('found section', section)
-      continue
-    }
-    // key value pair
-    if (line.match(/=/)) {
-      var parts = line.split(/=/)
-      var key = parts.shift()
-      var value = parts.join('=')
-      //console.log('key/pair ['+section+']', key, '=', value)
-      config[section][key]=value
-      continue
-    }
-    console.error('config ['+section+'] not section or key/value pair', line)
-  }
-  return config
-}
-
-function jsonToINI(json) {
-  var lastSection = 'unknown'
-  var config = ''
-  for(var section in json) {
-    config += "\n" + '[' + section + ']' + "\n"
-    var keys = json[section]
-    for(var key in keys) {
-      // FIXME: if keys[key] is an array, then we need to send the same key each time
-      if (keys[key].constructor.name == 'Array') {
-        for(var i in keys[key]) {
-          var v = keys[key][i]
-          config += key + '=' + v + "\n"
-        }
-      } else {
-        config += key + '=' + keys[key] + "\n"
-      }
-    }
-  }
-  return config
 }
 
 // this can really delay the start of lokinet
@@ -509,7 +456,7 @@ function generateSerivceNodeINI(config, cb) {
     //runningConfig.network['type'] = 'null' // disable exit
     //runningConfig.network['enabled'] = true;
     runningConfig.bind[params.lokinet_nic] = config.public_port
-    cb(jsonToINI(runningConfig))
+    cb(ini.jsonToINI(runningConfig))
   }
   generateINI(config, markDone, cb)
 }
@@ -564,7 +511,7 @@ function generateClientINI(config, cb) {
     if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
       runningConfig.router.netid = 'service'
     }
-    cb(jsonToINI(runningConfig))
+    cb(ini.jsonToINI(runningConfig))
   }
   generateINI(config, markDone, cb)
 }
@@ -579,17 +526,17 @@ function launchLokinet(config, cb) {
 
   if (os.platform() == 'linux') {
     // not root-like
-    exec('getcap ' + config.binary_location, function (error, stdout, stderr) {
+    exec('getcap ' + config.binary_path, function (error, stdout, stderr) {
       //console.log('stdout', stdout)
       // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
       if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
         if (process.getgid() != 0) {
-          conole.log(config.binary_location, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
+          conole.log(config.binary_path, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
           process.exit()
         } else {
           // are root
           log('going to try to setcap your binary, so you dont need root')
-          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_location, function (error, stdout, stderr) {
+          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
             log('binary permissions upgraded')
           })
         }
@@ -606,7 +553,7 @@ function launchLokinet(config, cb) {
     log(iniData, 'as', tmpPath)
     fs.writeFileSync(tmpPath, iniData)
     //'-v',
-    lokinet = spawn(config.binary_location, [ tmpPath])
+    lokinet = spawn(config.binary_path, [ tmpPath])
 
     if (!lokinet) {
       console.error('failed to start lokinet, exiting...')
@@ -646,7 +593,7 @@ function checkConfig(config) {
   auto_config_test_port = config.auto_config_test_port
   auto_config_test_host = config.auto_config_test_host
 
-  if (config.binary_location === undefined ) config.binary_location='/usr/local/bin/lokinet'
+  if (config.binary_path === undefined ) config.binary_path='/usr/local/bin/lokinet'
   if (config.bootstrap_url === undefined ) config.bootstrap_url='https://i2p.rocks/self.signed'
   if (config.rpc_ip === undefined ) config.rpc_ip='127.0.0.1'
   if (config.rpc_port === undefined ) config.rpc_port=0

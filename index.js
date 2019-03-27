@@ -1,18 +1,21 @@
 // no npm!
 const fs        = require('fs')
 const os        = require('os')
+const ini       = require('./ini')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 const lokinet   = require('./lokinet')
 
-// FIXME: move configs into INI file
-
 // reads ~/.loki/[testnet/]key
+const ini_bytes = fs.readFileSync('launcher.ini')
+var config = ini.iniToJSON(ini_bytes.toString())
+console.log('Launcher loaded config:', config)
 
 //
 // start config
 //
 
+/*
 var lokid_config = {
   binary_location: 'src/loki/build/release/bin/lokid',
   network : "test",
@@ -38,42 +41,48 @@ var lokiStorageServer_config = {
   port            : 8080,
   ip              : '127.0.0.1', // this will be overrode by lokinet
 }
+*/
 
 //
 // end config
 //
 
+// defaults
+if (config.network.testnet === undefined) {
+  config.network.testnet = config.blockchain.testnet == "test"
+}
+
 // autoconfig
-if (lokid_config.rpc_port === 0) {
-  if (lokid_config.network.toLowerCase() == "test" || lokid_config.network.toLowerCase() == "testnet" || lokid_config.network.toLowerCase() == "test-net") {
-    lokid_config.rpc_port = 38157
+if (config.blockchain.rpc_port == '0') {
+  if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
+    config.blockchain.rpc_port = 38157
   } else
-  if (lokid_config.network.toLowerCase() == "staging" || lokid_config.network.toLowerCase() == "stage") {
-    lokid_config.rpc_port = 28082
+  if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
+    config.blockchain.rpc_port = 28082
   } else {
     // main
-    lokid_config.rpc_port = 18082
+    config.blockchain.rpc_port = 18082
   }
 }
 
 // upload lokid to lokinet
-lokinet_config.lokid = lokid_config
+config.network.lokid = config.blockchain
 
 // ugly hack for Ryan's mac box
 if (os.platform() == 'darwin') {
   process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
 }
 
-if (!fs.existsSync(lokid_config.binary_location)) {
-  console.error('lokid is not at configured location', lokid_config.binary_location)
+if (!fs.existsSync(config.blockchain.binary_path)) {
+  console.error('lokid is not at configured location', config.blockchain.binary_path)
   process.exit()
 }
-if (!fs.existsSync(lokinet_config.binary_location)) {
-  console.error('lokinet is not at configured location', lokid_config.binary_location)
+if (!fs.existsSync(config.network.binary_path)) {
+  console.error('lokinet is not at configured location', config.network.binary_path)
   process.exit()
 }
-if (!fs.existsSync(lokiStorageServer_config.binary_location)) {
-  console.error('storageServer is not at configured location', lokid_config.binary_location)
+if (!fs.existsSync(config.storage.binary_path)) {
+  console.error('storageServer is not at configured location', config.storage.binary_path)
   process.exit()
 }
 
@@ -99,7 +108,7 @@ function launcherStorageServer(config, cb) {
     console.log('not going to start storageServer, shutting down')
     return
   }
-  storageServer = spawn(config.binary_location, [config.ip, config.port])
+  storageServer = spawn(config.binary_path, [config.ip, config.port])
 
   //console.log('storageServer', storageServer)
   if (!storageServer.stdout) {
@@ -131,12 +140,12 @@ function launcherStorageServer(config, cb) {
 }
 
 if (1) {
-  lokinet.startServiceNode(lokinet_config, function() {
+  lokinet.startServiceNode(config.network, function() {
     //console.log('trying to get IP information about lokinet')
     lokinet.getLokiNetIP(function(ip) {
       console.log('starting storageServer on', ip)
-      lokiStorageServer_config.ip = ip
-      launcherStorageServer(lokiStorageServer_config)
+      config.storage.ip = ip
+      launcherStorageServer(config.storage)
     })
   })
 }
@@ -168,15 +177,15 @@ function shutdown_everything() {
 var loki_daemon
 if (1) {
   var lokid_options = ['--service-node']
-  lokid_options.push('--rpc-login='+lokid_config.rpc_user+':'+lokid_config.rpc_pass+'')
-  if (lokid_config.network.toLowerCase() == "test" || lokid_config.network.toLowerCase() == "testnet" || lokid_config.network.toLowerCase() == "test-net") {
+  lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
+  if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
     lokid_options.push('--testnet')
     // never hurts to have an extra peer
     //lokid_options.push('--add-peer=206.81.100.174')
     //lokid_options.push('--add-exclusive-node=206.81.100.174:38180')
     lokid_options.push('--add-exclusive-node=159.69.40.252:38156')
   } else
-  if (lokid_config.network.toLowerCase() == "staging" || lokid_config.network.toLowerCase() == "stage") {
+  if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
     lokid_options.push('--stagenet')
   }
   console.log('launching lokid with', lokid_options.join(' '))
@@ -184,7 +193,7 @@ if (1) {
   //loki_daemon = spawn('stdbuf', lokid_options, {
 
   // hijack STDIN but not OUT/ERR
-  loki_daemon = spawn(lokid_config.binary_location, lokid_options, {
+  loki_daemon = spawn(config.blockchain.binary_path, lokid_options, {
     stdio: ['pipe', 'inherit', 'inherit'],
     //shell: true
   })
@@ -192,21 +201,6 @@ if (1) {
     console.error('failed to start lokied, exiting...')
     shutdown_everything()
   }
-
-  /*
-  loki_daemon.stdout.on('data', (data) => {
-    var parts = data.toString().split(/\n/)
-    parts.pop()
-    data = parts.join('\n')
-    if (data.trim()) {
-      console.log(`lokid: ${data}`)
-    }
-  })
-
-  loki_daemon.stderr.on('data', (data) => {
-    console.log(`lokiderr: ${data}`)
-  })
-  */
 
   loki_daemon.on('close', (code) => {
     console.log(`loki_daemon process exited with code ${code}`)
