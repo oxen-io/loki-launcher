@@ -227,10 +227,27 @@ stdin.on( 'data', function( key ){
   if ( key === '\u0003' ) {
     process.exit()
   }
-  // local echo, write the key to stdout all normal like
+  if (key.match(/^lokinet/i)) {
+    var remaining = key.replace(/^lokinet\s*/i, '')
+    console.log('lokinet command', remaining)
+    if (remaining.match(/^log/i)) {
+      var param = remaining.replace(/^log\s*/i, '')
+      console.log('lokinet log', param)
+      if (param.match(/^off/i)) {
+        lokinet.disableLogging()
+      }
+      if (param.match(/^on/i)) {
+        lokinet.enableLogging()
+      }
+    }
+    return
+  }
   if (!shuttingDown) {
+    // local echo, write the key to stdout all normal like
     // on ssh we don't need this
     //process.stdout.write(key)
+
+    // only if lokid is running, send input
     if (loki_daemon) {
       loki_daemon.stdin.write(key)
     }

@@ -571,6 +571,7 @@ function generateClientINI(config, cb) {
 
 var shuttingDown
 var lokinet
+var lokinetLogging = true
 function launchLokinet(config, cb) {
   const tmpDir = os.tmpdir()
   //console.log('tmpPath', tmpPath)
@@ -612,10 +613,12 @@ function launchLokinet(config, cb) {
       process.exit()
     }
     lokinet.stdout.on('data', (data) => {
-      var parts = data.toString().split(/\n/)
-      parts.pop()
-      data = parts.join('\n')
-      console.log(`lokinet: ${data}`)
+      if (lokinetLogging) {
+        var parts = data.toString().split(/\n/)
+        parts.pop()
+        data = parts.join('\n')
+        console.log(`lokinet: ${data}`)
+      }
     })
 
     lokinet.stderr.on('data', (data) => {
@@ -704,6 +707,14 @@ function stop() {
   process.kill(lokinet.pid)
 }
 
+function enableLogging() {
+  lokinetLogging = true
+}
+
+function disableLogging() {
+  lokinetLogging = false
+}
+
 function getLokiNetIP(cb) {
   log('wait for lokinet startup')
   var url = 'http://'+runningConfig.api.bind+'/'
@@ -733,6 +744,8 @@ module.exports = {
   isRunning        : isRunning,
   stop             : stop,
   getLokiNetIP     : getLokiNetIP,
+  enableLogging    : enableLogging,
+  disableLogging   : disableLogging,
 }
 
 //console.log('userInfo', os.userInfo('utf8'))
