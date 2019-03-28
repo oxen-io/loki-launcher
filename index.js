@@ -6,7 +6,7 @@ const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 const lokinet   = require('./lokinet')
 
-const VERSION = 0.1
+const VERSION = 0.2
 console.log('loki SN launcher version', VERSION, 'registered')
 
 // preprocess command line arguments
@@ -126,8 +126,28 @@ if (os.platform() == 'darwin') {
   }
 }
 
+// are we already running
+if (fs.existsSync('launcher.pid')) {
+  // we are already running
+  var pid = fs.readFileSync('launcher.pid', 'utf8')
+  var alreadyRunning = true
+  try {
+    process.kill(pid, 0)
+  } catch(e) {
+    alreadyRunning = false
+    console.log('cleaning up stale launcher.pid')
+  }
+  if (alreadyRunning) {
+    console.log('already running at', pid)
+    // FIXME: communicate instead of exiting
+    process.exit()
+  }
+}
+fs.writeFileSync('launcher.pid', process.pid)
+
 // see if we need to detach
 if (!config.launcher.interactive) {
+  console.log('fork check', process.env.__daemon)
   if (!process.env.__daemon) {
     // first run
     process.env.__daemon = true
@@ -138,11 +158,18 @@ if (!config.launcher.interactive) {
       cwd: process.cwd(),
       detached: true
     }
-    var child = spawn(process.execPath, ['index'].concat(args), cp_opt)
+    console.log('launching', process.execPath, __filename, args)
+    var child = spawn(process.execPath, [__filename].concat(args), cp_opt)
+    //console.log('child', child)
+    if (!child) {
+      console.error('Could not spawn detached process')
+      process.exit()
+    }
     // required so we can exit
     child.unref()
     process.exit()
   }
+  console.log('backgrounded')
 }
 
 var shuttingDown = false
@@ -239,6 +266,8 @@ function shutdown_everything() {
     process.kill(loki_daemon.pid, 'SIGINT')
     loki_daemon = null
   }
+  // clear our start up lock
+  fs.unlinkSync('launcher.pid')
   // don't think we need, seems to handle itself
   //console.log('should exit?')
   //process.exit()
