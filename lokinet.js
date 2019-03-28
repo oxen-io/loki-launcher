@@ -415,7 +415,7 @@ function generateSerivceNodeINI(config, cb) {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
-    log('markDone params', params)
+    log('markDone params', params.toString())
     log('Drafting lokinet service node config')
     runningConfig = {
       router: {
@@ -505,7 +505,7 @@ function generateClientINI(config, cb) {
       },
       api: {
         enabled: true,
-        bind: config.rpc_ip + ':' + config.use_lokinet_rpc_port
+        bind: config.rpc_ip + ':' + use_lokinet_rpc_port
       },
     }
     if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
@@ -544,6 +544,14 @@ function launchLokinet(config, cb) {
     })
   }
 
+  // lokinet will crash if this file is zero bytes
+  if (fs.existsSync('profiles.dat')) {
+    var stats = fs.statSync('profiles.dat')
+    if (!stats.size) {
+      unlink('profiles.dat')
+    }
+  }
+
   config.ini_writer(config, function (iniData) {
     if (shuttingDown) {
       //if (cb) cb()
@@ -574,12 +582,18 @@ function launchLokinet(config, cb) {
 
     lokinet.on('close', (code) => {
       log(`lokinet process exited with code ${code}`)
-      fs.unlinkSync(tmpPath) // clean up
+      // clean up
+      fs.unlinkSync(runningConfig.bootstrap['add-node'])
+      fs.unlinkSync(tmpPath)
       if (shuttingDown) {
         log('loki_daemon is also down, stopping launcher')
       } else {
-        log('loki_daemon is still running, restarting lokinet')
-        launchLokinet(config)
+        if (config.restart) {
+          log('loki_daemon is still running, restarting lokinet')
+          launchLokinet(config)
+        } else {
+          // don't restart...
+        }
       }
     })
     if (cb) cb()
@@ -624,6 +638,7 @@ function waitForUrl(url, cb) {
 function startServiceNode(config, cb) {
   checkConfig(config)
   config.ini_writer = generateSerivceNodeINI
+  config.restart = true
   // test lokid rpc port first
   var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
   log('lokinet waiting for lokid RPC server')
