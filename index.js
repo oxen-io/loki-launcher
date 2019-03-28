@@ -283,11 +283,14 @@ function launcherStorageServer(config, cb) {
   storageServer.on('close', (code) => {
     console.log(`storageServer process exited with code ${code}`)
     if (code == 1) {
-      console.log('storageServer bind port could be in use')
+      console.log('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
       // we could want to issue one kill just to make sure
       // however since we don't know the pid, we won't know if it's ours
       // or meant be running by another copy of the launcher
       // at least any launcher copies will be restarted
+      //
+      // we could exit, or prevent a restart
+      process.exit()
     }
     // code null means clean shutdown
     if (!shuttingDown) {
