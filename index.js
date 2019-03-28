@@ -111,7 +111,20 @@ function launcherStorageServer(config, cb) {
     console.log('not going to start storageServer, shutting down')
     return
   }
-  storageServer = spawn(config.binary_path, [config.ip, config.port])
+  let optionals = []
+  if (config.log_level) {
+    optionals.push('--log-level', config.log_level)
+  }
+  if (config.lokinet_identity) {
+    optionals.push('--lokinet-identity', config.lokinet_identity)
+  }
+  if (config.output_log) {
+    optionals.push('--output-log', config.output_log)
+  }
+  if (config.db_location) {
+    optionals.push('--db-location', config.db_location)
+  }
+  storageServer = spawn(config.binary_path, [config.ip, config.port, ...optionals])
 
   //console.log('storageServer', storageServer)
   if (!storageServer.stdout) {
