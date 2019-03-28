@@ -23,6 +23,8 @@ function iniToJSON(data) {
       var parts = line.split(/=/)
       var key = parts.shift().trim()
       var value = parts.join('=').trim()
+      if (value === 'true')  value = true
+      if (value === 'false') value = false
       //console.log('key/pair ['+section+']', key, '=', value)
       config[section][key]=value
       continue
