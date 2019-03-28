@@ -412,7 +412,7 @@ function applyConfig(file_config, config_obj) {
   // client mode: bootstrap is required, can't have a seed client
   if (file_config.bootstrap_path) {
     config_obj.bootstrap = {
-      'add-node': config.bootstrap_path
+      'add-node': file_config.bootstrap_path
     }
   }
   // router section
