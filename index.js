@@ -6,8 +6,7 @@ const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 const lokinet   = require('./lokinet')
 
-const ini_bytes = fs.readFileSync('launcher.ini')
-var config = ini.iniToJSON(ini_bytes.toString())
+// preprocess command line arguments
 var args = process.argv
 function stripArg(match) {
   for(var i in args) {
@@ -17,16 +16,23 @@ function stripArg(match) {
     }
   }
 }
-
 stripArg('node')
 stripArg('index')
-
 console.log('Launcher arguments:', args)
+
+// load config from disk
+const ini_bytes = fs.readFileSync('launcher.ini')
+var disk_config = ini.iniToJSON(ini_bytes.toString())
+running_config   = {}
+requested_config = disk_config
+
+config = requested_config
+
 console.log('Launcher loaded config:', config)
 
 // defaults
 if (config.network.testnet === undefined) {
-  config.network.testnet = config.blockchain.testnet == "test"
+  config.network.testnet = config.blockchain.network == "test"
 }
 
 // autoconfig
@@ -78,6 +84,26 @@ if (os.platform() == 'darwin') {
   }
 }
 
+// see if we need to detach
+if (!config.launcher.interactive) {
+  if (!process.env.__daemon) {
+    // first run
+    process.env.__daemon = true
+    // spawn as child
+    var cp_opt = {
+      stdio: 'ignore',
+      env: process.env,
+      cwd: process.cwd(),
+      detached: true
+    }
+    var child = spawn(process.execPath, ['index'].concat(args), cp_opt)
+    // required so we can exit
+    child.unref()
+    process.exit()
+  }
+}
+
+
 var storageServer
 function launcherStorageServer(config, cb) {
   if (shuttingDown) {
@@ -106,9 +132,10 @@ function launcherStorageServer(config, cb) {
 
   storageServer.on('close', (code) => {
     console.log(`storageServer process exited with code ${code}`)
-    if (shuttingDown) {
-      console.log('loki_daemon is also down, stopping launcher')
-    } else {
+    if (code == 1) {
+      console.log('storageServer bind port could be in use')
+    }
+    if (!shuttingDown) {
       console.log('loki_daemon is still running, restarting storageServer')
       launcherStorageServer(config)
     }
@@ -138,17 +165,28 @@ try {
 function shutdown_everything() {
   shuttingDown = true
   stdin.pause()
-  if (storageServer) {
+  if (storageServer && !storageServer.killed) {
     console.log('requesting storageServer be shutdown')
-    process.kill(storageServer.pid)
+    process.kill(storageServer.pid, 'SIGINT')
+    storageServer = null
   }
   if (lokinet.isRunning()) {
+    // stop already outputs this
+    //console.log('requesting lokinet be shutdown')
     lokinet.stop()
   } else {
-    console.log('lokinet is not running, trying to exit')
+    //console.log('lokinet is not running, trying to exit')
     // lokinet could be waiting to start up
-    process.exit()
+    //process.exit()
   }
+  if (loki_daemon && !loki_daemon.killed) {
+    console.log('requesting lokid be shutdown')
+    process.kill(loki_daemon.pid, 'SIGINT')
+    loki_daemon = null
+  }
+  // don't think we need, seems to handle itself
+  //console.log('should exit?')
+  //process.exit()
 }
 
 var loki_daemon
@@ -160,6 +198,10 @@ if (1) {
   } else
   if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
     lokid_options.push('--stagenet')
+  }
+  if (!config.launcher.interactive) {
+    lokid_options.push('--non-interactive')
+    lokinet.disableLogging()
   }
   // copy CLI options to lokid
   for(var i in args) {
@@ -179,52 +221,68 @@ if (1) {
 
   loki_daemon.on('close', (code) => {
     console.log(`loki_daemon process exited with code ${code}`)
-    shutdown_everything()
+    if (!shuttingDown) {
+      loki_daemon = null
+      shutdown_everything()
+    }
   })
 }
 
-// resume stdin in the parent process (node app won't quit all by itself
-// unless an error or process.exit() happens)
-stdin.resume()
 
-// i don't want binary, do you?
-stdin.setEncoding( 'utf8' )
+// if we're interactive grab the console
+if (config.launcher.interactive) {
+  // resume stdin in the parent process (node app won't quit all by itself
+  // unless an error or process.exit() happens)
+  stdin.resume()
 
-// on any data into stdin
-stdin.on( 'data', function( key ){
-  // ctrl-c ( end of text )
-  if ( key === '\u0003' ) {
-    process.exit()
-  }
-  if (key.match(/^lokinet/i)) {
-    var remaining = key.replace(/^lokinet\s*/i, '')
-    console.log('lokinet command', remaining)
-    if (remaining.match(/^log/i)) {
-      var param = remaining.replace(/^log\s*/i, '')
-      console.log('lokinet log', param)
-      if (param.match(/^off/i)) {
-        lokinet.disableLogging()
+  // i don't want binary, do you?
+  stdin.setEncoding( 'utf8' )
+
+  // on any data into stdin
+  stdin.on( 'data', function( key ){
+    // ctrl-c ( end of text )
+    if ( key === '\u0003' ) {
+      process.exit()
+    }
+    if (key.match(/^lokinet/i)) {
+      var remaining = key.replace(/^lokinet\s*/i, '')
+      if (remaining.match(/^log/i)) {
+        var param = remaining.replace(/^log\s*/i, '')
+        //console.log('lokinet log', param)
+        if (param.match(/^off/i)) {
+          lokinet.disableLogging()
+        }
+        if (param.match(/^on/i)) {
+          lokinet.enableLogging()
+        }
       }
-      if (param.match(/^on/i)) {
-        lokinet.enableLogging()
+      return
+    }
+    if (!shuttingDown) {
+      // local echo, write the key to stdout all normal like
+      // on ssh we don't need this
+      //process.stdout.write(key)
+
+      // only if lokid is running, send input
+      if (loki_daemon) {
+        loki_daemon.stdin.write(key)
       }
     }
-    return
-  }
-  if (!shuttingDown) {
-    // local echo, write the key to stdout all normal like
-    // on ssh we don't need this
-    //process.stdout.write(key)
-
-    // only if lokid is running, send input
-    if (loki_daemon) {
-      loki_daemon.stdin.write(key)
-    }
-  }
-})
+  })
+}
 
 process.on('SIGHUP', () => {
   console.log('shuttingDown?', shuttingDown)
   console.log('loki_daemon status', loki_daemon)
   console.log('lokinet status', lokinet.isRunning())
+})
+// ctrl-c
+process.on('SIGINT', function() {
+  console.log('LAUNCHER daemon got SIGINT (ctrl-c)')
+  shutdown_everything()
+})
+// -15
+process.on('SIGTERM', function() {
+  console.log('LAUNCHER daemon got SIGTERM (kill -15)')
+  shutdown_everything()
 })
