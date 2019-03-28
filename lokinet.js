@@ -548,7 +548,7 @@ function launchLokinet(config, cb) {
   if (fs.existsSync('profiles.dat')) {
     var stats = fs.statSync('profiles.dat')
     if (!stats.size) {
-      unlink('profiles.dat')
+      fs.unlinkSync('profiles.dat')
     }
   }
 
@@ -585,9 +585,7 @@ function launchLokinet(config, cb) {
       // clean up
       fs.unlinkSync(runningConfig.bootstrap['add-node'])
       fs.unlinkSync(tmpPath)
-      if (shuttingDown) {
-        log('loki_daemon is also down, stopping launcher')
-      } else {
+      if (!shuttingDown) {
         if (config.restart) {
           log('loki_daemon is still running, restarting lokinet')
           launchLokinet(config)
@@ -595,6 +593,7 @@ function launchLokinet(config, cb) {
           // don't restart...
         }
       }
+      // else we're shutting down
     })
     if (cb) cb()
   })
@@ -666,7 +665,10 @@ function stop() {
   }
   log('requesting lokinet be shutdown')
   shuttingDown = true
-  process.kill(lokinet.pid)
+  if (!lokinet.killed) {
+    process.kill(lokinet.pid, 'SIGINT')
+  }
+  lokinet = null
 }
 
 function enableLogging() {
