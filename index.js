@@ -6,6 +6,9 @@ const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 const lokinet   = require('./lokinet')
 
+const VERSION = 0.1
+console.log('loki SN launcher version', VERSION, 'registered')
+
 // preprocess command line arguments
 var args = process.argv
 function stripArg(match) {
@@ -95,12 +98,18 @@ if (!fs.existsSync(config.blockchain.binary_path)) {
   console.error('lokid is not at configured location', config.blockchain.binary_path)
   process.exit()
 }
+if (!fs.existsSync(config.storage.binary_path)) {
+  console.error('storageServer is not at configured location', config.storage.binary_path)
+  process.exit()
+}
+lokinet.checkConfig(config.network)
 if (!fs.existsSync(config.network.binary_path)) {
   console.error('lokinet is not at configured location', config.network.binary_path)
   process.exit()
 }
-if (!fs.existsSync(config.storage.binary_path)) {
-  console.error('storageServer is not at configured location', config.storage.binary_path)
+
+if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_path)) {
+  console.error('lokinet bootstrap not found at location', config.network.binary_path)
   process.exit()
 }
 
@@ -150,8 +159,9 @@ function launcherStorageServer(config, cb) {
     optionals.push('--log-level', config.log_level)
   }
   if (config.lokinet_identity) {
-    optionals.push('--lokinet-identity', config.lokinet_identity)
+    optionals.push('--lokinet-identity', config.identity_path)
   }
+  // FIXME: make launcher handle all logging
   if (config.output_log) {
     optionals.push('--output-log', config.output_log)
   }
