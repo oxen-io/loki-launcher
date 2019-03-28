@@ -36,16 +36,50 @@ if (config.network.testnet === undefined) {
 }
 
 // autoconfig
+/*
+--zmq-rpc-bind-port arg (=22024, 38158 if 'testnet', 38155 if 'stagenet')
+--rpc-bind-port arg (=22023, 38157 if 'testnet', 38154 if 'stagenet')
+--p2p-bind-port arg (=22022, 38156 if 'testnet', 38153 if 'stagenet')
+--p2p-bind-port-ipv6 arg (=22022, 38156 if 'testnet', 38153 if 'stagenet')
+*/
+if (config.blockchain.zmq_port == '0') {
+  // only really need this one set for lokinet
+  config.blockchain.zmq_port = undefined
+  /*
+  if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
+    config.blockchain.zmq_port = 38158
+  } else
+  if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
+    config.blockchain.zmq_port = 38155
+  } else {
+    config.blockchain.zmq_port = 22024
+  }
+  */
+}
 if (config.blockchain.rpc_port == '0') {
   if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
     config.blockchain.rpc_port = 38157
   } else
   if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
-    config.blockchain.rpc_port = 28082
+    config.blockchain.rpc_port = 38154
   } else {
     // main
-    config.blockchain.rpc_port = 18082
+    config.blockchain.rpc_port = 22023
   }
+}
+if (config.blockchain.p2p_port == '0') {
+  // only really need this one set for lokinet
+  config.blockchain.p2p_port = undefined
+  /*
+  if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
+    config.blockchain.p2p_port = 38156
+  } else
+  if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
+    config.blockchain.p2p_port = 38153
+  } else {
+    config.blockchain.p2p_port = 22022
+  }
+  */
 }
 
 // upload lokid to lokinet
@@ -56,6 +90,7 @@ if (os.platform() == 'darwin') {
   process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
 }
 
+// run all sanity checks before we may need to detach
 if (!fs.existsSync(config.blockchain.binary_path)) {
   console.error('lokid is not at configured location', config.blockchain.binary_path)
   process.exit()
@@ -68,8 +103,6 @@ if (!fs.existsSync(config.storage.binary_path)) {
   console.error('storageServer is not at configured location', config.storage.binary_path)
   process.exit()
 }
-
-var shuttingDown = false
 
 //console.log('userInfo', os.userInfo('utf8'))
 //console.log('started as', process.getuid(), process.geteuid())
@@ -103,6 +136,7 @@ if (!config.launcher.interactive) {
   }
 }
 
+var shuttingDown = false
 
 var storageServer
 function launcherStorageServer(config, cb) {
@@ -147,7 +181,12 @@ function launcherStorageServer(config, cb) {
     console.log(`storageServer process exited with code ${code}`)
     if (code == 1) {
       console.log('storageServer bind port could be in use')
+      // we could want to issue one kill just to make sure
+      // however since we don't know the pid, we won't know if it's ours
+      // or meant be running by another copy of the launcher
+      // at least any launcher copies will be restarted
     }
+    // code null means clean shutdown
     if (!shuttingDown) {
       console.log('loki_daemon is still running, restarting storageServer')
       launcherStorageServer(config)
@@ -183,15 +222,8 @@ function shutdown_everything() {
     process.kill(storageServer.pid, 'SIGINT')
     storageServer = null
   }
-  if (lokinet.isRunning()) {
-    // stop already outputs this
-    //console.log('requesting lokinet be shutdown')
-    lokinet.stop()
-  } else {
-    //console.log('lokinet is not running, trying to exit')
-    // lokinet could be waiting to start up
-    //process.exit()
-  }
+  // even if not running, yet, stop any attempts at starting it too
+  lokinet.stop()
   if (loki_daemon && !loki_daemon.killed) {
     console.log('requesting lokid be shutdown')
     process.kill(loki_daemon.pid, 'SIGINT')
@@ -213,8 +245,21 @@ if (1) {
     lokid_options.push('--stagenet')
   }
   if (!config.launcher.interactive) {
+    // we handle the detach, we don't need to detach lokid from us
     lokid_options.push('--non-interactive')
     lokinet.disableLogging()
+  }
+  if (config.blockchain.zmq_port) {
+    lokid_options.push('--zmq-rpc-bind-port='+config.blockchain.zmq_port)
+  }
+  if (config.blockchain.rpc_port) {
+    lokid_options.push('--rpc-bind-port='+config.blockchain.rpc_port)
+  }
+  if (config.blockchain.p2p_port) {
+    lokid_options.push('--p2p-bind-port='+config.blockchain.p2p_port)
+  }
+  if (config.blockchain.data_dir) {
+    lokid_options.push('--data-dir='+config.blockchain.data_dir)
   }
   // copy CLI options to lokid
   for(var i in args) {
@@ -234,6 +279,7 @@ if (1) {
 
   loki_daemon.on('close', (code) => {
     console.log(`loki_daemon process exited with code ${code}`)
+    // code 0 means clean shutdown
     if (!shuttingDown) {
       loki_daemon = null
       shutdown_everything()
