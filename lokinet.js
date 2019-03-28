@@ -9,7 +9,7 @@ const http      = require('http')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.1
+const VERSION = 0.2
 console.log('lokinet launcher version', VERSION, 'registered')
 
 function log() {
@@ -312,6 +312,7 @@ function makeMultiplatformPath(path) {
 }
 
 var cleanUpBootstrap = false
+var cleanUpIni       = false
 function generateINI(config, markDone, cb) {
   const homeDir = os.homedir()
   //console.log('homeDir', homeDir)
@@ -347,14 +348,15 @@ function generateINI(config, markDone, cb) {
         const tmpRcPath = os.tmpdir() + '/' + randomString(8) + '.lokinet_signed'
         fs.writeFileSync(tmpRcPath, bootstrapData, 'binary')
         log('boostrap wrote', bootstrapData.length, 'bytes to', tmpRcPath)
-        lokinet_bootstrap_path = tmpRcPath
+        //lokinet_bootstrap_path = tmpRcPath
         params.lokinet_bootstrap_path = tmpRcPath
+        config.bootstrap_path = tmpRcPath
       }
       markDone('bootstrap', params)
     })
   } else {
     // seed version
-    params.lokinet_bootstrap_path = ''
+    //params.lokinet_bootstrap_path = ''
     markDone('bootstrap', params)
   }
   readResolv(function(servers) {
@@ -373,11 +375,18 @@ function generateINI(config, markDone, cb) {
     }
     markDone('rpcCheck', params)
   })
+  var skipDNS = false
+  if (config.dns_ip || config.dns_port) {
+    skipDNS = true
+    markDone('dnsBind', params)
+  }
   getNetworkIP(function(e, ip) {
     log('detected outgoing interface ip', ip)
     lokinet_nic = getIfNameFromIP(ip)
     params.lokinet_nic = lokinet_nic
     log('detected outgoing interface', lokinet_nic)
+    markDone('netIf', params)
+    if (skipDNS) return
     var tryIps = ['127.0.0.1']
     if (os.platform() == 'linux') {
       tryIps.push('127.3.2.1')
@@ -396,6 +405,44 @@ function generateINI(config, markDone, cb) {
   })
 }
 
+// unified post auto-config adjustments
+function applyConfig(file_config, config_obj) {
+  // bootstrap section
+  // router mode: bootstrap is optional (might be a seed if not)
+  // client mode: bootstrap is required, can't have a seed client
+  if (file_config.bootstrap_path) {
+    config_obj.bootstrap = {
+      'add-node': config.bootstrap_path
+    }
+  }
+  // router section
+  if (file_config.nickname) {
+    config_obj.router.nickname = file_config.nickname
+  }
+  // set default netid based on testnet
+  if (file_config.lokid.network.toLowerCase() == "test" || file_config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
+    config_obj.router.netid = 'service'
+    //runningConfig.network['ifaddr'] = '10.254.0.1/24' // hack for Ryan's box
+  }
+  if (file_config.netid) {
+    config_obj.router.netid = file_config.netid
+  }
+  // network section
+  if (file_config.ifname) {
+    config_obj.network.ifname = file_config.ifname
+  }
+  if (file_config.ifaddr) {
+    config_obj.network.ifaddr = file_config.ifaddr
+  }
+  // dns section
+  if (file_config.dns_ip || file_config.dns_port) {
+    var ip = file_config.dns_ip
+    // FIXME: dynamic dns ip
+    if (!ip) ip = '127.0.0.1'
+    config_obj.dns.bind = ip + ':' + file_config.dns_port
+  }
+}
+
 var runningConfig = {}
 function generateSerivceNodeINI(config, cb) {
   const homeDir = os.homedir()
@@ -404,6 +451,7 @@ function generateSerivceNodeINI(config, cb) {
     upstream : false,
     rpcCheck : false,
     dnsBind  : false,
+    netIf    : false,
   }
   function markDone(completeProcess, params) {
     if (shuttingDown) {
@@ -433,7 +481,7 @@ function generateSerivceNodeINI(config, cb) {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
-    log('markDone params', params.toString())
+    log('markDone params', JSON.stringify(params))
     log('Drafting lokinet service node config')
     // FIXME: lock down identity.private for storage server
     runningConfig = {
@@ -464,32 +512,18 @@ function generateSerivceNodeINI(config, cb) {
         'service-node-seed': keyPath
       }
     }
+    runningConfig.bind[params.lokinet_nic] = config.public_port
+    applyConfig(config, runningConfig)
     // optional bootstrap (might be a seed if not)
-    if (config.bootstrap_path) {
-      runningConfig.bootstrap = {
-        'add-node': config.bootstrap_path
-      }
-    } else
-    if (params.lokinet_bootstrap_path) {
-      runningConfig.bootstrap = {
-        'add-node': params.lokinet_bootstrap_path
-      }
-    }
-    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
-      runningConfig.router.netid = 'service'
-      runningConfig.network['ifaddr'] = '10.254.0.1/24' // hack for Ryan's box
-    }
     // doesn't work
     //runningConfig.network['type'] = 'null' // disable exit
     //runningConfig.network['enabled'] = true;
-    runningConfig.bind[params.lokinet_nic] = config.public_port
     cb(ini.jsonToINI(runningConfig))
   }
   generateINI(config, markDone, cb)
 }
 
 function generateClientINI(config, cb) {
-  const homeDir = os.homedir()
   var done = {
     bootstrap: false,
     upstream : false,
@@ -507,47 +541,30 @@ function generateClientINI(config, cb) {
       }
     }
     if (!ready) return
-    var upstreamDNS_servers = params.upstreamDNS_servers
-    var lokinet_free53Ip = params.lokinet_free53Ip
-    var lokinet_nodedb = params.lokinet_nodedb
-    var lokinet_bootstrap_path = params.lokinet_bootstrap_path
-    var lokinet_nic = params.lokinet_nic
-    var use_lokinet_rpc_port = params.use_lokinet_rpc_port
     log('Drafting lokinet client config')
     runningConfig = {
       router: {
         nickname: 'ldl',
       },
       dns: {
-        upstream: upstreamDNS_servers,
-        bind: lokinet_free53Ip + ':53',
+        upstream: params.upstreamDNS_servers,
+        bind: params.lokinet_free53Ip + ':53',
       },
       netdb: {
-        dir: lokinet_nodedb,
+        dir: params.lokinet_nodedb,
       },
       network: {
       },
       api: {
         enabled: true,
-        bind: config.rpc_ip + ':' + use_lokinet_rpc_port
+        bind: config.rpc_ip + ':' + params.use_lokinet_rpc_port
       },
     }
-    // one of these is required, can't have a seed client
-    if (config.bootstrap_path) {
-      runningConfig.bootstrap = {
-        'add-node': config.bootstrap_path
-      }
-    } else
-    if (params.lokinet_bootstrap_path) {
-      runningConfig.bootstrap = {
-        'add-node': params.lokinet_bootstrap_path
-      }
-    } else {
+    applyConfig(config, runningConfig)
+    // a bootstrap is required, can't have a seed client
+    if (!runningConfig.bootstrap) {
       console.error('no bootstrap for client')
       process.exit()
-    }
-    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
-      runningConfig.router.netid = 'service'
     }
     cb(ini.jsonToINI(runningConfig))
   }
@@ -557,7 +574,7 @@ function generateClientINI(config, cb) {
 var shuttingDown
 var lokinet
 var lokinetLogging = true
-function launchLokinet(config, cb) {
+function preLaunchLokinet(config, cb) {
   //console.log('userInfo', os.userInfo('utf8'))
   //console.log('started as', process.getuid(), process.geteuid())
 
@@ -606,55 +623,76 @@ function launchLokinet(config, cb) {
 
   const tmpDir = os.tmpdir()
   const tmpPath = tmpDir + '/' + randomString(8) + '.lokinet_ini'
+  cleanUpIni = true
   config.ini_writer(config, function (iniData) {
     if (shuttingDown) {
       //if (cb) cb()
-      log('not going to start lokinet, shutting down')
+      log('not going to write lokinet config, shutting down')
       return
     }
     log(iniData, 'as', tmpPath)
     fs.writeFileSync(tmpPath, iniData)
-    //'-v',
-    lokinet = spawn(config.binary_path, [ tmpPath])
-
-    if (!lokinet) {
-      console.error('failed to start lokinet, exiting...')
-      process.exit()
-    }
-    lokinet.stdout.on('data', (data) => {
-      if (lokinetLogging) {
-        var parts = data.toString().split(/\n/)
-        parts.pop()
-        data = parts.join('\n')
-        console.log(`lokinet: ${data}`)
-      }
-    })
-
-    lokinet.stderr.on('data', (data) => {
-      console.log(`lokineterr: ${data}`)
-    })
-
-    lokinet.on('close', (code) => {
-      log(`lokinet process exited with code ${code}`)
-      // code 0 means clean shutdown
-      // clean up
-      // if we have a temp bootstrap, clean it
-      if (cleanUpBootstrap && runningConfig.bootstrap['add-node']) {
-        fs.unlinkSync(runningConfig.bootstrap['add-node'])
-      }
-      fs.unlinkSync(tmpPath)
-      if (!shuttingDown) {
-        if (config.restart) {
-          log('loki_daemon is still running, restarting lokinet')
-          launchLokinet(config)
-        } else {
-          // don't restart...
-        }
-      }
-      // else we're shutting down
-    })
-    if (cb) cb()
+    config.ini_file = tmpPath
+    cb()
   })
+}
+
+function launchLokinet(config, cb) {
+  if (shuttingDown) {
+    //if (cb) cb()
+    log('not going to start lokinet, shutting down')
+    return
+  }
+  if (!fs.existsSync(config.ini_file)) {
+    log('lokinet config file', config.ini_file, 'does not exist')
+    process.exit()
+  }
+  // command line options
+  var cli_options = [config.ini_file]
+  if (config.verbose) {
+    cli_options.push('-v')
+  }
+  lokinet = spawn(config.binary_path, cli_options)
+
+  if (!lokinet) {
+    console.error('failed to start lokinet, exiting...')
+    process.exit()
+  }
+  lokinet.stdout.on('data', (data) => {
+    if (lokinetLogging) {
+      var parts = data.toString().split(/\n/)
+      parts.pop()
+      data = parts.join('\n')
+      console.log(`lokinet: ${data}`)
+    }
+  })
+
+  lokinet.stderr.on('data', (data) => {
+    console.log(`lokineterr: ${data}`)
+  })
+
+  lokinet.on('close', (code) => {
+    log(`lokinet process exited with code ${code}`)
+    // code 0 means clean shutdown
+    // clean up
+    // if we have a temp bootstrap, clean it
+    if (cleanUpBootstrap && runningConfig.bootstrap['add-node']) {
+      fs.unlinkSync(runningConfig.bootstrap['add-node'])
+    }
+    if (cleanUpIni) {
+      fs.unlinkSync(config.ini_file)
+    }
+    if (!shuttingDown) {
+      if (config.restart) {
+        log('loki_daemon is still running, restarting lokinet')
+        launchLokinet(config)
+      } else {
+        // don't restart...
+      }
+    }
+    // else we're shutting down
+  })
+  if (cb) cb()
 }
 
 function checkConfig(config) {
@@ -698,19 +736,24 @@ function startServiceNode(config, cb) {
   checkConfig(config)
   config.ini_writer = generateSerivceNodeINI
   config.restart = true
-  // test lokid rpc port first
-  var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
-  log('lokinet waiting for lokid RPC server')
-  // also need to make sure the service key file exists
-  waitForUrl(url, function() {
-    launchLokinet(config, cb)
+  preLaunchLokinet(config, function() {
+    // test lokid rpc port first
+    // also this makes sure the service key file exists
+    var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
+    log('lokinet waiting for lokid RPC server')
+    waitForUrl(url, function() {
+      launchLokinet(config, cb)
+    })
   })
 }
+
 function startClient(config, cb) {
   checkConfig(config)
   if (config.bootstrap_url === undefined ) config.bootstrap_url='https://i2p.rocks/self.signed'
   config.ini_writer = generateClientINI
-  launchLokinet(config, cb)
+  preLaunchLokinet(config, function() {
+    launchLokinet(config, cb)
+  })
 }
 
 // return a truish value if so
