@@ -3,7 +3,7 @@
 
 We're assuming you already have the lokid and lokinet binaries somewhere...
 
-edit index.js check over the config variables at the top
+edit the config `launcher.ini` and check over the settings
 
 `node index.js`
 
@@ -11,7 +11,7 @@ This will provide an interactive console with lokid with lokinet running in the 
 `exit` will quit both.
 
 
-# install nodejs
+# install nodejs 8.x or later
 
 Ubuntu node installation:
 
