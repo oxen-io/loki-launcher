@@ -520,9 +520,22 @@ var shuttingDown
 var lokinet
 var lokinetLogging = true
 function launchLokinet(config, cb) {
-  const tmpDir = os.tmpdir()
-  //console.log('tmpPath', tmpPath)
-  const tmpPath = tmpDir + '/' + randomString(8) + '.lokinet_ini'
+  //console.log('userInfo', os.userInfo('utf8'))
+  //console.log('started as', process.getuid(), process.geteuid())
+
+  // check user permissions
+  if (os.platform() == 'darwin') {
+    if (process.getuid() != 0) {
+      console.error('MacOS requires you start this with sudo')
+      process.exit()
+    }
+  // leave the linux commentary for later
+  /*
+  } else {
+    if (process.getuid() == 0) {
+      console.error('Its not recommended you run this as root')
+    } */
+  }
 
   if (os.platform() == 'linux') {
     // not root-like
@@ -548,10 +561,13 @@ function launchLokinet(config, cb) {
   if (fs.existsSync('profiles.dat')) {
     var stats = fs.statSync('profiles.dat')
     if (!stats.size) {
+      log('cleaning router profiles')
       fs.unlinkSync('profiles.dat')
     }
   }
 
+  const tmpDir = os.tmpdir()
+  const tmpPath = tmpDir + '/' + randomString(8) + '.lokinet_ini'
   config.ini_writer(config, function (iniData) {
     if (shuttingDown) {
       //if (cb) cb()
@@ -582,6 +598,7 @@ function launchLokinet(config, cb) {
 
     lokinet.on('close', (code) => {
       log(`lokinet process exited with code ${code}`)
+      // code 0 means clean shutdown
       // clean up
       fs.unlinkSync(runningConfig.bootstrap['add-node'])
       fs.unlinkSync(tmpPath)
@@ -608,6 +625,8 @@ function checkConfig(config) {
 
   if (config.binary_path === undefined ) config.binary_path='/usr/local/bin/lokinet'
   if (config.bootstrap_url === undefined ) config.bootstrap_url='https://i2p.rocks/self.signed'
+
+  // maybe if no port we shouldn't configure it
   if (config.rpc_ip === undefined ) config.rpc_ip='127.0.0.1'
   if (config.rpc_port === undefined ) config.rpc_port=0
 }
@@ -659,12 +678,12 @@ function isRunning() {
 }
 
 function stop() {
+  shuttingDown = true
   if (!lokinet) {
     console.warn('lokinet already stopped')
     return
   }
   log('requesting lokinet be shutdown')
-  shuttingDown = true
   if (!lokinet.killed) {
     process.kill(lokinet.pid, 'SIGINT')
   }
@@ -711,18 +730,3 @@ module.exports = {
   enableLogging    : enableLogging,
   disableLogging   : disableLogging,
 }
-
-//console.log('userInfo', os.userInfo('utf8'))
-//console.log('started as', process.getuid(), process.geteuid())
-/*
-if (os.platform() == 'darwin') {
-  if (process.getuid() != 0) {
-    console.error('MacOS requires you start this with sudo')
-    process.exit()
-  }
-} else {
-  if (process.getuid() == 0) {
-    console.error('Its not recommended you run this as root')
-  }
-}
-*/
