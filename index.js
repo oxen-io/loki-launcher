@@ -181,6 +181,11 @@ function launcherStorageServer(config, cb) {
     console.log('not going to start storageServer, shutting down')
     return
   }
+  // set storage port default
+  if (!config.storage.port) {
+    config.storage.port = 8080
+  }
+  // configure command line parameters
   let optionals = []
   if (config.log_level) {
     optionals.push('--log-level', config.log_level)
