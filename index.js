@@ -6,7 +6,7 @@ const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 const lokinet   = require('./lokinet')
 
-const VERSION = 0.2
+const VERSION = 0.3
 console.log('loki SN launcher version', VERSION, 'registered')
 
 // preprocess command line arguments
@@ -182,8 +182,8 @@ function launcherStorageServer(config, cb) {
     return
   }
   // set storage port default
-  if (!config.storage.port) {
-    config.storage.port = 8080
+  if (!config.port) {
+    config.port = 8080
   }
   // configure command line parameters
   let optionals = []
