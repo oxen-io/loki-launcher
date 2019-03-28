@@ -4,10 +4,33 @@ const os        = require('os')
 const ini       = require('./ini')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
-const lokinet   = require('./lokinet')
 
-const VERSION = 0.3
+const VERSION = 0.4
+function hereDoc(f) {
+  return f.toString().
+      replace(/^[^\/]+\/\*!?/, '').
+      replace(/\*\/[^\/]+$/, '');
+}
+
+var logo = hereDoc(function() {/*!
+        .o0l.
+       ;kNMNo.
+     ;kNMMXd'
+   ;kNMMXd'                 .ld:             ,ldxkkkdl,.     'dd;     ,odl.  ;dd
+ ;kNMMXo.  'ol.             ,KMx.          :ONXkollokXN0c.   cNMo   .dNNx'   dMW
+dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
+'dXMMNk;  .;ONMMXo'         ,KMx.        :NMx.         oWWl  cNWd;ON0:.      oMW
+  'dXMMNk;.  ;kNMMXd'       ,KMx.        lWWl          :NMd  cNMNNMWd.       dMW
+    'dXMMNk;.  ;kNMMXd'     ,KMx.        :NMx.         oWWl  cNMKolKWO,      dMW
+      .oXMMK;   ,0MMMNd.    ,KMx.        .dNNx'      .dNWx.  cNMo  .dNNd.    dMW
+        .lo'  'dXMMNk;.     ,KMXxdddddl.   :ONNkollokXN0c.   cNMo    ;OWKl.  dMW
+            'dXMMNk;        .lddddddddo.     ,ldxkkkdl,.     'od,     .cdo;  ;dd
+          'dXMMNk;
+         .oNMNk;             L A U N C H E R   v e r s i o n   v version
+          .l0l.
+*/});
 console.log('loki SN launcher version', VERSION, 'registered')
+const lokinet   = require('./lokinet')
 
 // preprocess command line arguments
 var args = process.argv
@@ -32,6 +55,43 @@ requested_config = disk_config
 config = requested_config
 
 console.log('Launcher loaded config:', config)
+/*
+var col1 = []
+var col2 = []
+for(var k in config.blockchain) {
+  col1.push(k)
+  col2.push(config.blockchain[k])
+}
+var col3 = []
+var col4 = []
+for(var k in config.network) {
+  col3.push(k)
+  col4.push(config.network[k])
+}
+var maxRows = Math.max(col1.length, col3.length)
+for(var i = 0; i < maxRows; ++i) {
+  var c1 = '', c2 = '', c3 = '', c4 = ''
+  if (col1[i] !== undefined) c1 = col1[i]
+  if (col2[i] !== undefined) c2 = col2[i]
+  if (col3[i] !== undefined) c3 = col3[i]
+  if (col4[i] !== undefined) c4 = col4[i]
+  var c2chars = 21
+  if (c4.length > c2chars) {
+    var diff = c4.length - 29 + 4 // not sure why we need + 4 here...
+    var remaining = c2chars - c2.length
+    //console.log('diff', diff, 'remaining', remaining)
+    if (remaining > 0) {
+      if (remaining >= diff) {
+        c2chars -= diff
+        //console.log('padding 2 to', c2chars)
+      }
+    }
+  }
+  console.log(c1.padStart(11, ' '), c2.padStart(c2chars, ' '), c3.padStart(11, ' '), c4.padStart(27, ' '))
+}
+console.log('storage config', config.storage)
+*/
+console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
 
 // defaults
 if (config.network.testnet === undefined) {
@@ -147,7 +207,7 @@ fs.writeFileSync('launcher.pid', process.pid)
 
 // see if we need to detach
 if (!config.launcher.interactive) {
-  console.log('fork check', process.env.__daemon)
+  //console.log('fork check', process.env.__daemon)
   if (!process.env.__daemon) {
     // first run
     process.env.__daemon = true
@@ -169,7 +229,8 @@ if (!config.launcher.interactive) {
     child.unref()
     process.exit()
   }
-  console.log('backgrounded')
+  // no one sees these
+  //console.log('backgrounded')
 }
 
 var shuttingDown = false
