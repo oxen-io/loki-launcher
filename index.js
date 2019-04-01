@@ -290,7 +290,7 @@ function launcherStorageServer(config, cb) {
       // at least any launcher copies will be restarted
       //
       // we could exit, or prevent a restart
-      process.exit()
+      shutdown_everything()
     }
     // code null means clean shutdown
     if (!shuttingDown) {
@@ -311,7 +311,7 @@ if (1) {
         launcherStorageServer(config.storage)
       } else {
         console.log('Sorry cant detect our lokinet IP:', ip)
-        process.exit()
+        shutdown_everything()
       }
     })
   })
@@ -340,8 +340,10 @@ function shutdown_everything() {
     process.kill(loki_daemon.pid, 'SIGINT')
     loki_daemon = null
   }
-  // clear our start up lock
-  fs.unlinkSync('launcher.pid')
+  // clear our start up lock (if needed, will crash if not there)
+  if (fs.existsSync('launcher.pid')) {
+    fs.unlinkSync('launcher.pid')
+  }
   // don't think we need, seems to handle itself
   //console.log('should exit?')
   //process.exit()
@@ -414,7 +416,8 @@ if (config.launcher.interactive) {
   stdin.on( 'data', function( key ){
     // ctrl-c ( end of text )
     if ( key === '\u0003' ) {
-      process.exit()
+      shutdown_everything()
+      return
     }
     if (key.match(/^lokinet/i)) {
       var remaining = key.replace(/^lokinet\s*/i, '')
