@@ -92,6 +92,84 @@ function httpGet(url, cb) {
   })
 }
 
+function dynDNSHandler(data, cb) {
+
+}
+
+function getPublicIPv6(cb) {
+//v6.ident.me
+}
+
+var getPublicIPv4_retries = 0
+function getPublicIPv4(cb) {
+  // trust more than one source
+  // randomly find 2 matching sources
+
+  // dns is faster than http
+  // dig +short myip.opendns.com @resolver1.opendns.com
+  // httpGet doesn't support https yet...
+  var publicIpServices = [
+    //{ url: 'https://api.ipify.org' },
+    //{ url: 'https://ipinfo.io/ip' },
+    //{ url: 'https://ipecho.net/plain' },
+    { url: 'http://api.ipify.org' },
+    { url: 'http://ipinfo.io/ip' },
+    { url: 'http://ipecho.net/plain' },
+    { url: 'http://ifconfig.me' },
+    { url: 'http://ipv4.icanhazip.com' },
+    { url: 'http://v4.ident.me' },
+    { url: 'http://checkip.amazonaws.com' },
+    //{ url: 'https://checkip.dyndns.org', handler: dynDNSHandler },
+  ]
+  var service = []
+  service[0] = Math.floor(Math.random() * publicIpServices.length)
+  service[1] = Math.floor(Math.random() * publicIpServices.length)
+  var done = [ false, false ]
+  function markDone(idx, value) {
+    done[idx] = value.trim()
+    let ready = true
+    //log('done', done)
+    for(var i in done) {
+      if (done[i] === false) {
+        ready = false
+        log('getPublicIPv4', i, 'is not ready')
+        break
+      }
+    }
+    if (!ready) return
+    log('getPublicIPv4 look ups are done', done)
+    if (done[0] != done[1]) {
+      // try 2 random services again
+      getPublicIPv4_retries++
+      if (getPublicIPv4_retries > 10) {
+        console.error('NAT detection: Can\'t determine public IP address')
+        process.exit()
+      }
+      getPublicIPv4(cb)
+    } else {
+      // return
+      //log("found public IP", done[0])
+      cb(done[0])
+    }
+  }
+
+  function doCall(number) {
+    httpGet(publicIpServices[service[number]].url, function(ip) {
+      if (ip === false) {
+        service[number] = (Math.random() * publicIpServices.length)
+        // retry
+        console.warn(publicIpServices[service[number]].url, 'failed, retrying')
+        doCall(number)
+        return
+      }
+      console.log(number, publicIpServices[service[number]].url, ip)
+      markDone(number, ip)
+    })
+  }
+  doCall(0)
+  doCall(1)
+}
+
 // used for generating temp filenames
 function randomString(len) {
   var text = ""
@@ -116,7 +194,7 @@ function testDNSForLokinet(server, cb) {
   resolver.setServers([server])
   resolver.resolve('localhost.loki', function(err, records) {
     //if (err) console.error(err)
-    //console.log(server, 'dns test results', records)
+    console.log(server, 'dns test results', records)
     cb(records)
   })
 }
@@ -384,6 +462,7 @@ function generateINI(config, markDone, cb) {
     log('detected outgoing interface ip', ip)
     lokinet_nic = getIfNameFromIP(ip)
     params.lokinet_nic = lokinet_nic
+    params.interfaceIP = ip
     log('detected outgoing interface', lokinet_nic)
     markDone('netIf', params)
     if (skipDNS) return
@@ -402,6 +481,11 @@ function generateINI(config, markDone, cb) {
       log('binding DNS port 53 to', free53Ip)
       markDone('dnsBind', params)
     })
+  })
+  getPublicIPv4(function(ip) {
+    //log('generateINI - ip', ip)
+    params.publicIP = ip
+    markDone('publicIP', params)
   })
 }
 
@@ -452,6 +536,7 @@ function generateSerivceNodeINI(config, cb) {
     rpcCheck : false,
     dnsBind  : false,
     netIf    : false,
+    publicIP : false,
   }
   function markDone(completeProcess, params) {
     if (shuttingDown) {
@@ -482,6 +567,12 @@ function generateSerivceNodeINI(config, cb) {
     }
     keyPath += 'key'
     log('markDone params', JSON.stringify(params))
+    log('PUBLIC', params.publicIP, 'IFACE', params.interfaceIP)
+    var useNAT = false
+    if (params.publicIP != params.interfaceIP) {
+      log('NAT DETECTED MAKE SURE YOU FORWARD UDP PORT', config.public_port)
+      useNAT = true
+    }
     log('Drafting lokinet service node config')
     // FIXME: lock down identity.private for storage server
     runningConfig = {
@@ -512,6 +603,11 @@ function generateSerivceNodeINI(config, cb) {
         'service-node-seed': keyPath
       }
     }
+    if (useNAT) {
+      runningConfig.router['public-ip']   = params.publicIP
+      runningConfig.router['public-port'] = config.public_port
+    }
+    // inject manual NAT config?
     runningConfig.bind[params.lokinet_nic] = config.public_port
     applyConfig(config, runningConfig)
     // optional bootstrap (might be a seed if not)
@@ -787,7 +883,7 @@ function getLokiNetIP(cb) {
   log('wait for lokinet startup')
   var url = 'http://'+runningConfig.api.bind+'/'
   waitForUrl(url, function() {
-    log('lokinet seems to be running')
+    log('lokinet seems to be running, querying', runningConfig.dns.bind)
     // where's our DNS server?
     log('RunningConfig says our lokinet\'s DNS is on', runningConfig.dns.bind)
     testDNSForLokinet(runningConfig.dns.bind, function(ips) {
@@ -795,11 +891,15 @@ function getLokiNetIP(cb) {
       if (ips && ips.length) {
         cb(ips[0])
       } else {
-        console.error('cant communicate with lokinet DNS, retrying')
+        // , retrying
+        console.error('cant communicate with lokinet DNS')
+        /*
         //process.exit()
         setTimeout(function() {
           getLokiNetIP(cb)
         }, 1000)
+        */
+        cb()
       }
     })
   })
