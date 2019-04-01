@@ -305,9 +305,14 @@ if (1) {
   lokinet.startServiceNode(config.network, function() {
     //console.log('trying to get IP information about lokinet')
     lokinet.getLokiNetIP(function(ip) {
-      console.log('starting storageServer on', ip)
-      config.storage.ip = ip
-      launcherStorageServer(config.storage)
+      if (ip) {
+        console.log('starting storageServer on', ip)
+        config.storage.ip = ip
+        launcherStorageServer(config.storage)
+      } else {
+        console.log('Sorry cant detect our lokinet IP:', ip)
+        process.exit()
+      }
     })
   })
 }
