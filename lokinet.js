@@ -9,7 +9,7 @@ const http      = require('http')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.2
+const VERSION = 0.3
 console.log('lokinet launcher version', VERSION, 'registered')
 
 function log() {
@@ -528,6 +528,7 @@ function applyConfig(file_config, config_obj) {
 }
 
 var runningConfig = {}
+var genSnCallbackFired
 function generateSerivceNodeINI(config, cb) {
   const homeDir = os.homedir()
   var done = {
@@ -538,6 +539,10 @@ function generateSerivceNodeINI(config, cb) {
     netIf    : false,
     publicIP : false,
   }
+  if (config.publicIP) {
+    done.publicIP = undefined
+  }
+  genSnCallbackFired = false
   function markDone(completeProcess, params) {
     if (shuttingDown) {
       //if (cb) cb()
@@ -554,6 +559,9 @@ function generateSerivceNodeINI(config, cb) {
       }
     }
     if (!ready) return
+    // we may have un-required proceses call markDone after we started
+    if (genSnCallbackFired) return
+    genSnCallbackFired = true
     var keyPath = homeDir + '/.loki/'
     if (config.lokid.data_dir) {
       keyPath = config.lokid.data_dir
@@ -570,7 +578,7 @@ function generateSerivceNodeINI(config, cb) {
     log('PUBLIC', params.publicIP, 'IFACE', params.interfaceIP)
     var useNAT = false
     if (params.publicIP != params.interfaceIP) {
-      log('NAT DETECTED MAKE SURE YOU FORWARD UDP PORT', config.public_port)
+      log('NAT DETECTED MAKE SURE YOU FORWARD UDP PORT', config.public_port, 'on', params.publicIP, 'to', params.interfaceIP)
       useNAT = true
     }
     log('Drafting lokinet service node config')
@@ -608,7 +616,14 @@ function generateSerivceNodeINI(config, cb) {
       runningConfig.router['public-port'] = config.public_port
     }
     // inject manual NAT config?
+    if (config.public_ip) {
+      runningConfig.router['public-ip']   = config.public_ip
+      runningConfig.router['public-port'] = config.public_port
+    }
     runningConfig.bind[params.lokinet_nic] = config.public_port
+    if (config.internal_port) {
+      runningConfig.bind[params.lokinet_nic] = config.internal_port
+    }
     applyConfig(config, runningConfig)
     // optional bootstrap (might be a seed if not)
     // doesn't work
@@ -619,6 +634,7 @@ function generateSerivceNodeINI(config, cb) {
   generateINI(config, markDone, cb)
 }
 
+var genClientCallbackFired
 function generateClientINI(config, cb) {
   var done = {
     bootstrap: false,
@@ -626,6 +642,7 @@ function generateClientINI(config, cb) {
     rpcCheck : false,
     dnsBind  : false,
   }
+  genClientCallbackFired = false
   function markDone(completeProcess, params) {
     done[completeProcess] = true
     let ready = true
@@ -637,6 +654,9 @@ function generateClientINI(config, cb) {
       }
     }
     if (!ready) return
+    // make sure we didn't already start
+    if (genClientCallbackFired) return
+    genClientCallbackFired = true
     log('Drafting lokinet client config')
     runningConfig = {
       router: {
@@ -772,10 +792,10 @@ function launchLokinet(config, cb) {
     // code 0 means clean shutdown
     // clean up
     // if we have a temp bootstrap, clean it
-    if (cleanUpBootstrap && runningConfig.bootstrap['add-node']) {
+    if (cleanUpBootstrap && runningConfig.bootstrap['add-node'] && fs.existsSync(runningConfig.bootstrap['add-node'])) {
       fs.unlinkSync(runningConfig.bootstrap['add-node'])
     }
-    if (cleanUpIni) {
+    if (cleanUpIni && fs.existsSync(config.ini_file)) {
       fs.unlinkSync(config.ini_file)
     }
     if (!shuttingDown) {
@@ -858,15 +878,36 @@ function isRunning() {
   return lokinet
 }
 
+var retries = 0
 function stop() {
   shuttingDown = true
   if (!lokinet) {
     console.warn('lokinet already stopped')
+    retries++
+    if (retries > 3) {
+      // 3 exits in a row, something isn't dying
+      // just quit out
+      process.exit()
+    }
     return
   }
   log('requesting lokinet be shutdown')
-  if (!lokinet.killed) {
+  if (lokinet && !lokinet.killed) {
+    log('sending SIGINT to lokinet', lokinet.pid)
     process.kill(lokinet.pid, 'SIGINT')
+    /*
+    setTimeout(function() {
+      try {
+        // check to see if still running
+        process.kill(lokinet.pid, 0)
+        log('sending SIGKILL to lokinet')
+        process.kill(lokinet.pid, 'SIGKILL')
+      } catch(e) {
+        console.error('Launcher is still running 15s after we intentionally stopped lokinet?')
+        process.exit()
+      }
+    }, 15 * 1000)
+    */
   }
   lokinet = null
 }
