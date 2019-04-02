@@ -17,10 +17,10 @@ edit the config [launcher.ini](launcher.ini) and check over the settings, [Check
 
 `node index.js`
 
-If interactive is true, then this will provide an interactive console with lokid with lokinet running in the background
+If the `interactive` configuration option is `true`, then this will provide an interactive console with lokid with lokinet and storage server running in the background
 `exit` will quit both.
 
-If interactive is fale, then it will validate the environment, let you know of any problems and potentially start the servers into the background (it will be safe to disconnect from the terminal and they should continue running).
+If the `interactive` configuration option is `false`, then it will validate the environment, let you know of any problems and potentially start the servers into the background (it will be safe to disconnect from the terminal and they should continue running).
 
 # Popular ways to install nodejs
 
