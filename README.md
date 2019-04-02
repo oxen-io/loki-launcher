@@ -1,17 +1,15 @@
 
 # how to run
 
-We're assuming you already have the lokid and lokinet binaries somewhere...
+We're assuming you already have the lokid, lokinet and httpserver (storage server) binaries somewhere...
 
-edit the config [launcher.ini](blob/master/launcher.ini) and check over the settings
+edit the config [launcher.ini](launcher.ini) and check over the settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for options.
 
 `node index.js`
 
-This will provide an interactive console with lokid with lokinet running in the background
+If interactive is true, then this will provide an interactive console with lokid with lokinet running in the background
 `exit` will quit both.
-
-# configuration
-[Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation)
+If interactive is fale, then it will validate the environment, let you know of any problems and potentially start the servers into the background (it will be safe to disconnect from the terminal and they should continue running).
 
 # install nodejs 8.x or later
 
