@@ -290,6 +290,7 @@ function launcherStorageServer(config, cb) {
       // at least any launcher copies will be restarted
       //
       // we could exit, or prevent a restart
+      storageServer = null // it's already dead
       shutdown_everything()
     }
     // code null means clean shutdown
