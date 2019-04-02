@@ -3,7 +3,7 @@
 
 We're assuming you already have the lokid and lokinet binaries somewhere...
 
-edit the config `launcher.ini` and check over the settings
+edit the config [launcher.ini](blob/master/launcher.ini) and check over the settings
 
 `node index.js`
 
