@@ -22,6 +22,8 @@ If the `interactive` configuration option is `true`, then this will provide an i
 
 If the `interactive` configuration option is `false`, then it will validate the environment, let you know of any problems and potentially start the servers into the background (it will be safe to disconnect from the terminal and they should continue running).
 
+You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to index.js
+
 # Popular ways to install nodejs
 
 Ubuntu node installation:
