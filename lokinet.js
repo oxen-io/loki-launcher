@@ -544,11 +544,6 @@ function generateSerivceNodeINI(config, cb) {
   }
   genSnCallbackFired = false
   function markDone(completeProcess, params) {
-    if (shuttingDown) {
-      //if (cb) cb()
-      log('not going to start lokinet, shutting down')
-      return
-    }
     done[completeProcess] = true
     let ready = true
     for(var i in done) {
@@ -557,6 +552,11 @@ function generateSerivceNodeINI(config, cb) {
         log(i, 'is not ready')
         break
       }
+    }
+    if (shuttingDown) {
+      //if (cb) cb()
+      log('not going to start lokinet, shutting down')
+      return
     }
     if (!ready) return
     // we may have un-required proceses call markDone after we started
