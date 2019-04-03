@@ -36,15 +36,19 @@ const lokinet   = require('./lokinet')
 // preprocess command line arguments
 var args = process.argv
 function stripArg(match) {
+  var found = false
   for(var i in args) {
     var arg = args[i]
     if (arg.match(match)) {
       args.splice(i, 1)
+      found = true
     }
   }
+  return found
 }
 stripArg('node')
 stripArg('index')
+var startOnly = stripArg('--start-only')
 console.log('Launcher arguments:', args)
 
 // load config from disk
@@ -154,7 +158,9 @@ if (os.platform() == 'darwin') {
   process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
 }
 
+//
 // run all sanity checks before we may need to detach
+//
 if (!fs.existsSync(config.blockchain.binary_path)) {
   console.error('lokid is not at configured location', config.blockchain.binary_path)
   process.exit()
@@ -187,7 +193,9 @@ if (os.platform() == 'darwin') {
   }
 }
 
+//
 // are we already running
+//
 var alreadyRunning = false
 if (fs.existsSync('launcher.pid')) {
   // we are already running
@@ -204,7 +212,13 @@ if (!alreadyRunning) {
   const daemon = require('./daemon')
   // to debug
   // sudo __daemon=1 node index.js
-  daemon(args, __filename, lokinet)
+  daemon(args, __filename, lokinet, config)
+  return
+}
+
+if (startOnly) {
+  console.log('We were only supposed to start it')
+  stdin.pause()
   return
 }
 
@@ -253,6 +267,9 @@ client.on('end', () => {
   console.log('disconnected from server')
   process.exit()
 })
+
+
+// hijack stdin
 stdin.resume()
 // i don't want binary, do you?
 stdin.setEncoding( 'utf8' )
@@ -263,7 +280,7 @@ stdin.on('data', function(str) {
   // confirm on exit?
   lastcommand = str
   if (lastcommand.trim() == "exit") {
-    console.log("SHUTTING DOWN SERVICE NODE and this client")
+    console.log("SHUTTING DOWN SERVICE NODE and this client, will end when SN is shutdown")
     // FIXME: prompt
   }
   client.write(str, 'utf8')
