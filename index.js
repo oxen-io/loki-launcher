@@ -1,11 +1,12 @@
 // no npm!
 const fs        = require('fs')
 const os        = require('os')
+const net       = require('net')
 const ini       = require('./ini')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
-const VERSION = 0.4
+const VERSION = 0.5
 function hereDoc(f) {
   return f.toString().
       replace(/^[^\/]+\/\*!?/, '').
@@ -187,278 +188,83 @@ if (os.platform() == 'darwin') {
 }
 
 // are we already running
+var alreadyRunning = false
 if (fs.existsSync('launcher.pid')) {
   // we are already running
   var pid = fs.readFileSync('launcher.pid', 'utf8')
-  var alreadyRunning = true
   try {
     process.kill(pid, 0)
+    alreadyRunning = true
   } catch(e) {
-    alreadyRunning = false
-    console.log('cleaning up stale launcher.pid')
-  }
-  if (alreadyRunning) {
-    console.log('already running at', pid)
-    // FIXME: communicate instead of exiting
-    process.exit()
+    console.log('stale launcher.pid, overwriting')
   }
 }
-fs.writeFileSync('launcher.pid', process.pid)
 
-// see if we need to detach
-if (!config.launcher.interactive) {
-  //console.log('fork check', process.env.__daemon)
-  if (!process.env.__daemon) {
-    // first run
-    process.env.__daemon = true
-    // spawn as child
-    var cp_opt = {
-      stdio: 'ignore',
-      env: process.env,
-      cwd: process.cwd(),
-      detached: true
-    }
-    console.log('launching', process.execPath, __filename, args)
-    var child = spawn(process.execPath, [__filename].concat(args), cp_opt)
-    //console.log('child', child)
-    if (!child) {
-      console.error('Could not spawn detached process')
-      process.exit()
-    }
-    // required so we can exit
-    child.unref()
-    process.exit()
-  }
-  // no one sees these
-  //console.log('backgrounded')
+if (!alreadyRunning) {
+  const daemon = require('./daemon')
+  // to debug
+  // sudo __daemon=1 node index.js
+  daemon(args, __filename, lokinet)
+  return
 }
 
-var shuttingDown = false
-
-var storageServer
-function launcherStorageServer(config, cb) {
-  if (shuttingDown) {
-    //if (cb) cb()
-    console.log('not going to start storageServer, shutting down')
-    return
-  }
-  // set storage port default
-  if (!config.port) {
-    config.port = 8080
-  }
-  // configure command line parameters
-  let optionals = []
-  if (config.log_level) {
-    optionals.push('--log-level', config.log_level)
-  }
-  if (config.lokinet_identity) {
-    optionals.push('--lokinet-identity', config.identity_path)
-  }
-  // FIXME: make launcher handle all logging
-  if (config.output_log) {
-    optionals.push('--output-log', config.output_log)
-  }
-  if (config.db_location) {
-    optionals.push('--db-location', config.db_location)
-  }
-  storageServer = spawn(config.binary_path, [config.ip, config.port, ...optionals])
-
-  //console.log('storageServer', storageServer)
-  if (!storageServer.stdout) {
-    console.error('storageServer failed?')
-    return
-  }
-
-  storageServer.stdout.on('data', (data) => {
-    var parts = data.toString().split(/\n/)
-    parts.pop()
-    data = parts.join('\n')
-    console.log(`storageServer: ${data}`)
-  })
-
-  storageServer.stderr.on('data', (data) => {
-    console.log(`storageServerErr: ${data}`)
-  })
-
-  storageServer.on('close', (code) => {
-    console.log(`storageServer process exited with code ${code}`)
-    if (code == 1) {
-      console.log('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
-      // we could want to issue one kill just to make sure
-      // however since we don't know the pid, we won't know if it's ours
-      // or meant be running by another copy of the launcher
-      // at least any launcher copies will be restarted
-      //
-      // we could exit, or prevent a restart
-      storageServer = null // it's already dead
-      shutdown_everything()
-    }
-    // code null means clean shutdown
-    if (!shuttingDown) {
-      console.log('loki_daemon is still running, restarting storageServer')
-      launcherStorageServer(config)
-    }
-  })
-  if (cb) cb()
-}
-
-if (1) {
-  lokinet.startServiceNode(config.network, function() {
-    //console.log('trying to get IP information about lokinet')
-    lokinet.getLokiNetIP(function(ip) {
-      if (ip) {
-        console.log('starting storageServer on', ip)
-        config.storage.ip = ip
-        launcherStorageServer(config.storage)
-      } else {
-        console.log('Sorry cant detect our lokinet IP:', ip)
-        shutdown_everything()
-      }
-    })
-  })
-}
-/*
-try {
-  process.seteuid('rtharp')
-  console.log(`New uid: ${process.geteuid()}`)
-} catch(err) {
-  console.log(`Failed to set uid: ${err}`)
-}
-*/
-
-function shutdown_everything() {
-  shuttingDown = true
-  stdin.pause()
-  if (storageServer && !storageServer.killed) {
-    console.log('requesting storageServer be shutdown')
-    process.kill(storageServer.pid, 'SIGINT')
-    storageServer = null
-  }
-  // even if not running, yet, stop any attempts at starting it too
-  lokinet.stop()
-  if (loki_daemon && !loki_daemon.killed) {
-    console.log('requesting lokid be shutdown')
-    process.kill(loki_daemon.pid, 'SIGINT')
-    loki_daemon = null
-  }
-  // clear our start up lock (if needed, will crash if not there)
-  if (fs.existsSync('launcher.pid')) {
-    fs.unlinkSync('launcher.pid')
-  }
-  // don't think we need, seems to handle itself
-  //console.log('should exit?')
-  //process.exit()
-}
-
-var loki_daemon
-if (1) {
-  var lokid_options = ['--service-node']
-  lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
-  if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
-    lokid_options.push('--testnet')
-  } else
-  if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
-    lokid_options.push('--stagenet')
-  }
-  if (!config.launcher.interactive) {
-    // we handle the detach, we don't need to detach lokid from us
-    lokid_options.push('--non-interactive')
-    lokinet.disableLogging()
-  }
-  if (config.blockchain.zmq_port) {
-    lokid_options.push('--zmq-rpc-bind-port='+config.blockchain.zmq_port)
-  }
-  if (config.blockchain.rpc_port) {
-    lokid_options.push('--rpc-bind-port='+config.blockchain.rpc_port)
-  }
-  if (config.blockchain.p2p_port) {
-    lokid_options.push('--p2p-bind-port='+config.blockchain.p2p_port)
-  }
-  if (config.blockchain.data_dir) {
-    lokid_options.push('--data-dir='+config.blockchain.data_dir)
-  }
-  // copy CLI options to lokid
-  for(var i in args) {
-    lokid_options.push(args[i])
-  }
-  console.log('launching lokid with', lokid_options.join(' '))
-
-  // hijack STDIN but not OUT/ERR
-  loki_daemon = spawn(config.blockchain.binary_path, lokid_options, {
-    stdio: ['pipe', 'inherit', 'inherit'],
-    //shell: true
-  })
-  if (!loki_daemon) {
-    console.error('failed to start lokied, exiting...')
-    shutdown_everything()
-  }
-
-  loki_daemon.on('close', (code) => {
-    console.log(`loki_daemon process exited with code ${code}`)
-    // code 0 means clean shutdown
-    if (!shuttingDown) {
-      loki_daemon = null
-      shutdown_everything()
-    }
-  })
-}
-
-
-// if we're interactive grab the console
-if (config.launcher.interactive) {
-  // resume stdin in the parent process (node app won't quit all by itself
-  // unless an error or process.exit() happens)
-  stdin.resume()
-
-  // i don't want binary, do you?
-  stdin.setEncoding( 'utf8' )
-
-  // on any data into stdin
-  stdin.on( 'data', function( key ){
-    // ctrl-c ( end of text )
-    if ( key === '\u0003' ) {
-      shutdown_everything()
-      return
-    }
-    if (key.match(/^lokinet/i)) {
-      var remaining = key.replace(/^lokinet\s*/i, '')
-      if (remaining.match(/^log/i)) {
-        var param = remaining.replace(/^log\s*/i, '')
-        //console.log('lokinet log', param)
-        if (param.match(/^off/i)) {
-          lokinet.disableLogging()
-        }
-        if (param.match(/^on/i)) {
-          lokinet.enableLogging()
-        }
-      }
-      return
-    }
-    if (!shuttingDown) {
-      // local echo, write the key to stdout all normal like
-      // on ssh we don't need this
-      //process.stdout.write(key)
-
-      // only if lokid is running, send input
-      if (loki_daemon) {
-        loki_daemon.stdin.write(key)
-      }
-    }
-  })
-}
-
-process.on('SIGHUP', () => {
-  console.log('shuttingDown?', shuttingDown)
-  console.log('loki_daemon status', loki_daemon)
-  console.log('lokinet status', lokinet.isRunning())
+console.log('already running at', pid)
+console.log('trying to connect to test.socket')
+const client = net.createConnection({ path: 'test.socket' }, () => {
+  // 'connect' listener
+  console.log('connected to server!');
+  //client.write('world!\r\n');
 })
-// ctrl-c
-process.on('SIGINT', function() {
-  console.log('LAUNCHER daemon got SIGINT (ctrl-c)')
-  shutdown_everything()
+//client.setEncoding('utf-8')
+client.on('error', (err) => {
+  console.error('error', err)
 })
-// -15
-process.on('SIGTERM', function() {
-  console.log('LAUNCHER daemon got SIGTERM (kill -15)')
-  shutdown_everything()
+var lastcommand = ''
+client.on('data', (data) => {
+  //console.log('FROM SOCKETraw:', data.slice(data.length - 4, data.length))
+  //console.log('lastcommand', lastcommand)
+  var stripped = data.toString().replace(lastcommand, '').trim()
+  //var buf = Buffer.from(stripped, 'utf8')
+  //console.log(buf)
+  /*
+  if (stripped.match(/\r\n/)) console.log('has windows newline')
+  else {
+    if (stripped.match(/\n/)) console.log('has newline')
+    if (stripped.match(/\r/)) console.log('has return')
+  }
+  */
+  // remove terminal codes
+  stripped = stripped.replace(
+    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').trim()
+  if (!stripped) return // don't echo empty lines...
+
+  // why does this work?
+  /*
+  if (stripped[stripped.length - 1] == 'm') {
+    console.log('FROm SOCKET:', stripped.substr(0, stripped.length - 1))
+  } else {
+    //console.log('FROM SOCKET:', stripped, 'last', stripped[stripped.length - 1])
+    */
+  console.log('FROM SOCKET:', stripped)
+  //}
+  //client.end()
+})
+client.on('end', () => {
+  console.log('disconnected from server')
+  process.exit()
+})
+stdin.resume()
+// i don't want binary, do you?
+stdin.setEncoding( 'utf8' )
+
+// on any data into stdin
+var state = '', session = {}
+stdin.on('data', function(str) {
+  // confirm on exit?
+  lastcommand = str
+  if (lastcommand.trim() == "exit") {
+    console.log("SHUTTING DOWN SERVICE NODE and this client")
+    // FIXME: prompt
+  }
+  client.write(str, 'utf8')
 })
