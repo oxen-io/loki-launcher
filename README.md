@@ -36,10 +36,10 @@ edit the config [launcher.ini](launcher.ini) and check over the settings, [Check
 
 Running it once should start the suite of services into the background or give you a message why it can't
 
-Running it again when --start-only used, will try to start the suite of services if not already running and does nothing if they are running
+Running it again when `--start-only` used, will try to start the suite of services if not already running and does nothing if they are running
 
-Running it again without --start-only used, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
-`exit` will stop your service node. If you just want to exit the interactive terminal, please use ctrl-c.
+Running it again without `--start-only` used, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
+`exit` will stop your service node. If you just want to exit the interactive terminal, please use `ctrl-c`.
 
 You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to index.js
 
