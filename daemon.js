@@ -6,7 +6,7 @@ const ini       = require('./ini')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
-module.exports = function(args, entryPoint, lokinet) {
+module.exports = function(args, entryPoint, lokinet, config) {
   var server
   var connections = []
   fs.writeFileSync('launcher.pid', process.pid)
