@@ -28,6 +28,8 @@ You can download the loki binaries (faster) from each above page's release secti
 or
 You can build from source, you can use the [init.sh](init.sh) script to pull the latest source.
 
+And if you don't have the dependencies to build from source check out [contrib/dependency_helper/](contrib/dependency_helper/getDepsUnix.sh)
+
 # How to run
 
 edit the config [launcher.ini](launcher.ini) and check over the settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for details on options.
