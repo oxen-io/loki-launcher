@@ -32,12 +32,14 @@ You can build from source, you can use the [init.sh](init.sh) script to pull the
 
 edit the config [launcher.ini](launcher.ini) and check over the settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for details on options.
 
-`node index.js`
+`node index.js [--start-only]`
 
-If the `interactive` configuration option is `true`, then this will provide an interactive console with lokid with lokinet and storage server running in the background
-`exit` will quit both.
+Running it once should start the suite of services into the background or give you a message why it can't
 
-If the `interactive` configuration option is `false`, then it will validate the environment, let you know of any problems and potentially start the servers into the background (it will be safe to disconnect from the terminal and they should continue running).
+Running it again when --start-only used, will try to start the suite of services if not already running and does nothing if they are running
+
+Running it again without --start-only used, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
+`exit` will stop your service node. If you just want to exit the interactive terminal, please use ctrl-c.
 
 You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to index.js
 
