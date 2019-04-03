@@ -43,9 +43,9 @@ Running it again without `--start-only` used, will give you an interactive termi
 
 You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to index.js
 
-# Popular ways to install nodejs
+# Popular linux distribution instrunction to install NodeJS
 
-Ubuntu node installation:
+Ubuntu NodeJS installation:
 
 `curl -sL https://deb.nodesource.com/setup_10.x | sudo bash -`
 
