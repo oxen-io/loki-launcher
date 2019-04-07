@@ -16,10 +16,10 @@ RUN  cd cppzmq-4.3.0 &&  cmake . &&  make -j$physicalCpuCount &&  make install
 # Bundle app source
 COPY . .  
 RUN sh init.sh 
-RUN groupadd -g 999 appuser && \
-    useradd -r -u 999 -g appuser appuser
-RUN chown -R appuser:appuser /usr/src/app
-USER appuser
+#RUN groupadd -g 999 appuser && \
+#    useradd -r -u 999 -g appuser appuser
+#RUN chown -R appuser:appuser /usr/src/app
+#USER appuser
 
 
 
