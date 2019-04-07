@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# this tries to download all project requirements and builds/installs them for you
+
+# get to the root directory of the launcher
+cd ../..
+
 if [ ! -d "depbuild" ]; then
   echo "Creating depbuild dir"
   mkdir depbuild
