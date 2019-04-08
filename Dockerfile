@@ -1,4 +1,4 @@
-FROM debian:stable
+FROM debian:buster
 
 
 ENV USE_SINGLE_BUILDDIR=1
@@ -49,11 +49,12 @@ RUN  tar zxf v4.3.0.tar.gz
 RUN  cd cppzmq-4.3.0 &&  cmake . &&  make -j$physicalCpuCount &&  make install
 
 # Bundle app source
+RUN ls -la /usr/include/boost/
 COPY . .  
 RUN sh init.sh 
 RUN cd src/loki/ && make release-static && cd /usr/src/app
 RUN  cd src/loki-network && make NINJA=ninja JSONRPC=ON && make install NINJA=ninja && cd /usr/src/app
-RUN cd src/loki-storage-server && cmake && cmake --build
+RUN cd src/loki-storage-server && mkdir -p build && cd build &&  cmake ../httpserver -DBOOST_ROOT="/usr/include/boost/" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" && cmake --build . && cd /usr/src/app 
 
 
 #RUN groupadd -g 999 appuser && \
