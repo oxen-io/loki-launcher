@@ -13,3 +13,12 @@ Then for each lokiX edit the last digit following parameters to make the number 
 - network.nickname
 
 also change network.ifaddr changed the 10.142.0.1/24 to 10.14X.0.1/24
+
+personally I like symlinking the binaries into the lokiX with different identifible names, so I can easily tell from ps what command is which copy
+```
+cd lokiX
+ln -s ../bin/lokid lokid-serviceX
+ln -s ../bin/lokinet lokinet-serviceX
+ln -s ../bin/httpserver httpserver-serviceX
+cd ..
+```
