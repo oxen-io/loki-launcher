@@ -51,10 +51,12 @@ RUN  cd cppzmq-4.3.0 &&  cmake . &&  make -j$physicalCpuCount &&  make install
 # Bundle app source
 RUN ls -la /usr/include/boost/
 COPY . .  
-RUN sh init.sh 
+RUN bash init.sh 
+
+RUN cd src/loki-storage-server && sed -i 's/add_definitions(-DBOOST_LOG_DYN_LINK)//g' /usr/src/app/src/loki-storage-server/CmakeLists.txt  && mkdir -p build && cd build &&  cmake ../httpserver -DBOOST_ROOT="/usr/include/boost/" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" && cmake --build . && cd /usr/src/app 
+
 RUN cd src/loki/ && make release-static && cd /usr/src/app
 RUN  cd src/loki-network && make NINJA=ninja JSONRPC=ON && make install NINJA=ninja && cd /usr/src/app
-RUN cd src/loki-storage-server && mkdir -p build && cd build &&  cmake ../httpserver -DBOOST_ROOT="/usr/include/boost/" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" && cmake --build . && cd /usr/src/app 
 
 
 #RUN groupadd -g 999 appuser && \
