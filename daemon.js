@@ -6,7 +6,12 @@ const ini       = require('./ini')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
-module.exports = function(args, entryPoint, lokinet, config) {
+// ugly hack for Ryan's mac box
+if (os.platform() == 'darwin') {
+  process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
+}
+
+module.exports = function(args, entryPoint, lokinet, config, getLokiDataDir) {
   var server
   var connections = []
   fs.writeFileSync('launcher.pid', process.pid)
@@ -180,10 +185,10 @@ module.exports = function(args, entryPoint, lokinet, config) {
   if (1) {
     var lokid_options = ['--service-node']
     lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
-    if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
+    if (config.blockchain.network == "test") {
       lokid_options.push('--testnet')
     } else
-    if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
+    if (config.blockchain.network == "staging") {
       lokid_options.push('--stagenet')
     }
     if (!config.launcher.interactive) {
