@@ -504,7 +504,7 @@ function applyConfig(file_config, config_obj) {
     config_obj.router.nickname = file_config.nickname
   }
   // set default netid based on testnet
-  if (file_config.lokid.network.toLowerCase() == "test" || file_config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
+  if (file_config.lokid.network == "test") {
     config_obj.router.netid = 'service'
     //runningConfig.network['ifaddr'] = '10.254.0.1/24' // hack for Ryan's box
   }
@@ -570,7 +570,8 @@ function generateSerivceNodeINI(config, cb) {
         keyPath += '/'
       }
     }
-    if (config.lokid.network.toLowerCase() == "test" || config.lokid.network.toLowerCase() == "testnet" || config.lokid.network.toLowerCase() == "test-net") {
+    // FIXME: use config.lokid.data_dir
+    if (config.lokid.network == "test") {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
