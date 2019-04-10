@@ -43,7 +43,7 @@ function jsonToINI(json) {
     for(var key in keys) {
       //console.log('key', key, 'value', keys[key])
       // if keys[key] is an array, then we need to send the same key each time
-      if (keys[key].constructor.name == 'Array') {
+      if (keys[key] !== undefined && keys[key].constructor.name == 'Array') {
         for(var i in keys[key]) {
           var v = keys[key][i]
           config += key + '=' + v + "\n"
