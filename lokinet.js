@@ -775,6 +775,7 @@ function launchLokinet(config, cb) {
     console.error('failed to start lokinet, exiting...')
     process.exit()
   }
+  lokinet.killed = false
   lokinet.stdout.on('data', (data) => {
     if (lokinetLogging) {
       var parts = data.toString().split(/\n/)
@@ -791,6 +792,7 @@ function launchLokinet(config, cb) {
   lokinet.on('close', (code) => {
     log(`lokinet process exited with code ${code}`)
     // code 0 means clean shutdown
+    lokinet.killed = true
     // clean up
     // if we have a temp bootstrap, clean it
     if (cleanUpBootstrap && runningConfig.bootstrap['add-node'] && fs.existsSync(runningConfig.bootstrap['add-node'])) {
@@ -801,8 +803,11 @@ function launchLokinet(config, cb) {
     }
     if (!shuttingDown) {
       if (config.restart) {
-        log('loki_daemon is still running, restarting lokinet')
-        launchLokinet(config)
+        // restart it in 30 seconds to avoid pegging the cpu
+        setTimeout(function() {
+          log('loki_daemon is still running, restarting lokinet')
+          launchLokinet(config)
+        }, 30 * 1000)
       } else {
         // don't restart...
       }
@@ -879,10 +884,11 @@ function isRunning() {
   return lokinet
 }
 
+// intent to stop lokinet and don't restart it
 var retries = 0
 function stop() {
   shuttingDown = true
-  if (!lokinet) {
+  if (lokinet && lokinet.killed) {
     console.warn('lokinet already stopped')
     retries++
     if (retries > 3) {
@@ -896,6 +902,7 @@ function stop() {
   if (lokinet && !lokinet.killed) {
     log('sending SIGINT to lokinet', lokinet.pid)
     process.kill(lokinet.pid, 'SIGINT')
+    lokinet.killed = true
     /*
     setTimeout(function() {
       try {
@@ -910,7 +917,11 @@ function stop() {
     }, 15 * 1000)
     */
   }
-  lokinet = null
+}
+
+// isRunning covers this too well
+function getPID() {
+  return (lokinet && !lokinet.killed && lokinet.pid)?lokinet.pid:0
 }
 
 function enableLogging() {
@@ -957,4 +968,5 @@ module.exports = {
   getLokiNetIP     : getLokiNetIP,
   enableLogging    : enableLogging,
   disableLogging   : disableLogging,
+  getPID           : getPID,
 }
