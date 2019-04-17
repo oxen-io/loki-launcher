@@ -12,6 +12,19 @@ if (os.platform() == 'darwin') {
   process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
 }
 
+var connections = []
+function disconnectAllClients() {
+  console.log('disconnecting all', connections.length, 'clients')
+  for(var i in connections) {
+    var conn = connections[i]
+    if (!conn.destroyed) {
+      //console.log('disconnecting client #'+i)
+      conn.destroy()
+    }
+  }
+  connections = [] // clear them
+}
+
 var shuttingDown = false
 function shutdown_everything() {
   shuttingDown = true
@@ -85,13 +98,7 @@ function shutdown_everything() {
 
   if (server) {
     console.log('closing socket server')
-    for(var i in connections) {
-      var conn = connections[i]
-      if (!conn.destroyed) {
-        console.log('disconnecting client', i)
-        conn.destroy()
-      }
-    }
+    disconnectAllClients()
     server.close()
     server.unref()
   }
@@ -278,7 +285,6 @@ function configureLokid(config, args) {
 
 var loki_daemon
 var server
-var connections = []
 function launchLokid(binary_path, lokid_options, interactive, config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
@@ -324,16 +330,40 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   loki_daemon.on('close', (code) => {
     console.log(`loki_daemon process exited with code ${code}`)
     // code 0 means clean shutdown
-    loki_daemon.killed = true
-    // clean up temporaries
-    killOutputFlushTimer()
+    if (code === 0) {
+      // likely to mean it was requested
+      if (config.blockchain.restart) {
+        // we're just going to restart
+        if (server) {
+          // broadcast
+          for(var i in connections) {
+            var conn = connections[i]
+            conn.write("Lokid has been exited but configured to restart. Disconnecting client and we'll be back shortly\n")
+          }
+        }
+        // but lets disconnect any clients
+        disconnectAllClients()
+      }
+    }
+
+    // if we have a handle on who we were...
+    if (loki_daemon) {
+      loki_daemon.killed = true
+      // clean up temporaries
+      //killOutputFlushTimer()
+      if (loki_daemon.outputFlushTimer) {
+        clearTimeout(loki_daemon.outputFlushTimer)
+        loki_daemon.outputFlushTimer = undefined
+      }
+    }
     if (!shuttingDown) {
       // if we need to restart
       if (config.blockchain.restart) {
+        console.log('lokid is configured to be restarted. Will do so in 30s')
         // restart it in 30 seconds to avoid pegging the cpu
         setTimeout(function() {
           console.log('restarting lokid')
-          loki_daemon = launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
+          launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
         }, 30 * 1000)
       } else {
         shutdown_everything()
@@ -341,28 +371,18 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     }
   })
 
-  function killOutputFlushTimer() {
-    if (loki_daemon && loki_daemon.outputFlushTimer) {
-      clearInterval(loki_daemon.outputFlushTimer)
-      loki_daemon.outputFlushTimer = null
-    } else {
-      console.log('no handle to kill outputFlushTimer')
-    }
-  }
 
-  loki_daemon.outputFlushTimer = setInterval(function() {
-    // just spam enter to get status
-    // FIXME turn off when in prepare status...
+  function flushOutput() {
     if (!loki_daemon) {
-      console.log('no handle to self')
+      console.log('flushOutput lost handle, stopping flushing')
       return
     }
-    if (loki_daemon.killed) {
-      killOutputFlushTimer()
-      return
-    }
+    // FIXME turn off when in prepare status...
     loki_daemon.stdin.write("\n")
-  }, 1000)
+    // schedule next flush
+    loki_daemon.outputFlushTimer = setTimeout(flushOutput, 1000)
+  }
+  loki_daemon.outputFlushTimer = setTimeout(flushOutput, 1000)
 
   if (cb) cb()
 }
@@ -434,8 +454,8 @@ function startLokid(config, args) {
         var parts = data.toString().split(/\n/)
         parts.pop()
         stripped = parts.join('\n')
-        console.log('socket got', stripped)
-        if (loki_daemon) {
+        //console.log('socket got', stripped)
+        if (loki_daemon && !loki_daemon.killed) {
           console.log('sending to lokid')
           loki_daemon.stdin.write(data + "\n")
         }
