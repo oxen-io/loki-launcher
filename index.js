@@ -3,35 +3,15 @@ const fs        = require('fs')
 const os        = require('os')
 const net       = require('net')
 const ini       = require('./ini')
+const lib       = require('./lib')
 const { spawn } = require('child_process')
-const stdin     = process.openStdin()
+//const stdin     = process.openStdin()
 
-const VERSION = 0.5
-function hereDoc(f) {
-  return f.toString().
-      replace(/^[^\/]+\/\*!?/, '').
-      replace(/\*\/[^\/]+$/, '')
-}
+const VERSION = 0.6
 
-var logo = hereDoc(function() {/*!
-        .o0l.
-       ;kNMNo.
-     ;kNMMXd'
-   ;kNMMXd'                 .ld:             ,ldxkkkdl,.     'dd;     ,odl.  ;dd
- ;kNMMXo.  'ol.             ,KMx.          :ONXkollokXN0c.   cNMo   .dNNx'   dMW
-dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
-'dXMMNk;  .;ONMMXo'         ,KMx.        :NMx.         oWWl  cNWd;ON0:.      oMW
-  'dXMMNk;.  ;kNMMXd'       ,KMx.        lWWl          :NMd  cNMNNMWd.       dMW
-    'dXMMNk;.  ;kNMMXd'     ,KMx.        :NMx.         oWWl  cNMKolKWO,      dMW
-      .oXMMK;   ,0MMMNd.    ,KMx.        .dNNx'      .dNWx.  cNMo  .dNNd.    dMW
-        .lo'  'dXMMNk;.     ,KMXxdddddl.   :ONNkollokXN0c.   cNMo    ;OWKl.  dMW
-            'dXMMNk;        .lddddddddo.     ,ldxkkkdl,.     'od,     .cdo;  ;dd
-          'dXMMNk;
-         .oNMNk;             L A U N C H E R   v e r s i o n   v version
-          .l0l.
-*/});
+var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log('loki SN launcher version', VERSION, 'registered')
-const lokinet   = require('./lokinet')
+const lokinet   = require('./lokinet') // needed for checkConfig
 
 // preprocess command line arguments
 var args = process.argv
@@ -48,8 +28,6 @@ function stripArg(match) {
 }
 stripArg('node')
 stripArg('index')
-var startOnly = stripArg('--start-only')
-var connectOnly = stripArg('--connect-only')
 //console.log('Launcher arguments:', args)
 
 function parseXmrOptions() {
@@ -117,6 +95,12 @@ if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.netwo
 } else
 if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
   config.blockchain.network = 'staging'
+}
+if (config.launcher === undefined) {
+  // set launcher defaults
+  config.launcher = {
+    interface: false,
+  }
 }
 
 // autoconfig
@@ -201,6 +185,7 @@ setupInitialBlockchainOptions()
 
 // FIXME: convert getLokiDataDir to internal config value
 // something like estimated/calculated loki_data_dir
+// also this will change behavior if we actually set the CLI option to lokid
 if (!config.blockchain.data_dir) {
   console.log('using default data_dir, network', config.blockchain.network)
   config.blockchain.data_dir = '~/.loki'
@@ -330,10 +315,10 @@ config.network.lokid = config.blockchain
 console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
 
 
+//
+// run all sanity checks
+//
 
-//
-// run all sanity checks before we may need to detach
-//
 if (!fs.existsSync(config.blockchain.binary_path)) {
   console.error('lokid is not at configured location', config.blockchain.binary_path)
   process.exit()
@@ -367,112 +352,179 @@ if (os.platform() == 'darwin') {
 }
 
 //
-// are we already running
+// get processes state
 //
+
+// are we already running
 var alreadyRunning = false
+var pid = 0
 if (fs.existsSync('launcher.pid')) {
   // we are already running
-  var pid = fs.readFileSync('launcher.pid', 'utf8')
-  try {
-    process.kill(pid, 0)
+  pid = fs.readFileSync('launcher.pid', 'utf8')
+  if (pid && lib.isPidRunning(pid)) {
     alreadyRunning = true
-  } catch(e) {
+    console.log('loki launcher already active under', pid)
+    process.exit()
+  } else {
     console.log('stale launcher.pid, overwriting')
     pid = 0
   }
 }
 
-// what happens if we get different options than what we had before
-// maybe prompt to confirm restart
-// if already running just connect for now
+var pids = {}
+function getProcessState() {
+  pids = lib.getPids()
 
-if (!connectOnly) {
-  if (!alreadyRunning) {
-    const daemon = require('./daemon')
-    // to debug
-    // sudo __daemon=1 node index.js
-    daemon(args, __filename, lokinet, config, getLokiDataDir)
-    return
+  // what happens if we get different options than what we had before
+  // maybe prompt to confirm restart
+  // if already running just connect for now
+
+  var running = {}
+  if (pids.lokid && lib.isPidRunning(pids.lokid)) {
+    console.log("old lokid is still running", pids.lokid)
+    running.lokid = pids.lokid
   }
-} else {
-  if (!alreadyRunning) {
-    console.log("lokid isn't running, we were only supposed to connect")
-    stdin.pause()
-    return
+  if (pids.lokinet && lib.isPidRunning(pids.lokinet)) {
+    console.log("old lokinet is still running", pids.lokinet)
+    running.lokinet = pids.lokinet
+  }
+  if (pids.storageServer && lib.isPidRunning(pids.storageServer)) {
+    console.log("old storage server is still running", pids.storageServer)
+    running.storageServer = pids.storageServer
+  }
+  return running
+}
+var running = getProcessState()
+
+function isNothingRunning(running) {
+  return !(running.lokid || running.lokinet || running.storageServer)
+}
+
+// progress to 2nd phase where we might need to start something
+const daemon = require('./daemon')
+
+function startEverything(config, args) {
+  // to debug
+  // sudo __daemon=1 node index.js
+  //daemon(args, __filename, lokinet, config, getLokiDataDir)
+  daemon.startLauncherDaemon(config.launcher.interactive, __filename, args, function() {
+    daemon.startLokinet(config, function(started) {
+      if (!started) {
+        daemon.shutdown_everything()
+      }
+    })
+    daemon.startLokid(config, args)
+  })
+}
+
+//
+// normalize state
+//
+
+// kill what needs to be killed
+
+// storage needs it's lokinet, kill any strays
+if (!running.lokinet && running.storageServer) {
+  console.log('we have storage server with no lokinet, killing it', pids.storageServer)
+  process.kill(pids.storageServer, 'SIGINT')
+  running.storageServer = 0
+}
+
+function killStorageServer(running, pids) {
+  if (running.storageServer) {
+    console.log('killing storage on', pids.storageServer)
+    process.kill(pids.storageServer, 'SIGINT')
+    running.storageServer = 0
   }
 }
 
-if (startOnly) {
-  console.log('We were only supposed to start it')
-  stdin.pause()
+function killLokinetAndStorageServer(running, pids) {
+  killStorageServer(running, pids)
+  // FIXME: only need to restart if the key changed
+  if (running.lokinet) {
+    console.log('killing lokinet on', pids.lokinet)
+    process.kill(pids.lokinet, 'SIGINT')
+    running.lokinet = 0
+  }
+}
+
+if (!running.lokid) {
+  // no lokid, kill remaining
+  console.log('lokid is down, kill idlers')
+  killLokinetAndStorageServer(running, pids)
+}
+
+if (isNothingRunning(running)) {
+  console.log("Starting fresh copy of Loki Suite")
+  startEverything(config, args)
   return
 }
 
-if (pid) {
-  console.log('already running at', pid)
-} else {
-  // we just started it up...
-  // FIXME: probably should wait for socket to be created
+//
+// go into recovery mode
+//
+
+// ignore any configuration of current
+config = pids.config
+args = pids.args
+
+// adopt responsibility of watching the existing suite
+function launcherRecoveryMonitor() {
+  if (!lib.isPidRunning(pids.lokid)) {
+    console.log('lokid just died', pids.lokid)
+    // no launcher, so we may need to do someclean up
+    // lokid needs no clean up
+    // kill storageServer and lokinet?
+    // FIXME: only need to if key changes...
+    //
+    // if existed previous / if we started them
+    // we can't make a pids into the started style
+    // so we'll have to just update from disk
+    running = getProcessState()   // update locations of lokinet/storageServer
+    killLokinetAndStorageServer(running, pids) // kill them
+    // and restart it all?
+    if (config.blockchain.restart) {
+      startEverything(config, args)
+    }
+  } else
+  if (!lib.isPidRunning(pids.lokinet)) {
+    // kill storage server
+    killStorageServer(running, pids)
+    // well assuming old lokid is still running
+    daemon.startLokinet(config, shutdownIfNotStarted)
+  } else
+  if (!lib.isPidRunning(pids.storageServer)) {
+    daemon.startStorageServer(config, args, shutdownIfNotStarted)
+  }
+  setTimeout(launcherRecoveryMonitor, 15 * 1000)
 }
-console.log('trying to connect to test.socket')
-const client = net.createConnection({ path: 'test.socket' }, () => {
-  // 'connect' listener
-  console.log('connected to server!')
-  //client.write('world!\r\n')
-})
-//client.setEncoding('utf-8')
-client.on('error', (err) => {
-  console.error('error', err)
-})
-var lastcommand = ''
-client.on('data', (data) => {
-  //console.log('FROM SOCKETraw:', data.slice(data.length - 4, data.length))
-  //console.log('lastcommand', lastcommand)
-  var stripped = data.toString().replace(lastcommand, '').trim()
-  //var buf = Buffer.from(stripped, 'utf8')
-  //console.log(buf)
-  /*
-  if (stripped.match(/\r\n/)) console.log('has windows newline')
-  else {
-    if (stripped.match(/\n/)) console.log('has newline')
-    if (stripped.match(/\r/)) console.log('has return')
+
+function shutdownIfNotStarted(started) {
+  if (!started) {
+    daemon.shutdown_everything()
   }
-  */
-  // remove terminal codes
-  stripped = stripped.replace(
-    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').trim()
-  if (!stripped) return // don't echo empty lines...
+}
 
-  // why does this work?
-  /*
-  if (stripped[stripped.length - 1] == 'm') {
-    console.log('FROm SOCKET:', stripped.substr(0, stripped.length - 1))
-  } else {
-    //console.log('FROM SOCKET:', stripped, 'last', stripped[stripped.length - 1])
-    */
-  console.log('FROM SOCKET:', stripped)
-  //}
-  //client.end()
-})
-client.on('end', () => {
-  console.log('disconnected from server')
-  process.exit()
-})
+// figure out how to recover state with a running lokid
+if (!running.lokinet) {
+  // start lokinet
+  // therefore starting storageServer
+  daemon.startLokinet(config, shutdownIfNotStarted)
+} else
+if (!running.storageServer) {
+  // start storageServer
+  daemon.startStorageServer(config, args, shutdownIfNotStarted)
+}
 
+// we need start watching everything all over again
+launcherRecoveryMonitor()
 
-// hijack stdin
-stdin.resume()
-// i don't want binary, do you?
-stdin.setEncoding( 'utf8' )
+// well now register ourselves as the proper guardian of the suite
+fs.writeFileSync('launcher.pid', process.pid)
 
-// on any data into stdin
-var state = '', session = {}
-stdin.on('data', function(str) {
-  // confirm on exit?
-  lastcommand = str
-  if (lastcommand.trim() == "exit") {
-    console.log("SHUTTING DOWN SERVICE NODE and this client, will end when SN is shutdown")
-    // FIXME: prompt
-  }
-  client.write(str, 'utf8')
-})
+// handle handlers...
+daemon.setupHandlers()
+
+// so we won't have a console for the socket to connect to
+// should we run an empty server and let them know?
+// well we can only send a message and we can do that on the client side
