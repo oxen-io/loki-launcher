@@ -10,13 +10,18 @@ const https     = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.3
+const VERSION = 0.4
 console.log('lokinet launcher version', VERSION, 'registered')
 
 function log() {
   var args = []
   for(var i in arguments) {
-    args.push(arguments[i])
+    var arg = arguments[i]
+    //console.log('arg type', arg, 'is', typeof(arg))
+    if (typeof(arg) == 'object') {
+      arg = JSON.stringify(arg)
+    }
+    args.push(arg)
   }
   console.log('LAUNCHER:', args.join(' '))
 }
@@ -71,7 +76,7 @@ function httpGet(url, cb) {
   //console.log('httpGet url', urlDetails)
   //console.log('httpGet', url)
   var protoClient = http
-  if (urlDetails.protocol = 'https:') {
+  if (urlDetails.protocol == 'https:') {
     protoClient = https
   }
   protoClient.get({
@@ -671,6 +676,10 @@ function generateClientINI(config, cb) {
     // make sure we didn't already start
     if (genClientCallbackFired) return
     genClientCallbackFired = true
+    if (!params.use_lokinet_rpc_port) {
+      // use default because we enable it
+      params.use_lokinet_rpc_port = 1190
+    }
     log('Drafting lokinet client config')
     runningConfig = {
       router: {
@@ -791,16 +800,18 @@ function launchLokinet(config, cb) {
   }
   lokinet.killed = false
   lokinet.stdout.on('data', (data) => {
-    if (lokinetLogging) {
-      var parts = data.toString().split(/\n/)
-      parts.pop()
-      data = parts.join('\n')
-      console.log(`lokinet: ${data}`)
+    var parts = data.toString().split(/\n/)
+    parts.pop()
+    data = parts.join('\n')
+    if (module.exports.onMessage) {
+      module.exports.onMessage(data)
     }
   })
 
   lokinet.stderr.on('data', (data) => {
-    console.log(`lokineterr: ${data}`)
+    if (module.exports.onError) {
+      module.exports.onError(data)
+    }
   })
 
   lokinet.on('close', (code) => {
@@ -950,10 +961,9 @@ function disableLogging() {
   lokinetLogging = false
 }
 
+// FIXME: make quieter
 function getLokiNetIP(cb) {
-  log('wait for lokinet startup')
-  var url = 'http://'+runningConfig.api.bind+'/'
-  waitForUrl(url, function() {
+  function checkDNS() {
     log('lokinet seems to be running, querying', runningConfig.dns.bind)
     // where's our DNS server?
     log('RunningConfig says our lokinet\'s DNS is on', runningConfig.dns.bind)
@@ -973,7 +983,16 @@ function getLokiNetIP(cb) {
         cb()
       }
     })
-  })
+  }
+  if (runningConfig.api.enabled) {
+    log('wait for lokinet startup', runningConfig.api)
+    var url = 'http://'+runningConfig.api.bind+'/'
+    waitForUrl(url, function() {
+      checkDNS()
+    })
+  } else {
+    checkDNS()
+  }
 }
 
 module.exports = {
@@ -987,4 +1006,12 @@ module.exports = {
   enableLogging    : enableLogging,
   disableLogging   : disableLogging,
   getPID           : getPID,
+  onMessage        : function(data) {
+    if (lokinetLogging) {
+      console.log(`lokinet: ${data}`)
+    }
+  },
+  onError          : function(data) {
+    console.log(`lokineterr: ${data}`)
+  },
 }
