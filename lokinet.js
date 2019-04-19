@@ -6,6 +6,7 @@ const net       = require('net')
 const ini       = require('./ini')
 const path      = require('path')
 const http      = require('http')
+const https     = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
@@ -67,8 +68,13 @@ const urlparser = require('url')
 
 function httpGet(url, cb) {
   const urlDetails = urlparser.parse(url)
+  //console.log('httpGet url', urlDetails)
   //console.log('httpGet', url)
-  http.get({
+  var protoClient = http
+  if (urlDetails.protocol = 'https:') {
+    protoClient = https
+  }
+  protoClient.get({
     hostname: urlDetails.hostname,
     protocol: urlDetails.protocol,
     port: urlDetails.port,
@@ -83,6 +89,12 @@ function httpGet(url, cb) {
     })
     // The whole response has been received. Print out the result.
     resp.on('end', () => {
+      console.log('result code', resp.statusCode)
+      if (resp.statusCode == 404) {
+        console.error(url, 'is not found')
+        cb()
+        return
+      }
       cb(data)
     })
   }).on("error", (err) => {
@@ -109,12 +121,12 @@ function getPublicIPv4(cb) {
   // dig +short myip.opendns.com @resolver1.opendns.com
   // httpGet doesn't support https yet...
   var publicIpServices = [
-    //{ url: 'https://api.ipify.org' },
-    //{ url: 'https://ipinfo.io/ip' },
-    //{ url: 'https://ipecho.net/plain' },
-    { url: 'http://api.ipify.org' },
-    { url: 'http://ipinfo.io/ip' },
-    { url: 'http://ipecho.net/plain' },
+    { url: 'https://api.ipify.org' },
+    { url: 'https://ipinfo.io/ip' },
+    { url: 'https://ipecho.net/plain' },
+    //{ url: 'http://api.ipify.org' },
+    //{ url: 'http://ipinfo.io/ip' },
+    //{ url: 'http://ipecho.net/plain' },
     { url: 'http://ifconfig.me' },
     { url: 'http://ipv4.icanhazip.com' },
     { url: 'http://v4.ident.me' },
@@ -126,6 +138,7 @@ function getPublicIPv4(cb) {
   service[1] = Math.floor(Math.random() * publicIpServices.length)
   var done = [ false, false ]
   function markDone(idx, value) {
+    if (value === undefined) value = ''
     done[idx] = value.trim()
     let ready = true
     //log('done', done)
@@ -504,7 +517,7 @@ function applyConfig(file_config, config_obj) {
     config_obj.router.nickname = file_config.nickname
   }
   // set default netid based on testnet
-  if (file_config.lokid.network == "test") {
+  if (file_config.lokid && file_config.lokid.network == "test") {
     config_obj.router.netid = 'service'
     //runningConfig.network['ifaddr'] = '10.254.0.1/24' // hack for Ryan's box
   }
@@ -711,17 +724,17 @@ function preLaunchLokinet(config, cb) {
 
   if (os.platform() == 'linux') {
     // not root-like
-    exec('getcap ' + config.binary_path, function (error, stdout, stderr) {
+    exec('getcap ' + config.binary_location, function (error, stdout, stderr) {
       //console.log('stdout', stdout)
       // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
       if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
         if (process.getgid() != 0) {
-          conole.log(config.binary_path, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
+          conole.log(config.binary_location, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
           process.exit()
         } else {
           // are root
           log('going to try to setcap your binary, so you dont need root')
-          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
+          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_location, function (error, stdout, stderr) {
             log('binary permissions upgraded')
           })
         }
@@ -769,7 +782,8 @@ function launchLokinet(config, cb) {
   if (config.verbose) {
     cli_options.push('-v')
   }
-  lokinet = spawn(config.binary_path, cli_options)
+  console.log('launching lokinet in', config.binary_location, 'with', cli_options)
+  lokinet = spawn(config.binary_location, cli_options)
 
   if (!lokinet) {
     console.error('failed to start lokinet, exiting...')
@@ -824,8 +838,9 @@ function checkConfig(config) {
   auto_config_test_port = config.auto_config_test_port
   auto_config_test_host = config.auto_config_test_host
 
-  if (config.binary_path === undefined ) config.binary_path='/usr/local/bin/lokinet'
-  // we don't always want a bootstrap_url
+  if (config.binary_location === undefined ) config.binary_location='/usr/local/bin/lokinet'
+
+  // we don't always want a bootstrap (seed mode)
 
   // maybe if no port we shouldn't configure it
   if (config.rpc_ip === undefined ) config.rpc_ip='127.0.0.1'
@@ -855,9 +870,11 @@ function waitForUrl(url, cb) {
 }
 
 function startServiceNode(config, cb) {
+  // FIXME: if no bootstrap stomp it
   checkConfig(config)
   config.ini_writer = generateSerivceNodeINI
   config.restart = true
+  // FIXME: check for bootstrap stomp and strip it
   preLaunchLokinet(config, function() {
     // test lokid rpc port first
     // also this makes sure the service key file exists
@@ -871,7 +888,7 @@ function startServiceNode(config, cb) {
 
 function startClient(config, cb) {
   checkConfig(config)
-  if (config.bootstrap_url === undefined ) config.bootstrap_url='https://i2p.rocks/self.signed'
+  if (config.bootstrap_path === undefined && config.bootstrap_url === undefined ) config.bootstrap_url='https://i2p.rocks/bootstrap.signed'
   config.ini_writer = generateClientINI
   preLaunchLokinet(config, function() {
     launchLokinet(config, cb)
@@ -929,6 +946,7 @@ function enableLogging() {
 }
 
 function disableLogging() {
+  //console.log('Disabling lokinet logging')
   lokinetLogging = false
 }
 
