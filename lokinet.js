@@ -733,17 +733,17 @@ function preLaunchLokinet(config, cb) {
 
   if (os.platform() == 'linux') {
     // not root-like
-    exec('getcap ' + config.binary_location, function (error, stdout, stderr) {
+    exec('getcap ' + config.binary_path, function (error, stdout, stderr) {
       //console.log('stdout', stdout)
       // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
       if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
         if (process.getgid() != 0) {
-          conole.log(config.binary_location, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
+          conole.log(config.binary_path, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
           process.exit()
         } else {
           // are root
           log('going to try to setcap your binary, so you dont need root')
-          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_location, function (error, stdout, stderr) {
+          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
             log('binary permissions upgraded')
           })
         }
@@ -791,8 +791,8 @@ function launchLokinet(config, cb) {
   if (config.verbose) {
     cli_options.push('-v')
   }
-  console.log('launching lokinet in', config.binary_location, 'with', cli_options)
-  lokinet = spawn(config.binary_location, cli_options)
+  console.log('launching lokinet in', config.binary_path, 'with', cli_options)
+  lokinet = spawn(config.binary_path, cli_options)
 
   if (!lokinet) {
     console.error('failed to start lokinet, exiting...')
@@ -849,7 +849,7 @@ function checkConfig(config) {
   auto_config_test_port = config.auto_config_test_port
   auto_config_test_host = config.auto_config_test_host
 
-  if (config.binary_location === undefined ) config.binary_location='/usr/local/bin/lokinet'
+  if (config.binary_path === undefined ) config.binary_path='/usr/local/bin/lokinet'
 
   // we don't always want a bootstrap (seed mode)
 
