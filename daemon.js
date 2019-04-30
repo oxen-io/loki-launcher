@@ -125,17 +125,19 @@ function launcherStorageServer(config, args, cb) {
     console.log('not going to start storageServer, shutting down')
     return
   }
+  if (!config.lokid_key) {
+    console.log('storageServer requires lokid_key to be configured')
+    if (cb) cb(false)
+    return
+  }
   // set storage port default
   if (!config.port) {
     config.port = 8080
   }
   // configure command line parameters
-  let optionals = []
+  let optionals = ['--lokid-key', config.lokid_key]
   if (config.log_level) {
     optionals.push('--log-level', config.log_level)
-  }
-  if (config.lokinet_identity) {
-    optionals.push('--lokinet-identity', config.identity_path)
   }
   // FIXME: make launcher handle all logging
   if (config.output_log) {
@@ -145,15 +147,19 @@ function launcherStorageServer(config, args, cb) {
     optionals.push('--db-location', config.db_location)
   }
   console.log('starting storager server with', [config.ip, config.port, ...optionals])
+  // ip and port must be first
   storageServer = spawn(config.binary_path, [config.ip, config.port, ...optionals])
+  // , { stdio: 'inherit' })
 
   //console.log('storageServer', storageServer)
   if (!storageServer.stdout) {
     console.error('storageServer failed?')
+    if (cb) cb(false)
     return
   }
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
+  storageServer.stdout.pipe(process.stdout)
   storageServer.stdout.on('data', (data) => {
     var parts = data.toString().split(/\n/)
     parts.pop()
@@ -184,6 +190,21 @@ function launcherStorageServer(config, args, cb) {
       launcherStorageServer(config, args)
     }
   })
+
+  /*
+  function flushOutput() {
+    if (!storageServer || storageServer.killed) {
+      console.log('storageServer flushOutput lost handle, stopping flushing')
+      return
+    }
+    storageServer.stdin.write("\n")
+    // schedule next flush
+    storageServer.outputFlushTimer = setTimeout(flushOutput, 1000)
+  }
+  console.log('starting log flusher for storageServer')
+  storageServer.outputFlushTimer = setTimeout(flushOutput, 1000)
+  */
+
   if (cb) cb(true)
 }
 
