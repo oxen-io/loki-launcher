@@ -10,7 +10,7 @@ const https     = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.4
+const VERSION = 0.5
 console.log('lokinet launcher version', VERSION, 'registered')
 
 function log() {
@@ -508,6 +508,7 @@ function generateINI(config, markDone, cb) {
 }
 
 // unified post auto-config adjustments
+// disk to running
 function applyConfig(file_config, config_obj) {
   // bootstrap section
   // router mode: bootstrap is optional (might be a seed if not)
@@ -540,6 +541,7 @@ function applyConfig(file_config, config_obj) {
   if (file_config.dns_ip || file_config.dns_port) {
     var ip = file_config.dns_ip
     // FIXME: dynamic dns ip
+    // we'd have to move the DNS autodetection here
     if (!ip) ip = '127.0.0.1'
     config_obj.dns.bind = ip + ':' + file_config.dns_port
   }
@@ -581,6 +583,7 @@ function generateSerivceNodeINI(config, cb) {
     if (genSnCallbackFired) return
     genSnCallbackFired = true
     var keyPath = homeDir + '/.loki/'
+    //
     if (config.lokid.data_dir) {
       keyPath = config.lokid.data_dir
       // make sure it has a trailing slash
@@ -588,7 +591,6 @@ function generateSerivceNodeINI(config, cb) {
         keyPath += '/'
       }
     }
-    // FIXME: use config.lokid.data_dir
     if (config.lokid.network == "test") {
       keyPath += 'testnet/'
     }
@@ -882,10 +884,12 @@ function waitForUrl(url, cb) {
 
 function startServiceNode(config, cb) {
   // FIXME: if no bootstrap stomp it
+  // but allow for seed nodes (no bootstrap)?
   checkConfig(config)
   config.ini_writer = generateSerivceNodeINI
   config.restart = true
   // FIXME: check for bootstrap stomp and strip it
+  // only us lokinet devs will need to make our own seed node
   preLaunchLokinet(config, function() {
     // test lokid rpc port first
     // also this makes sure the service key file exists
@@ -912,6 +916,35 @@ function isRunning() {
   return lokinet
 }
 
+// copied from lib
+function isPidRunning(pid) {
+  if (pid === undefined) {
+    console.trace('isPidRunning was passed undefined, reporting not running')
+    return false
+  }
+  try {
+    process.kill(pid, 0)
+    //console.log('able to kill', pid)
+    return true
+  } catch(e) {
+    if (e.code == 'ERR_INVALID_ARG_TYPE') {
+      // means pid was undefined
+      return true
+    }
+    if (e.code == 'ESRCH') {
+      // not running
+      return false
+    }
+    if (e.code == 'EPERM') {
+      // we're don't have enough permissions to signal this process
+      return true
+    }
+    console.log(pid, 'isRunning', e.code)
+    return false
+  }
+  return false
+}
+
 // intent to stop lokinet and don't restart it
 var retries = 0
 function stop() {
@@ -931,6 +964,37 @@ function stop() {
     log('sending SIGINT to lokinet', lokinet.pid)
     process.kill(lokinet.pid, 'SIGINT')
     lokinet.killed = true
+    // HACK: lokinet on macos can not be killed if rpc port is in use
+    var monitorTimerStart = Date.now()
+    var monitorTimer = setInterval(function() {
+      if (!isPidRunning(lokinet.pid)) {
+        // launcher can't exit until this interval is cleared
+        clearInterval(monitorTimer)
+      } else {
+        var diff = Date.now() - monitorTimerStart
+        if (diif > 15 * 1000) {
+          // reach 15 secs and lokinet is still running
+          // escalate it
+          console.error('Lokinet is still running 15s after we intentionally stopped lokinet?')
+          process.kill(lokinet.pid, 'SIGKILL')
+        } else
+        if (diff > 30 * 1000) {
+          // reach 30 secs and lokinet is still running
+          // escalate it
+          console.error('Lokinet is still running 30s after we intentionally killed lokinet?')
+          var handles = process._getActiveHandles()
+          console.log('handles', handles.length)
+          for(var i in handles) {
+            var handle = handles[i]
+            console.log(i, 'type', handle._type, handle)
+          }
+          console.log('requests', process._getActiveRequests().length)
+          console.log('forcing exit')
+          process.exit()
+        }
+      }
+    }, 1000)
+    // this timer will stop the system from shutting down
     /*
     setTimeout(function() {
       try {
@@ -940,6 +1004,13 @@ function stop() {
         process.kill(lokinet.pid, 'SIGKILL')
       } catch(e) {
         console.error('Launcher is still running 15s after we intentionally stopped lokinet?')
+        var handles = process._getActiveHandles()
+        console.log('handles', handles.length)
+        for(var i in handles) {
+          var handle = handles[i]
+          console.log(i, 'type', handle._type, handle)
+        }
+        console.log('requests', process._getActiveRequests().length)
         process.exit()
       }
     }, 15 * 1000)
@@ -957,18 +1028,17 @@ function enableLogging() {
 }
 
 function disableLogging() {
-  //console.log('Disabling lokinet logging')
+  console.log('Disabling lokinet logging')
   lokinetLogging = false
 }
 
-// FIXME: make quieter
 function getLokiNetIP(cb) {
   function checkDNS() {
     log('lokinet seems to be running, querying', runningConfig.dns.bind)
     // where's our DNS server?
-    log('RunningConfig says our lokinet\'s DNS is on', runningConfig.dns.bind)
+    //log('RunningConfig says our lokinet\'s DNS is on', runningConfig.dns.bind)
     testDNSForLokinet(runningConfig.dns.bind, function(ips) {
-      log('lokinet test', ips)
+      //log('lokinet test', ips)
       if (ips && ips.length) {
         cb(ips[0])
       } else {
