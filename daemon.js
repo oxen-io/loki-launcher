@@ -60,6 +60,8 @@ function shutdown_everything() {
     }
     if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
       console.log('lokid still running')
+      // lokid on macos may need a kill -9 after a couple failed 15
+      // lets say 50s of not stopping -15 then wait 30s if still run -9
       stop = false
     }
     var lokinetState = lokinet.isRunning()
@@ -82,8 +84,12 @@ function shutdown_everything() {
         console.log('NO pids.json found, can\'t clear')
       }
       clearInterval(shutDownTimer)
-      // docker/node 10 has issue with this
-      //stdin.unref()
+      // docker/node 10 on linux has issue with this
+      // 10.15 on macos has a handle, probably best to release
+      if (stdin.unref) {
+        //console.log('unref stdin')
+        stdin.unref()
+      }
       // 2 writes, 1 read
       /*
       var handles = process._getActiveHandles()
@@ -456,7 +462,7 @@ function startLokid(config, args) {
         var parts = data.toString().split(/\n/)
         parts.pop()
         stripped = parts.join('\n')
-        //console.log('socket got', stripped)
+        console.log('socket got', stripped)
         if (loki_daemon && !loki_daemon.killed) {
           console.log('sending to lokid')
           loki_daemon.stdin.write(data + "\n")
