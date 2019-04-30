@@ -93,6 +93,9 @@ if (config.network.testnet === undefined) {
 if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
   config.blockchain.network = 'test'
 } else
+if (config.blockchain.network.toLowerCase() == "consensusnet" || config.blockchain.network.toLowerCase() == "consensus" || config.blockchain.network.toLowerCase() == "demo") {
+  config.blockchain.network = 'demo'
+} else
 if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
   config.blockchain.network = 'staging'
 }
@@ -128,6 +131,9 @@ if (config.blockchain.zmq_port == '0') {
 if (config.blockchain.rpc_port == '0') {
   if (config.blockchain.network == 'test') {
     config.blockchain.rpc_port = 38157
+  } else
+  if (config.blockchain.network == 'demo') {
+    config.blockchain.rpc_port = 38160
   } else
   if (config.blockchain.network == 'staging') {
     config.blockchain.rpc_port = 38154
@@ -209,6 +215,9 @@ function getLokiDataDir() {
   if (blockchain_useDefaultDataDir) {
     if (config.blockchain.network == 'staging') {
       dir += '/stagenet'
+    } else
+    if (config.blockchain.network == 'demo') {
+      dir += '/testnet'
     } else
     if (config.blockchain.network == 'test') {
       dir += '/testnet'
@@ -346,10 +355,13 @@ if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_pat
   process.exit()
 }
 
+// isn't create until lokid runs
+/*
 if (!fs.existsSync(config.storage.lokid_key)) {
   console.error('lokid key not found at location', config.storage.lokid_key)
   process.exit()
 }
+*/
 
 // make sure the binary_path that exists are not a directory
 if (fs.lstatSync(config.blockchain.binary_path).isDirectory()) {
@@ -370,7 +382,7 @@ if (config.network.bootstrap_path && fs.lstatSync(config.network.bootstrap_path)
   process.exit()
 }
 
-if (fs.lstatSync(config.storage.lokid_key).isDirectory()) {
+if (fs.existsSync(config.storage.lokid_key) && fs.lstatSync(config.storage.lokid_key).isDirectory()) {
   console.error('lokid key location is a directory', config.storage.lokid_key)
   process.exit()
 }
