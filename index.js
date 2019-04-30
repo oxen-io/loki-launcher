@@ -202,6 +202,10 @@ function getLokiDataDir() {
   }
   // has no trailing slash
   var dir = config.blockchain.data_dir
+  // enforce: no trailing slash
+  if (dir[dir.length - 1] == '/') {
+    dir = dir.slice(0, -1)
+  }
   if (blockchain_useDefaultDataDir) {
     if (config.blockchain.network == 'staging') {
       dir += '/stagenet'
@@ -210,7 +214,6 @@ function getLokiDataDir() {
       dir += '/testnet'
     }
   }
-  // should have no trailing slash
   return dir
 }
 
@@ -263,6 +266,12 @@ function setPort(cliKey, configKey, subsystem) {
 setPort('zmq-rpc-bind-port', 'zmq_port')
 setPort('rpc-bind-port', 'rpc_port')
 setPort('p2p-bind-port', 'p2p_port')
+
+if (config.storage.lokid_key === undefined) {
+  config.storage.lokid_key = getLokiDataDir() + '/key'
+}
+
+lokinet.checkConfig(config.network) // can auto-configure network.binary_path
 
 // lokid config and most other configs should be locked into stone by this point
 // (except for lokinet, since we need to copy lokid over to it)
@@ -327,7 +336,6 @@ if (!fs.existsSync(config.storage.binary_path)) {
   console.error('storageServer is not at configured location', config.storage.binary_path)
   process.exit()
 }
-lokinet.checkConfig(config.network) // can auto-configure network.binary_path
 if (!fs.existsSync(config.network.binary_path)) {
   console.error('lokinet is not at configured location', config.network.binary_path)
   process.exit()
@@ -335,6 +343,11 @@ if (!fs.existsSync(config.network.binary_path)) {
 
 if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_path)) {
   console.error('lokinet bootstrap not found at location', config.network.binary_path)
+  process.exit()
+}
+
+if (!fs.existsSync(config.storage.lokid_key)) {
+  console.error('lokid key not found at location', config.storage.lokid_key)
   process.exit()
 }
 
@@ -357,6 +370,10 @@ if (config.network.bootstrap_path && fs.lstatSync(config.network.bootstrap_path)
   process.exit()
 }
 
+if (fs.lstatSync(config.storage.lokid_key).isDirectory()) {
+  console.error('lokid key location is a directory', config.storage.lokid_key)
+  process.exit()
+}
 
 //console.log('userInfo', os.userInfo('utf8'))
 //console.log('started as', process.getuid(), process.geteuid())
@@ -428,7 +445,8 @@ function startEverything(config, args) {
   // sudo __daemon=1 node index.js
   //daemon(args, __filename, lokinet, config, getLokiDataDir)
   daemon.startLauncherDaemon(config.launcher.interactive, __filename, args, function() {
-    daemon.startLokinet(config, function(started) {
+    daemon.startLokinet(config, args, function(started) {
+      //console.log('StorageServer now running', started)
       if (!started) {
         daemon.shutdown_everything()
       }
