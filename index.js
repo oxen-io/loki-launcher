@@ -327,7 +327,7 @@ if (!fs.existsSync(config.storage.binary_path)) {
   console.error('storageServer is not at configured location', config.storage.binary_path)
   process.exit()
 }
-lokinet.checkConfig(config.network)
+lokinet.checkConfig(config.network) // can auto-configure network.binary_path
 if (!fs.existsSync(config.network.binary_path)) {
   console.error('lokinet is not at configured location', config.network.binary_path)
   process.exit()
@@ -337,6 +337,26 @@ if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_pat
   console.error('lokinet bootstrap not found at location', config.network.binary_path)
   process.exit()
 }
+
+// make sure the binary_path that exists are not a directory
+if (fs.lstatSync(config.blockchain.binary_path).isDirectory()) {
+  console.error('lokid configured location is a directory', config.blockchain.binary_path)
+  process.exit()
+}
+if (fs.lstatSync(config.storage.binary_path).isDirectory()) {
+  console.error('storageServer configured location is a directory', config.storage.binary_path)
+  process.exit()
+}
+if (fs.lstatSync(config.network.binary_path).isDirectory()) {
+  console.error('lokinet configured location is a directory', config.network.binary_path)
+  process.exit()
+}
+
+if (config.network.bootstrap_path && fs.lstatSync(config.network.bootstrap_path).isDirectory()) {
+  console.error('lokinet bootstrap configured location is a directory', config.network.binary_path)
+  process.exit()
+}
+
 
 //console.log('userInfo', os.userInfo('utf8'))
 //console.log('started as', process.getuid(), process.geteuid())
