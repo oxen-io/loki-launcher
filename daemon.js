@@ -82,7 +82,8 @@ function shutdown_everything() {
         console.log('NO pids.json found, can\'t clear')
       }
       clearInterval(shutDownTimer)
-      stdin.unref()
+      // docker/node 10 has issue with this
+      //stdin.unref()
       // 2 writes, 1 read
       /*
       var handles = process._getActiveHandles()
@@ -137,6 +138,7 @@ function launcherStorageServer(config, args, cb) {
   if (config.db_location) {
     optionals.push('--db-location', config.db_location)
   }
+  console.log('starting storager server with', [config.ip, config.port, ...optionals])
   storageServer = spawn(config.binary_path, [config.ip, config.port, ...optionals])
 
   //console.log('storageServer', storageServer)
