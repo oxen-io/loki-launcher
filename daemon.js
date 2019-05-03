@@ -9,7 +9,7 @@ const stdin     = process.openStdin()
 
 // ugly hack for Ryan's mac box & storageServer
 if (os.platform() == 'darwin') {
-  process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
+//  process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
 }
 
 var connections = []
@@ -146,7 +146,7 @@ function launcherStorageServer(config, args, cb) {
   if (config.db_location) {
     optionals.push('--db-location', config.db_location)
   }
-  console.log('starting storager server with', [config.ip, config.port, ...optionals])
+  console.log('storage: launcher', config.binary_path, [config.ip, config.port, ...optionals].join(' '))
   // ip and port must be first
   storageServer = spawn(config.binary_path, [config.ip, config.port, ...optionals])
   // , { stdio: 'inherit' })
@@ -282,6 +282,10 @@ function configureLokid(config, args) {
   if (config.blockchain.network == "test") {
     lokid_options.push('--testnet')
   } else
+  if (config.blockchain.network == "demo") {
+    lokid_options.push('--testnet')
+    lokid_options.push('--add-exclusive-node', '116.203.126.14')
+  } else
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')
   }
@@ -289,7 +293,9 @@ function configureLokid(config, args) {
     // we handle the detach, we don't need to detach lokid from us
     // we need this now to keep a console open
     //lokid_options.push('--non-interactive')
-    lokinet.disableLogging()
+    // if we leave this disabled, we won't be able to see startup errors
+    // only really good for debugging lokid stuffs
+    //lokinet.disableLogging()
   }
   if (config.blockchain.zmq_port) {
     lokid_options.push('--zmq-rpc-bind-port='+config.blockchain.zmq_port)
@@ -307,6 +313,7 @@ function configureLokid(config, args) {
   for(var i in args) {
     lokid_options.push(args[i])
   }
+
   return {
     lokid_options: lokid_options,
   }
@@ -317,18 +324,21 @@ var server
 function launchLokid(binary_path, lokid_options, interactive, config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
-    log('not going to start lokid, shutting down')
+    console.log('not going to start lokid, shutting down')
     return
   }
   // hijack STDIN but not OUT/ERR
+  //console.log('launchLokid - interactive?', interactive)
   if (interactive) {
     // don't hijack stdout, so prepare_registration works
+    console.log('launchLokid - interactive mode')
     loki_daemon = spawn(binary_path, lokid_options, {
       stdio: ['pipe', 'inherit', 'inherit'],
       //shell: true
     })
   } else {
     // allow us to hijack stdout
+    console.log('blockchain: launching', binary_path, lokid_options.join(' '))
     loki_daemon = spawn(binary_path, lokid_options)
   }
   if (!loki_daemon) {
@@ -357,7 +367,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   }
 
   loki_daemon.on('close', (code) => {
-    console.log(`loki_daemon process exited with code ${code}`)
+    console.warn(`loki_daemon process exited with code ${code}`)
     // code 0 means clean shutdown
     if (code === 0) {
       // likely to mean it was requested
@@ -411,7 +421,9 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     // schedule next flush
     loki_daemon.outputFlushTimer = setTimeout(flushOutput, 1000)
   }
-  loki_daemon.outputFlushTimer = setTimeout(flushOutput, 1000)
+  // disable until we can detect prepare_reg
+  // don't want to accidentally launch with prepare_reg broken
+  //loki_daemon.outputFlushTimer = setTimeout(flushOutput, 1000)
 
   if (cb) cb()
 }
@@ -420,7 +432,7 @@ function startLokid(config, args) {
 
   var parameters = configureLokid(config, args)
   var lokid_options = parameters.lokid_options
-  console.log('launching lokid with', lokid_options.join(' '))
+  //console.log('configured ', config.blockchain.binary_path, lokid_options.join(' '))
 
   launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
 
