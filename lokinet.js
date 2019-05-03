@@ -217,8 +217,32 @@ function testDNSForLokinet(server, cb) {
   })
 }
 
+function lookup(host, cb) {
+  var resolver = new dns.Resolver()
+  //console.log('lokinet lookup servers', runningConfig.dns.bind)
+  resolver.setServers([runningConfig.dns.bind])
+  resolver.resolve(host, function(err, records) {
+    if (err) {
+      // not as bad... that's at least a properly formatted response
+      if (err.code == 'ENOTFOUND') {
+        records = null
+      } else
+      // leave bad
+      if (err.code == 'ETIMEOUT') {
+        records = undefined
+      } else {
+        console.error('lokinet lookup unknown err', err)
+      }
+    }
+    //console.log(host, 'lokinet dns test results', records)
+    cb(records)
+  })
+}
+
 function findLokiNetDNS(cb) {
   const localIPs = getBoundIPv4s()
+  var checksLeft = 0
+  var servers    = []
   function checkDone() {
     if (shuttingDown) {
       //if (cb) cb()
@@ -421,8 +445,8 @@ function generateINI(config, markDone, cb) {
   var use_lokinet_rpc_port = config.rpc_port
   var lokinet_bootstrap_path = homeDir + '/.lokinet/bootstrap.signed'
   var lokinet_nodedb = homeDir + '/.lokinet/netdb'
-  if (config.testnet) {
-    lokinet_nodedb += '-service'
+  if (config.netid) {
+    lokinet_nodedb += '-' + config.netid
   }
   if (!fs.existsSync(lokinet_nodedb)) {
     log('making', lokinet_nodedb)
@@ -591,7 +615,7 @@ function generateSerivceNodeINI(config, cb) {
         keyPath += '/'
       }
     }
-    if (config.lokid.network == "test") {
+    if (config.lokid.network == "test" || config.lokid.network == "demo") {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
@@ -793,7 +817,7 @@ function launchLokinet(config, cb) {
   if (config.verbose) {
     cli_options.push('-v')
   }
-  console.log('launching lokinet in', config.binary_path, 'with', cli_options)
+  console.log('network: launching', config.binary_path, cli_options.join(' '))
   lokinet = spawn(config.binary_path, cli_options)
 
   if (!lokinet) {
@@ -858,6 +882,8 @@ function checkConfig(config) {
   // maybe if no port we shouldn't configure it
   if (config.rpc_ip === undefined ) config.rpc_ip='127.0.0.1'
   if (config.rpc_port === undefined ) config.rpc_port=0
+
+  // set public_port ?
 }
 
 function waitForUrl(url, cb) {
@@ -1070,12 +1096,14 @@ module.exports = {
   startClient      : startClient,
   checkConfig      : checkConfig,
   findLokiNetDNS   : findLokiNetDNS,
+  lookup           : lookup,
   isRunning        : isRunning,
   stop             : stop,
   getLokiNetIP     : getLokiNetIP,
   enableLogging    : enableLogging,
   disableLogging   : disableLogging,
   getPID           : getPID,
+  // FIXME: should we allow hooking of log() too?
   onMessage        : function(data) {
     if (lokinetLogging) {
       console.log(`lokinet: ${data}`)
