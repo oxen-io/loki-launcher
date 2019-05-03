@@ -125,30 +125,30 @@ function launcherStorageServer(config, args, cb) {
     console.log('not going to start storageServer, shutting down')
     return
   }
-  if (!config.lokid_key) {
+  if (!config.storage.lokid_key) {
     console.log('storageServer requires lokid_key to be configured')
     if (cb) cb(false)
     return
   }
   // set storage port default
-  if (!config.port) {
-    config.port = 8080
+  if (!config.storage.port) {
+    config.storage.port = 8080
   }
   // configure command line parameters
-  let optionals = ['--lokid-key', config.lokid_key]
-  if (config.log_level) {
-    optionals.push('--log-level', config.log_level)
+  let optionals = ['--lokid-key', config.storage.lokid_key]
+  if (config.storage.log_level) {
+    optionals.push('--log-level', config.storage.log_level)
   }
   // FIXME: make launcher handle all logging
-  if (config.output_log) {
-    optionals.push('--output-log', config.output_log)
+  if (config.storage.output_log) {
+    optionals.push('--output-log', config.storage.output_log)
   }
-  if (config.db_location) {
-    optionals.push('--db-location', config.db_location)
+  if (config.storage.db_location) {
+    optionals.push('--db-location', config.storage.db_location)
   }
-  console.log('storage: launcher', config.binary_path, [config.ip, config.port, ...optionals].join(' '))
+  console.log('storage: launcher', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
   // ip and port must be first
-  storageServer = spawn(config.binary_path, [config.ip, config.port, ...optionals])
+  storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
   // , { stdio: 'inherit' })
 
   //console.log('storageServer', storageServer)
@@ -211,11 +211,12 @@ function launcherStorageServer(config, args, cb) {
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
   lokinet.getLokiNetIP(function(ip) {
+    // lokinet has started, save config and various process pid
     lib.savePids(config, args, loki_daemon, lokinet, storageServer)
     if (ip) {
       console.log('starting storageServer on', ip)
       config.storage.ip = ip
-      launcherStorageServer(config.storage, args, cb)
+      launcherStorageServer(config, args, cb)
     } else {
       console.log('Sorry cant detect our lokinet IP:', ip)
       if (cb) cb(false)
