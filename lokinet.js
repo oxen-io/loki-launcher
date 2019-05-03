@@ -998,7 +998,7 @@ function stop() {
         clearInterval(monitorTimer)
       } else {
         var diff = Date.now() - monitorTimerStart
-        if (diif > 15 * 1000) {
+        if (diff > 15 * 1000) {
           // reach 15 secs and lokinet is still running
           // escalate it
           console.error('Lokinet is still running 15s after we intentionally stopped lokinet?')
