@@ -240,6 +240,7 @@ COPY launcher-docker.ini launcher.ini
 RUN mkdir -p /root/storage
 
 RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
+RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
 EXPOSE 22022 22023 22024 1090/udp 1190 38154 38155 38157 38158
 CMD ["node", "index.js"]
