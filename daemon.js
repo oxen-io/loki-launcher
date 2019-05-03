@@ -90,6 +90,8 @@ function shutdown_everything() {
         //console.log('unref stdin')
         stdin.unref()
       }
+      // if lokinet wasn't started yet, due to slow net/dns stuff
+      // then it'll take a long time for a timeout to happen
       // 2 writes, 1 read
       /*
       var handles = process._getActiveHandles()
@@ -126,7 +128,7 @@ function launcherStorageServer(config, args, cb) {
     return
   }
   if (!config.storage.lokid_key) {
-    console.log('storageServer requires lokid_key to be configured')
+    console.error('storageServer requires lokid_key to be configured')
     if (cb) cb(false)
     return
   }
@@ -146,7 +148,7 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.db_location) {
     optionals.push('--db-location', config.storage.db_location)
   }
-  console.log('storage: launcher', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
+  console.log('STORAGE: launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
   // ip and port must be first
   storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
   // , { stdio: 'inherit' })
@@ -174,7 +176,7 @@ function launcherStorageServer(config, args, cb) {
   storageServer.on('close', (code) => {
     console.log(`storageServer process exited with code ${code}`)
     if (code == 1) {
-      console.log('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
+      console.warn('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
       // we could want to issue one kill just to make sure
       // however since we don't know the pid, we won't know if it's ours
       // or meant be running by another copy of the launcher
@@ -214,11 +216,11 @@ function startStorageServer(config, args, cb) {
     // lokinet has started, save config and various process pid
     lib.savePids(config, args, loki_daemon, lokinet, storageServer)
     if (ip) {
-      console.log('starting storageServer on', ip)
+      console.log('DAEMON: starting storageServer on', ip)
       config.storage.ip = ip
       launcherStorageServer(config, args, cb)
     } else {
-      console.log('Sorry cant detect our lokinet IP:', ip)
+      console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
       if (cb) cb(false)
       //shutdown_everything()
     }
@@ -339,7 +341,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     })
   } else {
     // allow us to hijack stdout
-    console.log('blockchain: launching', binary_path, lokid_options.join(' '))
+    console.log('BLOCKCHAIN: launching', binary_path, lokid_options.join(' '))
     loki_daemon = spawn(binary_path, lokid_options)
   }
   if (!loki_daemon) {
@@ -480,13 +482,13 @@ function startLokid(config, args) {
     })
   } else {
     // we're non-interactive, set up socket server
-    console.log('Starting socket')
+    console.log('SOCKET: Starting')
     server = net.createServer((c) => {
-      console.log('client connected')
+      console.log('SOCKET: client connected')
       connections.push(c)
       c.setEncoding('utf8')
       c.on('end', () => {
-        console.log('client disconnected')
+        console.log('SOCKET: client disconnected')
         var idx = connections.indexOf(c)
         if (idx != -1) {
           connections.splice(idx, 1)
@@ -496,9 +498,9 @@ function startLokid(config, args) {
         var parts = data.toString().split(/\n/)
         parts.pop()
         stripped = parts.join('\n')
-        console.log('socket got', stripped)
+        console.log('SOCKET: got', stripped)
         if (loki_daemon && !loki_daemon.killed) {
-          console.log('sending to lokid')
+          console.log('SOCKET:sending to lokid')
           loki_daemon.stdin.write(data + "\n")
         }
       })
@@ -515,7 +517,7 @@ function startLokid(config, args) {
           throw e;
         }).on('error', function(e) {
           if (e.code !== 'ECONNREFUSED') throw e
-          console.log('socket is stale, nuking')
+          console.log('SOCKET: socket is stale, nuking')
           fs.unlinkSync('launcher.socket')
           server.listen('launcher.socket')
         })
@@ -527,7 +529,7 @@ function startLokid(config, args) {
     })
 
     server.listen('launcher.socket', () => {
-      console.log('bound')
+      console.log('SOCKET: bound')
     })
   }
 

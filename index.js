@@ -419,10 +419,10 @@ if (fs.existsSync('launcher.pid')) {
   pid = fs.readFileSync('launcher.pid', 'utf8')
   if (pid && lib.isPidRunning(pid)) {
     alreadyRunning = true
-    console.log('loki launcher already active under', pid)
+    console.log('LAUNCHER: loki launcher already active under', pid)
     process.exit()
   } else {
-    console.log('stale launcher.pid, overwriting')
+    console.log('LAUNCHER: stale launcher.pid, overwriting')
     pid = 0
   }
 }
@@ -437,15 +437,15 @@ function getProcessState() {
 
   var running = {}
   if (pids.lokid && lib.isPidRunning(pids.lokid)) {
-    console.log("old lokid is still running", pids.lokid)
+    console.log("LAUNCHER: old lokid is still running", pids.lokid)
     running.lokid = pids.lokid
   }
   if (pids.lokinet && lib.isPidRunning(pids.lokinet)) {
-    console.log("old lokinet is still running", pids.lokinet)
+    console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
     running.lokinet = pids.lokinet
   }
   if (pids.storageServer && lib.isPidRunning(pids.storageServer)) {
-    console.log("old storage server is still running", pids.storageServer)
+    console.log("LAUNCHER: old storage server is still running", pids.storageServer)
     running.storageServer = pids.storageServer
   }
   return running
@@ -482,24 +482,26 @@ function startEverything(config, args) {
 
 // storage needs it's lokinet, kill any strays
 if (!running.lokinet && running.storageServer) {
-  console.log('we have storage server with no lokinet, killing it', pids.storageServer)
+  console.log('LAUNCHER: we have storage server with no lokinet, killing it', pids.storageServer)
   process.kill(pids.storageServer, 'SIGINT')
   running.storageServer = 0
 }
 
 function killStorageServer(running, pids) {
   if (running.storageServer) {
-    console.log('killing storage on', pids.storageServer)
+    console.log('LAUNCHER: killing storage on', pids.storageServer)
     process.kill(pids.storageServer, 'SIGINT')
     running.storageServer = 0
   }
 }
 
 function killLokinetAndStorageServer(running, pids) {
+  //console.log('LAUNCHER: old network', running.lokinet, pids.lokinet)
+  //console.log('LAUNCHER: old storage', running.storageServer, pids.storageServer)
   killStorageServer(running, pids)
   // FIXME: only need to restart if the key changed
   if (running.lokinet) {
-    console.log('killing lokinet on', pids.lokinet)
+    console.log('LAUNCHER: killing lokinet on', pids.lokinet)
     process.kill(pids.lokinet, 'SIGINT')
     running.lokinet = 0
   }
@@ -507,12 +509,12 @@ function killLokinetAndStorageServer(running, pids) {
 
 if (!running.lokid) {
   // no lokid, kill remaining
-  console.log('lokid is down, kill idlers')
+  console.log('LAUNCHER: lokid is down, kill idlers')
   killLokinetAndStorageServer(running, pids)
 }
 
 if (isNothingRunning(running)) {
-  console.log("Starting fresh copy of Loki Suite")
+  console.log("LAUNCHER: Starting fresh copy of Loki Suite")
   startEverything(config, args)
   return
 }
@@ -528,7 +530,7 @@ args = pids.args
 // adopt responsibility of watching the existing suite
 function launcherRecoveryMonitor() {
   if (!lib.isPidRunning(pids.lokid)) {
-    console.log('lokid just died', pids.lokid)
+    console.log('LAUNCHER: lokid just died', pids.lokid)
     // no launcher, so we may need to do someclean up
     // lokid needs no clean up
     // kill storageServer and lokinet?
