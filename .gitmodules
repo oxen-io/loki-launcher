@@ -4,6 +4,6 @@
 [submodule "src/loki-storage-server"]
 	path = src/loki-storage-server
 	url = https://github.com/loki-project/loki-storage-server.git
-[submodule "src/lkoi"]
+[submodule "src/loki"]
 	path = src/loki
 	url = https://github.com/Doy-lee/loki.git
