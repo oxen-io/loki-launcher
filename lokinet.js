@@ -10,7 +10,7 @@ const https     = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.5
+const VERSION = 0.6
 console.log('lokinet launcher version', VERSION, 'registered')
 
 function log() {
@@ -23,7 +23,7 @@ function log() {
     }
     args.push(arg)
   }
-  console.log('LAUNCHER:', args.join(' '))
+  console.log('NETWORK:', args.join(' '))
 }
 
 function getBoundIPv4s() {
@@ -41,15 +41,43 @@ function getBoundIPv4s() {
   return ipv4s
 }
 
-var auto_config_test_port, auto_config_test_host
+var auto_config_test_port, auto_config_test_host, auto_config_test_ips
 // this doesn't need to connect completely to get our ip
+// it won't get our IP if DNS doesn't work
 function getNetworkIP(callback) {
-  var socket = net.createConnection(auto_config_test_port, auto_config_test_host)
+  // randomly select an ip
+  //log('getNetworkIP', auto_config_test_ips)
+  var ip = auto_config_test_ips[Math.floor(Math.random() * auto_config_test_ips.length)]
+  //log('getNetworkIP from', ip, auto_config_test_port)
+  var socket = net.createConnection(auto_config_test_port, ip)
+  socket.setTimeout(5000)
   socket.on('connect', function() {
     callback(undefined, socket.address().address)
     socket.end()
   })
+  var abort = false
+  socket.on('timeout', function() {
+    if (socket.address().address) {
+      abort = true
+      var resultIp = socket.address().address
+      log('getNetworkIP timeout but still got outgoing IP:', resultIp)
+      socket.destroy()
+      callback(undefined, resultIp)
+    } else {
+      // don't have what we need, just wait it out, maybe we'll get lucky
+      //log('getNetworkIP timeout')
+      //callback('timeout', 'error')
+    }
+  })
   socket.on('error', function(e) {
+    console.error('NETWORK: getNetworkIP error', e)
+    // FIXME: maybe a retry here
+    log('getNetworkIP failure test', socket.address().address)
+    log('getNetworkIP failure, retry?')
+    if (abort) {
+      log('getNetworkIP already timed out')
+      return
+    }
     callback(e, 'error')
   })
 }
@@ -75,10 +103,24 @@ function httpGet(url, cb) {
   const urlDetails = urlparser.parse(url)
   //console.log('httpGet url', urlDetails)
   //console.log('httpGet', url)
+  //console.trace('who started dis', url)
   var protoClient = http
   if (urlDetails.protocol == 'https:') {
     protoClient = https
   }
+  // well somehow this can get hung on macos
+  var abort = false
+  var watchdog = setInterval(function() {
+    if (shuttingDown) {
+      //if (cb) cb()
+      // [', url, ']
+      log('hung httpGet but have shutdown request, calling back early and setting abort flag')
+      clearInterval(watchdog)
+      abort = true
+      cb()
+      return
+    }
+  }, 5000)
   protoClient.get({
     hostname: urlDetails.hostname,
     protocol: urlDetails.protocol,
@@ -86,6 +128,8 @@ function httpGet(url, cb) {
     path: urlDetails.path,
     timeout: 5000,
   }, (resp) => {
+    //log('httpGet setting up handlers')
+    clearInterval(watchdog)
     resp.setEncoding('binary')
     let data = ''
     // A chunk of data has been recieved.
@@ -94,16 +138,20 @@ function httpGet(url, cb) {
     })
     // The whole response has been received. Print out the result.
     resp.on('end', () => {
-      console.log('result code', resp.statusCode)
+      log('result code', resp.statusCode)
+      if (abort) {
+        // we already called back
+        return
+      }
       if (resp.statusCode == 404) {
-        console.error(url, 'is not found')
+        console.error('NETWORK:', url, 'is not found')
         cb()
         return
       }
       cb(data)
     })
   }).on("error", (err) => {
-    console.error("httpGet Error: " + err.message, 'port', urlDetails.port)
+    console.error("NETWORK: httpGet Error: " + err.message, 'port', urlDetails.port)
     //console.log('err', err)
     cb()
   })
@@ -201,7 +249,7 @@ function isDnsPort(ip, port, cb) {
   const resolver = new dns.Resolver()
   resolver.setServers([ip + ':' + port])
   resolver.resolve(auto_config_test_host, function(err, records) {
-    if (err) console.error('resolve error: ', err)
+    if (err) console.error('resolve error:', err)
     log(auto_config_test_host, records)
     cb(records !== undefined)
   })
@@ -210,11 +258,17 @@ function isDnsPort(ip, port, cb) {
 function testDNSForLokinet(server, cb) {
   const resolver = new dns.Resolver()
   resolver.setServers([server])
-  resolver.resolve('localhost.loki', function(err, records) {
-    //if (err) console.error(err)
-    console.log(server, 'dns test results', records)
-    cb(records)
-  })
+  // incase server is 127.0.0.1:undefined
+  try {
+    resolver.resolve('localhost.loki', function(err, records) {
+      if (err) console.error('NETWORK: localhost.loki resolve err:', err)
+      //log(server, 'localhost.loki test results', records)
+      cb(records)
+    })
+  } catch(e) {
+    console.error('NETWORK: testDNSForLokinet error, incorrect server?', server)
+    cb()
+  }
 }
 
 function lookup(host, cb) {
@@ -292,10 +346,11 @@ function findLokiNetDNS(cb) {
   }
 }
 
-function readResolv(cb) {
+function readResolv(dns_ip, cb) {
   const localIPs = getBoundIPv4s()
   var servers = []
   var checksLeft = 0
+  //log('make sure we exclude?', dns_ip)
 
   function checkDone() {
     if (shuttingDown) {
@@ -304,6 +359,7 @@ function readResolv(cb) {
       return
     }
     checksLeft--
+    //log('readResolv reports left', checksLeft)
     if (checksLeft<=0) {
       log('readResolv done')
       cb(servers)
@@ -314,9 +370,14 @@ function readResolv(cb) {
   log('Current resolvers', resolvers)
   for(var i in resolvers) {
     const server = resolvers[i]
+    if (server == dns_ip) {
+      log('preventing DNS loop on', dns_ip)
+      continue
+    }
     var idx = localIPs.indexOf(server)
     if (idx != -1) {
       log('local DNS server detected', server)
+      checksLeft++ // wait for it
       testDNSForLokinet(server, function(isLokinet) {
         if (isLokinet === undefined) {
           // not lokinet
@@ -433,7 +494,7 @@ function makeMultiplatformPath(path) {
 
 var cleanUpBootstrap = false
 var cleanUpIni       = false
-function generateINI(config, markDone, cb) {
+function generateINI(config, need, markDone, cb) {
   const homeDir = os.homedir()
   //console.log('homeDir', homeDir)
   //const data = fs.readFileSync(homeDir + '/.lokinet/lokinet.ini', 'utf-8')
@@ -479,7 +540,7 @@ function generateINI(config, markDone, cb) {
     //params.lokinet_bootstrap_path = ''
     markDone('bootstrap', params)
   }
-  readResolv(function(servers) {
+  readResolv(config.dns_ip, function(servers) {
     upstreamDNS_servers = servers
     params.upstreamDNS_servers = servers
     upstreams = 'upstream='+servers.join('\nupstream=')
@@ -487,9 +548,10 @@ function generateINI(config, markDone, cb) {
   })
   log('trying', 'http://'+config.rpc_ip+':'+config.rpc_port)
   httpGet('http://'+config.rpc_ip+':'+config.rpc_port, function(testData) {
-    //console.log('rpc has', testData)
+    //log('rpc has', testData)
     if (testData !== undefined) {
       log('Bumping RPC port', testData)
+      // FIXME: retest new port
       use_lokinet_rpc_port = use_lokinet_rpc_port + 1
       params.use_lokinet_rpc_port = use_lokinet_rpc_port
     }
@@ -501,6 +563,14 @@ function generateINI(config, markDone, cb) {
     markDone('dnsBind', params)
   }
   getNetworkIP(function(e, ip) {
+    if (ip == 'error' || !ip) {
+      console.error('NETWORK: can\'t detect default adapter IP address')
+      // can't handle the exits here because we don't know if it's an actual requirements
+      // if we need netIf or dnsBind
+      if (done.netIf !== undefined || done.dnsBind !== undefined) {
+        process.exit()
+      }
+    }
     log('detected outgoing interface ip', ip)
     lokinet_nic = getIfNameFromIP(ip)
     params.lokinet_nic = lokinet_nic
@@ -515,8 +585,11 @@ function generateINI(config, markDone, cb) {
     tryIps.push(ip)
     findFreePort53(tryIps, 0, function(free53Ip) {
       if (free53Ip === undefined) {
-        console.error('Cant automatically find an IP to put a lokinet DNS server on')
-        process.exit()
+        console.error('NETWORK: Cant automatically find an IP to put a lokinet DNS server on')
+        // can't handle the exits here because we don't know if it's an actual requirements
+        if (done.dnsBind !== undefined) {
+          process.exit()
+        }
       }
       lokinet_free53Ip = free53Ip
       params.lokinet_free53Ip = free53Ip
@@ -563,11 +636,15 @@ function applyConfig(file_config, config_obj) {
   }
   // dns section
   if (file_config.dns_ip || file_config.dns_port) {
-    var ip = file_config.dns_ip
     // FIXME: dynamic dns ip
     // we'd have to move the DNS autodetection here
+    //   detect free port 53 on ip
+    // for now just make sure we have sane defaults
+    var ip = file_config.dns_ip
     if (!ip) ip = '127.0.0.1'
-    config_obj.dns.bind = ip + ':' + file_config.dns_port
+    var dnsPort = file_config.dns_port
+    if (dnsPort === undefined) dnsPort = 53
+    config_obj.dns.bind = ip + ':' + dnsPort
   }
 }
 
@@ -676,7 +753,7 @@ function generateSerivceNodeINI(config, cb) {
     //runningConfig.network['enabled'] = true;
     cb(ini.jsonToINI(runningConfig))
   }
-  generateINI(config, markDone, cb)
+  generateINI(config, done, markDone, cb)
 }
 
 var genClientCallbackFired
@@ -733,7 +810,7 @@ function generateClientINI(config, cb) {
     }
     cb(ini.jsonToINI(runningConfig))
   }
-  generateINI(config, markDone, cb)
+  generateINI(config, done, markDone, cb)
 }
 
 var shuttingDown
@@ -822,6 +899,7 @@ function launchLokinet(config, cb) {
 
   if (!lokinet) {
     console.error('failed to start lokinet, exiting...')
+    // proper shutdown?
     process.exit()
   }
   lokinet.killed = false
@@ -870,10 +948,13 @@ function launchLokinet(config, cb) {
 
 function checkConfig(config) {
   if (config === undefined) config = {}
+
+  if (config.auto_config_test_ips === undefined) config.auto_config_test_ips = ['1.1.1.1', '8.8.8.8']
   if (config.auto_config_test_host === undefined ) config.auto_config_test_host='www.imdb.com'
   if (config.auto_config_test_port === undefined ) config.auto_config_test_port=80
   auto_config_test_port = config.auto_config_test_port
   auto_config_test_host = config.auto_config_test_host
+  auto_config_test_ips  = config.auto_config_test_ips
 
   if (config.binary_path === undefined ) config.binary_path='/usr/local/bin/lokinet'
 
