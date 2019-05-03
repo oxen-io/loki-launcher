@@ -84,16 +84,13 @@ config = requested_config
 
 var dataDirReady = false
 
-// defaults
-if (config.network.testnet === undefined) {
-  config.network.testnet = config.blockchain.network == "test"
-}
-
 // normalize inputs (allow for more options but clamping it down internally)
 if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
   config.blockchain.network = 'test'
 } else
 if (config.blockchain.network.toLowerCase() == "consensusnet" || config.blockchain.network.toLowerCase() == "consensus" || config.blockchain.network.toLowerCase() == "demo") {
+  // it's called demo in the launcher because I feel strong this is the best label
+  // we can reuse this for future demos as an isolated network
   config.blockchain.network = 'demo'
 } else
 if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
@@ -103,6 +100,15 @@ if (config.launcher === undefined) {
   // set launcher defaults
   config.launcher = {
     interface: false,
+  }
+}
+// lokinet defaults
+if (config.network.testnet === undefined) {
+  config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
+}
+if (config.network.testnet && config.network.netid === undefined) {
+  if (config.blockchain.network == "demo") {
+    config.network.netid = "demonet"
   }
 }
 
@@ -194,7 +200,7 @@ setupInitialBlockchainOptions()
 // also this will change behavior if we actually set the CLI option to lokid
 if (!config.blockchain.data_dir) {
   console.log('using default data_dir, network', config.blockchain.network)
-  config.blockchain.data_dir = '~/.loki'
+  config.blockchain.data_dir = os.homedir() + '/.loki'
   blockchain_useDefaultDataDir = true
 }
 config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
@@ -212,7 +218,8 @@ function getLokiDataDir() {
   if (dir[dir.length - 1] == '/') {
     dir = dir.slice(0, -1)
   }
-  if (blockchain_useDefaultDataDir) {
+  // I think Jason was wrong about this
+  //if (blockchain_useDefaultDataDir) {
     if (config.blockchain.network == 'staging') {
       dir += '/stagenet'
     } else
@@ -222,7 +229,7 @@ function getLokiDataDir() {
     if (config.blockchain.network == 'test') {
       dir += '/testnet'
     }
-  }
+  //}
   return dir
 }
 
