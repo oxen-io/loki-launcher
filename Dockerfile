@@ -227,6 +227,7 @@ RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && apt-get install -
 WORKDIR /usr/src/app
 RUN mkdir bin
 COPY --from=blockchain /src/build/release/bin/lokid bin/lokid
+COPY --from=blockchain /src/build/release/bin/loki-wallet-cli bin/loki-wallet-cli
 #COPY lokinet-docker.ini /root/.lokinet/lokinet.ini
 COPY --from=network /src/build/lokinet bin/lokinet
 #COPY --from=network /root/.lokinet/bootstrap.signed /root/.lokinet/
@@ -236,6 +237,7 @@ COPY ini.js .
 COPY lib.js .
 COPY lokinet.js .
 COPY index.js .
+COPY client.js .
 COPY launcher-docker.ini launcher.ini
 RUN mkdir -p /root/storage
 
