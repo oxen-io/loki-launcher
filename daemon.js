@@ -2,6 +2,7 @@
 const fs        = require('fs')
 const os        = require('os')
 const net       = require('net')
+const path      = require('path')
 const lib       = require('./lib')
 const lokinet   = require('./lokinet')
 const { spawn } = require('child_process')
