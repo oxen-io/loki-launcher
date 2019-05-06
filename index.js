@@ -394,6 +394,15 @@ if (fs.existsSync(config.storage.lokid_key) && fs.lstatSync(config.storage.lokid
   process.exit()
 }
 
+if (config.storage.db_location !== undefined) {
+  if (fs.existsSync(config.storage.db_location)) {
+    if (!fs.lstatSync(config.storage.db_location).isDirectory()) {
+      console.error('storage server db_location is not a directory', config.storage.db_location)
+      process.exit()
+    } // else perfect
+  } // else we'll make
+} // else we'll just current dir
+
 //console.log('userInfo', os.userInfo('utf8'))
 //console.log('started as', process.getuid(), process.geteuid())
 if (os.platform() == 'darwin') {
@@ -463,7 +472,9 @@ function startEverything(config, args) {
   // to debug
   // sudo __daemon=1 node index.js
   //daemon(args, __filename, lokinet, config, getLokiDataDir)
-  daemon.startLauncherDaemon(config.launcher.interactive, __filename, args, function() {
+  var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
+  console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
+  daemon.startLauncherDaemon(foregroundIt, __filename, args, function() {
     daemon.startLokinet(config, args, function(started) {
       //console.log('StorageServer now running', started)
       if (!started) {
