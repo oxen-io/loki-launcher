@@ -210,6 +210,36 @@ function launcherStorageServer(config, args, cb) {
   if (cb) cb(true)
 }
 
+// https://stackoverflow.com/a/40686853
+function mkDirByPathSync(targetDir, { isRelativeToScript = false } = {}) {
+  const sep = path.sep
+  const initDir = path.isAbsolute(targetDir) ? sep : ''
+  const baseDir = isRelativeToScript ? __dirname : '.'
+
+  return targetDir.split(sep).reduce((parentDir, childDir) => {
+    const curDir = path.resolve(baseDir, parentDir, childDir)
+    try {
+      fs.mkdirSync(curDir)
+    } catch (err) {
+      if (err.code === 'EEXIST') { // curDir already exists!
+        return curDir
+      }
+
+      // To avoid `EISDIR` error on Mac and `EACCES`-->`ENOENT` and `EPERM` on Windows.
+      if (err.code === 'ENOENT') { // Throw the original parentDir error on curDir `ENOENT` failure.
+        throw new Error(`EACCES: permission denied, mkdir '${parentDir}'`)
+      }
+
+      const caughtErr = ['EACCES', 'EPERM', 'EISDIR'].indexOf(err.code) > -1
+      if (!caughtErr || caughtErr && curDir === path.resolve(targetDir)) {
+        throw err // Throw if it's just the last created dir.
+      }
+    }
+
+    return curDir
+  }, initDir)
+}
+
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
   lokinet.getLokiNetIP(function(ip) {
@@ -218,6 +248,11 @@ function startStorageServer(config, args, cb) {
     if (ip) {
       console.log('DAEMON: starting storageServer on', ip)
       config.storage.ip = ip
+      if (config.storage.db_location !== undefined) {
+        if (!fs.existsSync(config.storage.db_location)) {
+          mkDirByPathSync(config.storage.db_location)
+        }
+      }
       launcherStorageServer(config, args, cb)
     } else {
       console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
@@ -244,7 +279,7 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
   */
 
   // see if we need to detach
-  //console.log('interactive', interactive)
+  console.log('interactive', interactive)
   if (!interactive) {
     //console.log('fork check', process.env.__daemon)
     if (!process.env.__daemon) {
@@ -439,8 +474,8 @@ function startLokid(config, args) {
 
   launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
 
-  // if we're interactive grab the console
-  if (config.launcher.interactive) {
+  // if we're interactive (and no docker grab) the console
+  if (config.launcher.interactive && lib.falsish(config.launcher.docker)) {
     // resume stdin in the parent process (node app won't quit all by itself
     // unless an error or process.exit() happens)
     stdin.resume()
