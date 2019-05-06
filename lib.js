@@ -34,6 +34,18 @@ function getLogo(str) {
   return logo.replace(/__LABEL__/, str)
 }
 
+function falsish(val) {
+  if (val === undefined) return true
+  if (val === null) return true
+  if (val === false) return true
+  if (val === 0) return true
+  if (val === true) return false
+  if (val === 1) return false
+  if (val.toLowerCase() === 'false') return true
+  if (val.toLowerCase() === 'no') return true
+  return false
+}
+
 function isPidRunning(pid) {
   if (pid === undefined) {
     console.trace('isPidRunning was passed undefined, reporting not running')
@@ -103,4 +115,5 @@ module.exports = {
   isPidRunning: isPidRunning,
   getPids: getPids,
   savePids: savePids,
+  falsish: falsish,
 }
