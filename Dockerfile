@@ -174,7 +174,9 @@ RUN set -ex \
     && ldconfig
 
 WORKDIR /src
-COPY src/loki .
+
+#COPY src/loki .
+RUN git clone https://github.com/Doy-lee/loki.git . && git checkout ConsensusNet && git submodule init && git submodule update
 
 ENV USE_SINGLE_BUILDDIR=1
 ARG NPROC
@@ -184,6 +186,9 @@ RUN set -ex && \
     then make -j$(nproc) release-static ; \
     else make -j$NPROC release-static ; \
     fi
+
+# verify genesis
+#RUN cat src/cryptonote_config.h|grep -i GENESIS
 
 # lokinet build
 FROM alpine:latest as network
@@ -243,5 +248,5 @@ RUN mkdir -p /root/storage
 RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
 RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
-EXPOSE 22022 22023 22024 1090/udp 1190 38154 38155 38157 38158
+EXPOSE 22022 22023 22024 1090/udp 1190 38154 38155 38157 38158 38159 38161
 CMD ["node", "index.js"]
