@@ -13,6 +13,8 @@ const { spawn, exec } = require('child_process')
 const VERSION = 0.6
 console.log('lokinet launcher version', VERSION, 'registered')
 
+var lokinet_version = 'notStartedYet'
+
 function log() {
   var args = []
   for(var i in arguments) {
@@ -904,9 +906,29 @@ function launchLokinet(config, cb) {
   }
   lokinet.killed = false
   lokinet.stdout.on('data', (data) => {
-    var parts = data.toString().split(/\n/)
-    parts.pop()
-    data = parts.join('\n')
+    var lines = data.toString().split(/\n/)
+    for(var i in lines) {
+      var tline = lines[i].trim()
+      //lokinet-0.4.0-59e6a4bc (dev build)
+      if (tline.match('lokinet-0.')) {
+        var parts = tline.split('lokinet-0.')
+        lokinet_version = parts[1]
+        fs.writeFileSync('lokinet.version', lokinet_version)
+      }
+      // initalized service node: 7y95hnx8rrr1egfebpysntg5duh3dx5o1x7wycug99tjan19oejo.snode
+      if (tline.match('initalized service node: ')) {
+        var parts = tline.split('initalized service node: ')
+        lokinet_snode = parts[1]
+        fs.writeFileSync('snode_address', lokinet_snode)
+      }
+      if (tline.match('initialized service node: ')) {
+        var parts = tline.split('initialized service node: ')
+        lokinet_snode = parts[1]
+        fs.writeFileSync('snode_address', lokinet_snode)
+      }
+    }
+    lines.pop()
+    data = lines.join('\n')
     if (module.exports.onMessage) {
       module.exports.onMessage(data)
     }
