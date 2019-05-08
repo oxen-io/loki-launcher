@@ -174,15 +174,17 @@ RUN set -ex \
     && ldconfig
 
 WORKDIR /src
-COPY src/loki .
+#COPY src/loki .
+
+RUN git clone https://github.com/Doy-lee/loki.git . && git checkout ConsensusNet && git submodule init && git submodule update
 
 ENV USE_SINGLE_BUILDDIR=1
 ARG NPROC
 RUN set -ex && \
     rm -rf build && \
     if [ -z "$NPROC" ] ; \
-    then make -j$(nproc) release-static ; \
-    else make -j$NPROC release-static ; \
+    then make -j$(nproc) release-static; \
+    else make -j$NPROC release-static; \
     fi
 
 # lokinet build
@@ -239,6 +241,7 @@ COPY index.js .
 COPY client.js .
 COPY launcher-docker.ini launcher.ini
 RUN mkdir -p /root/storage
+RUN mkdir -p /usr/src/app/storage-logs
 
 RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
 RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
