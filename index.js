@@ -105,6 +105,10 @@ if (config.launcher === undefined) {
     interface: false,
   }
 }
+// actualize rpc_ip so we can pass it around to other daemons
+if (config.blockchain.rpc_ip === undefined) {
+  config.blockchain.rpc_ip = '127.0.0.1'
+}
 // lokinet defaults
 if (config.network.testnet === undefined) {
   config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
