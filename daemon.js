@@ -7,10 +7,8 @@ const lokinet   = require('./lokinet')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
-// ugly hack for Ryan's mac box & storageServer
-if (os.platform() == 'darwin') {
-//  process.env.DYLD_LIBRARY_PATH = 'depbuild/boost_1_69_0/stage/lib'
-}
+const VERSION = 0.1
+console.log('loki daemon library version', VERSION, 'registered')
 
 var connections = []
 function disconnectAllClients() {
@@ -315,14 +313,21 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
 // compile config into CLI arguments
 // only needs to be ran when config changes
 function configureLokid(config, args) {
-  var lokid_options = ['--service-node']
-  lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
+  // FIXME: launcher.ini blockchain option to disable restricted-rpc-listen
+  var lokid_options = ['--service-node', '--restricted-rpc-listen']
+  // if ip is not localhost, pass it to lokid
+  if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
+    lokid_options.push('--rpc-listen='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'@'+config.blockchain.rpc_ip+':'+config.blockchain.rpc_port)
+  } else // just require a pass to be set for this to be enabled...
+  if (config.blockchain.rpc_pass) {
+    lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
+  }
   if (config.blockchain.network == "test") {
     lokid_options.push('--testnet')
   } else
   if (config.blockchain.network == "demo") {
     lokid_options.push('--testnet')
-    lokid_options.push('--add-exclusive-node', '116.203.126.14')
+    lokid_options.push('--add-priority-node=116.203.126.14')
   } else
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')
