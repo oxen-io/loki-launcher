@@ -277,7 +277,7 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
   */
 
   // see if we need to detach
-  console.log('interactive', interactive)
+  //console.log('interactive', interactive)
   if (!interactive) {
     //console.log('fork check', process.env.__daemon)
     if (!process.env.__daemon) {
@@ -314,7 +314,7 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
 // only needs to be ran when config changes
 function configureLokid(config, args) {
   // FIXME: launcher.ini blockchain option to disable restricted-rpc-listen
-  var lokid_options = ['--service-node', '--restricted-rpc-listen']
+  var lokid_options = ['--service-node', '--restricted-rpc']
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
     lokid_options.push('--rpc-listen='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'@'+config.blockchain.rpc_ip+':'+config.blockchain.rpc_port)
