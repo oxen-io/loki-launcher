@@ -321,11 +321,6 @@ function configureLokid(config, args) {
     lokid_options.push('--rpc-bind-ip='+config.blockchain.rpc_ip)
   }
 
-  // FIXME: be nice to skip if it was the default...
-  // can we turn it off?
-  if (config.blockchain.rpc_port) {
-    lokid_options.push('--rpc-bind-port='+config.blockchain.rpc_port)
-  }
   if (config.blockchain.rpc_pass) {
     lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass)
   }
@@ -351,6 +346,8 @@ function configureLokid(config, args) {
   if (config.blockchain.zmq_port) {
     lokid_options.push('--zmq-rpc-bind-port='+config.blockchain.zmq_port)
   }
+  // FIXME: be nice to skip if it was the default...
+  // can we turn it off?
   if (config.blockchain.rpc_port) {
     lokid_options.push('--rpc-bind-port='+config.blockchain.rpc_port)
   }
