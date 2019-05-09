@@ -7,6 +7,9 @@ const lib       = require('./lib')
 const { spawn } = require('child_process')
 //const stdin     = process.openStdin()
 
+// to disable daemon mode for debugging
+// sudo __daemon=1 node index.js
+
 const VERSION = 0.6
 
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
@@ -473,7 +476,7 @@ function startEverything(config, args) {
   // sudo __daemon=1 node index.js
   //daemon(args, __filename, lokinet, config, getLokiDataDir)
   var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
-  console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
+  //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
   daemon.startLauncherDaemon(foregroundIt, __filename, args, function() {
     daemon.startLokinet(config, args, function(started) {
       //console.log('StorageServer now running', started)
