@@ -315,18 +315,21 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
 function configureLokid(config, args) {
   // FIXME: launcher.ini blockchain option to disable restricted-rpc-listen
   var lokid_options = ['--service-node', '--restricted-rpc']
+
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
-    var option = '--rpc-listen='
-    if (config.blockchain.rpc_pass) {
-      option += config.blockchain.rpc_user + ':' + config.blockchain.rpc_pass + '@'
-    }
-    option += config.blockchain.rpc_ip+':'+config.blockchain.rpc_port
-    lokid_options.push(option)
-  } else // just require a pass to be set for this to be enabled...
-  if (config.blockchain.rpc_pass) {
-    lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
+    lokid_options.push('--rpc-bind-ip='+config.blockchain.rpc_ip)
   }
+
+  // FIXME: be nice to skip if it was the default...
+  // can we turn it off?
+  if (config.blockchain.rpc_port) {
+    lokid_options.push('--rpc-bind-port='+config.blockchain.rpc_port)
+  }
+  if (config.blockchain.rpc_pass) {
+    lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass)
+  }
+  // net selection
   if (config.blockchain.network == "test") {
     lokid_options.push('--testnet')
   } else
