@@ -29,7 +29,11 @@ function shutdown_everything() {
   stdin.pause()
   if (storageServer && !storageServer.killed) {
     console.log('requesting storageServer be shutdown', storageServer.pid)
-    process.kill(storageServer.pid, 'SIGINT')
+    // FIXME: if this pid isn't running we crash
+    try {
+      process.kill(storageServer.pid, 'SIGINT')
+    } catch(e) {
+    }
     storageServer.killed = true
     //storageServer = null
   }
@@ -37,7 +41,10 @@ function shutdown_everything() {
   lokinet.stop()
   if (loki_daemon && !loki_daemon.killed) {
     console.log('requesting lokid be shutdown', loki_daemon.pid)
-    process.kill(loki_daemon.pid, 'SIGINT')
+    try {
+      process.kill(loki_daemon.pid, 'SIGINT')
+    } catch(e) {
+    }
     loki_daemon.killed = true
   }
   // clear our start up lock (if needed, will crash if not there)

@@ -1100,7 +1100,10 @@ function stop() {
   log('requesting lokinet be shutdown')
   if (lokinet && !lokinet.killed) {
     log('sending SIGINT to lokinet', lokinet.pid)
-    process.kill(lokinet.pid, 'SIGINT')
+    try {
+      process.kill(lokinet.pid, 'SIGINT')
+    } catch(e) {
+    }
     lokinet.killed = true
     // HACK: lokinet on macos can not be killed if rpc port is in use
     var monitorTimerStart = Date.now()
@@ -1114,7 +1117,10 @@ function stop() {
           // reach 15 secs and lokinet is still running
           // escalate it
           console.error('Lokinet is still running 15s after we intentionally stopped lokinet?')
-          process.kill(lokinet.pid, 'SIGKILL')
+          try {
+            process.kill(lokinet.pid, 'SIGKILL')
+          } catch(e) {
+          }
         } else
         if (diff > 30 * 1000) {
           // reach 30 secs and lokinet is still running
@@ -1132,7 +1138,7 @@ function stop() {
         }
       }
     }, 1000)
-    // this timer will stop the system from shutting down
+    // a setTimeout 15s will stop the system from shutting down
     /*
     setTimeout(function() {
       try {
