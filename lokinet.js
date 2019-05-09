@@ -949,14 +949,6 @@ function launchLokinet(config, cb) {
     log(`lokinet process exited with code ${code}`)
     // code 0 means clean shutdown
     lokinet.killed = true
-    // clean up
-    // if we have a temp bootstrap, clean it
-    if (cleanUpBootstrap && runningConfig.bootstrap['add-node'] && fs.existsSync(runningConfig.bootstrap['add-node'])) {
-      fs.unlinkSync(runningConfig.bootstrap['add-node'])
-    }
-    if (cleanUpIni && fs.existsSync(config.ini_file)) {
-      fs.unlinkSync(config.ini_file)
-    }
     if (!shuttingDown) {
       if (config.restart) {
         // restart it in 30 seconds to avoid pegging the cpu
@@ -966,6 +958,14 @@ function launchLokinet(config, cb) {
         }, 30 * 1000)
       } else {
         // don't restart...
+        // clean up
+        // if we have a temp bootstrap, clean it
+        if (cleanUpBootstrap && runningConfig.bootstrap['add-node'] && fs.existsSync(runningConfig.bootstrap['add-node'])) {
+          fs.unlinkSync(runningConfig.bootstrap['add-node'])
+        }
+        if (cleanUpIni && fs.existsSync(config.ini_file)) {
+          fs.unlinkSync(config.ini_file)
+        }
       }
     }
     // else we're shutting down
