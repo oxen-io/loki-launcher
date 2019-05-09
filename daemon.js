@@ -30,6 +30,7 @@ function shutdown_everything() {
   if (storageServer && !storageServer.killed) {
     console.log('requesting storageServer be shutdown', storageServer.pid)
     // FIXME: if this pid isn't running we crash
+    // FIXME: was killed not set?
     try {
       process.kill(storageServer.pid, 'SIGINT')
     } catch(e) {
@@ -164,6 +165,7 @@ function launcherStorageServer(config, args, cb) {
     if (cb) cb(false)
     return
   }
+  storageServer.killed = false
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   storageServer.stdout.pipe(process.stdout)
@@ -180,6 +182,7 @@ function launcherStorageServer(config, args, cb) {
 
   storageServer.on('close', (code) => {
     console.log(`storageServer process exited with code ${code}`)
+    storageServer.killed = true
     if (code == 1) {
       console.warn('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
       // we could want to issue one kill just to make sure
