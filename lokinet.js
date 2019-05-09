@@ -10,7 +10,7 @@ const https     = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.6
+const VERSION = 0.7
 console.log('lokinet launcher version', VERSION, 'registered')
 
 var lokinet_version = 'notStartedYet'
@@ -730,10 +730,14 @@ function generateSerivceNodeINI(config, cb) {
       lokid: {
         enabled: true,
         jsonrpc: config.lokid.rpc_ip + ':' + config.lokid.rpc_port,
-        username: config.lokid.rpc_user,
-        password: config.lokid.rpc_pass,
+        //username: config.lokid.rpc_user,
+        //password: config.lokid.rpc_pass,
         'service-node-seed': keyPath
       }
+    }
+    if (config.lokid.rpc_user) {
+      runningConfig.lokid.username = config.lokid.rpc_user
+      runningConfig.lokid.password = config.lokid.rpc_pass
     }
     if (useNAT) {
       runningConfig.router['public-ip']   = params.publicIP
@@ -1022,7 +1026,11 @@ function startServiceNode(config, cb) {
   preLaunchLokinet(config, function() {
     // test lokid rpc port first
     // also this makes sure the service key file exists
-    var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
+    var url = 'http://'
+    if (config.lokid.rpc_user) {
+      url += config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'
+    }
+    url += config.lokid.rpc_ip+':'+config.lokid.rpc_port
     log('lokinet waiting for lokid RPC server')
     waitForUrl(url, function() {
       launchLokinet(config, cb)
@@ -1205,6 +1213,7 @@ module.exports = {
   getLokiNetIP     : getLokiNetIP,
   enableLogging    : enableLogging,
   disableLogging   : disableLogging,
+  getPublicIPv4    : getPublicIPv4,
   getPID           : getPID,
   // FIXME: should we allow hooking of log() too?
   onMessage        : function(data) {
