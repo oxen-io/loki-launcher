@@ -186,8 +186,11 @@ function launcherStorageServer(config, args, cb) {
     }
     // code null means clean shutdown
     if (!shuttingDown) {
-      console.log('loki_daemon is still running, restarting storageServer')
-      launcherStorageServer(config, args)
+      // wait 30s
+      setTimeout(function() {
+        console.log('loki_daemon is still running, restarting storageServer')
+        launcherStorageServer(config, args)
+      }, 30 * 1000)
     }
   })
 
