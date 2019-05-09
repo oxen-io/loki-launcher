@@ -385,7 +385,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     loki_daemon = spawn(binary_path, lokid_options)
   }
   if (!loki_daemon) {
-    console.error('failed to start lokied, exiting...')
+    console.error('BLOCKCHAIN: failed to start lokied, exiting...')
     shutdown_everything()
   }
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
@@ -410,7 +410,8 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   }
 
   loki_daemon.on('close', (code) => {
-    console.warn(`loki_daemon process exited with code ${code}`)
+    console.warn(`BLOCKCHAIN: loki_daemon process exited with code ${code}`)
+    // invalid param gives a code 1
     // code 0 means clean shutdown
     if (code === 0) {
       // likely to mean it was requested
