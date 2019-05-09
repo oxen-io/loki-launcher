@@ -177,9 +177,10 @@ WORKDIR /src
 #COPY src/loki .
 
 ADD https://api.github.com/repos/Doy-lee/loki/git/refs/heads/ConsensusNet version.json
-RUN git clone https://github.com/Doy-lee/loki.git . && git checkout ConsensusNet && git submodule init && git submodule update
+RUN git clone https://github.com/Doy-lee/loki.git && cd loki && git checkout ConsensusNet && git submodule init && git submodule update
 
 ENV USE_SINGLE_BUILDDIR=1
+WORKDIR /src/loki
 ARG NPROC
 RUN set -ex && \
     rm -rf build && \
@@ -198,7 +199,8 @@ WORKDIR /src
 #COPY src/loki-network /src/
 
 ADD https://api.github.com/repos/loki-project/loki-network/git/refs/heads/master version.json
-RUN git clone https://github.com/loki-project/loki-network.git . 
+RUN git clone https://github.com/loki-project/loki-network.git
+WORKDIR /src/loki-network
 #&& git checkout master && git submodule init && git submodule update
 
 # do we want Release?
@@ -241,10 +243,10 @@ RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && apt-get install -
 
 WORKDIR /usr/src/app
 RUN mkdir bin
-COPY --from=blockchain /src/build/release/bin/lokid bin/lokid
-COPY --from=blockchain /src/build/release/bin/loki-wallet-cli bin/loki-wallet-cli
+COPY --from=blockchain /src/loki/build/release/bin/lokid bin/lokid
+#COPY --from=blockchain /src/build/release/bin/loki-wallet-cli bin/loki-wallet-cli
 #COPY lokinet-docker.ini /root/.lokinet/lokinet.ini
-COPY --from=network /src/build/lokinet bin/lokinet
+COPY --from=network /src/loki-network/build/lokinet bin/lokinet
 #COPY --from=network /root/.lokinet/bootstrap.signed /root/.lokinet/
 COPY --from=storage /src/loki-storage-server/build/httpserver/httpserver bin/httpserver
 COPY daemon.js .
