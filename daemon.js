@@ -317,7 +317,12 @@ function configureLokid(config, args) {
   var lokid_options = ['--service-node', '--restricted-rpc']
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
-    lokid_options.push('--rpc-listen='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'@'+config.blockchain.rpc_ip+':'+config.blockchain.rpc_port)
+    var option = '--rpc-listen='
+    if (config.blockchain.rpc_pass) {
+      option += config.blockchain.rpc_user + ':' + config.blockchain.rpc_pass + '@'
+    }
+    option += config.blockchain.rpc_ip+':'+config.blockchain.rpc_port
+    lokid_options.push(option)
   } else // just require a pass to be set for this to be enabled...
   if (config.blockchain.rpc_pass) {
     lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass+'')
