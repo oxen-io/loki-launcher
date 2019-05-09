@@ -318,7 +318,7 @@ function configureLokid(config, args) {
 
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
-    lokid_options.push('--rpc-bind-ip='+config.blockchain.rpc_ip)
+    lokid_options.push('--rpc-bind-ip='+config.blockchain.rpc_ip, '--confirm-external-bind')
   }
 
   if (config.blockchain.rpc_pass) {
