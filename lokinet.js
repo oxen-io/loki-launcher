@@ -548,6 +548,7 @@ function generateINI(config, need, markDone, cb) {
     upstreams = 'upstream='+servers.join('\nupstream=')
     markDone('upstream', params)
   })
+  // check for lokinet RPC port
   log('trying', 'http://'+config.rpc_ip+':'+config.rpc_port)
   httpGet('http://'+config.rpc_ip+':'+config.rpc_port, function(testData) {
     //log('rpc has', testData)
@@ -1030,7 +1031,7 @@ function startServiceNode(config, cb) {
     if (config.lokid.rpc_user) {
       url += config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'
     }
-    url += config.lokid.rpc_ip+':'+config.lokid.rpc_port
+    url += config.lokid.rpc_ip+':'+config.lokid.rpc_port+'/json_rpc'
     log('lokinet waiting for lokid RPC server')
     waitForUrl(url, function() {
       launchLokinet(config, cb)
