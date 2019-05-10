@@ -109,15 +109,6 @@ if (config.launcher === undefined) {
 if (config.blockchain.rpc_ip === undefined) {
   config.blockchain.rpc_ip = '127.0.0.1'
 }
-// lokinet defaults
-if (config.network.testnet === undefined) {
-  config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
-}
-if (config.network.testnet && config.network.netid === undefined) {
-  if (config.blockchain.network == "demo") {
-    config.network.netid = "demonet"
-  }
-}
 
 // autoconfig
 /*
@@ -290,11 +281,21 @@ setPort('zmq-rpc-bind-port', 'zmq_port')
 setPort('rpc-bind-port', 'rpc_port')
 setPort('p2p-bind-port', 'p2p_port')
 
+// lokinet defaults
+if (config.network.testnet === undefined) {
+  config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
+}
+if (config.network.testnet && config.network.netid === undefined) {
+  if (config.blockchain.network == "demo") {
+    config.network.netid = "demonet"
+  }
+}
+lokinet.checkConfig(config.network) // can auto-configure network.binary_path
+// storage server auto config
 if (config.storage.lokid_key === undefined) {
   config.storage.lokid_key = getLokiDataDir() + '/key'
 }
-
-lokinet.checkConfig(config.network) // can auto-configure network.binary_path
+config.storage.lokid_rpc_port = config.blockchain.rpc_port
 
 // lokid config and most other configs should be locked into stone by this point
 // (except for lokinet, since we need to copy lokid over to it)
