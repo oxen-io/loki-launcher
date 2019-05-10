@@ -154,6 +154,9 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.db_location) {
     optionals.push('--db-location', config.storage.db_location)
   }
+  if (config.storage.lokid_rpc_port) {
+    optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
+  }
   console.log('STORAGE: launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
   // ip and port must be first
   storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
