@@ -517,6 +517,10 @@ function generateINI(config, need, markDone, cb) {
   if (config.netid) {
     lokinet_nodedb += '-' + config.netid
   }
+  if (!fs.existsSync(config.data_dir)) {
+    log('making', config.data_dir)
+    mkDirByPathSync(config.data_dir)
+  }
   if (!fs.existsSync(lokinet_nodedb)) {
     log('making', lokinet_nodedb)
     mkDirByPathSync(lokinet_nodedb)
