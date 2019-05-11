@@ -622,6 +622,11 @@ function applyConfig(file_config, config_obj) {
   if (file_config.nickname) {
     config_obj.router.nickname = file_config.nickname
   }
+  // inject manual NAT config?
+  if (file_config.public_ip) {
+    config_obj.router['public-ip']   = file_config.public_ip
+    config_obj.router['public-port'] = file_config.public_port
+  }
   // set default netid based on testnet
   if (file_config.lokid && file_config.lokid.network == "test") {
     config_obj.router.netid = 'service'
@@ -636,6 +641,10 @@ function applyConfig(file_config, config_obj) {
   }
   if (file_config.ifaddr) {
     config_obj.network.ifaddr = file_config.ifaddr
+  }
+  // logging section
+  if (config.log_path) {
+    runningConfig.logging = config.log_path
   }
   // dns section
   if (file_config.dns_ip || file_config.dns_port) {
@@ -742,11 +751,6 @@ function generateSerivceNodeINI(config, cb) {
     }
     if (useNAT) {
       runningConfig.router['public-ip']   = params.publicIP
-      runningConfig.router['public-port'] = config.public_port
-    }
-    // inject manual NAT config?
-    if (config.public_ip) {
-      runningConfig.router['public-ip']   = config.public_ip
       runningConfig.router['public-port'] = config.public_port
     }
     runningConfig.bind[params.lokinet_nic] = config.public_port
@@ -901,7 +905,7 @@ function launchLokinet(config, cb) {
   if (config.verbose) {
     cli_options.push('-v')
   }
-  console.log('network: launching', config.binary_path, cli_options.join(' '))
+  console.log('NETWORK: launching', config.binary_path, cli_options.join(' '))
   lokinet = spawn(config.binary_path, cli_options)
 
   if (!lokinet) {
