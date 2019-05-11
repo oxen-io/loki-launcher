@@ -508,6 +508,12 @@ function generateINI(config, need, markDone, cb) {
   var use_lokinet_rpc_port = config.rpc_port
   var lokinet_bootstrap_path = homeDir + '/.lokinet/bootstrap.signed'
   var lokinet_nodedb = homeDir + '/.lokinet/netdb'
+  if (config.data_dir) {
+    lokinet_nodedb = config.data_dir + '/netdb'
+  }
+  if (config.netdb) {
+    lokinet_nodedb = config.netdb + '/netdb'
+  }
   if (config.netid) {
     lokinet_nodedb += '-' + config.netid
   }
@@ -621,6 +627,12 @@ function applyConfig(file_config, config_obj) {
   // router section
   if (file_config.nickname) {
     config_obj.router.nickname = file_config.nickname
+  }
+  if (file_config.transport_privkey) {
+    config_obj.router['transport-privkey'] = file_config.transport_privkey
+  }
+  if (file_config.encryption_privkey) {
+    config_obj.router['encryption-privkey'] = file_config.encryption_privkey
   }
   // inject manual NAT config?
   if (file_config.public_ip) {
