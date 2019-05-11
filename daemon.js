@@ -172,15 +172,31 @@ function launcherStorageServer(config, args, cb) {
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   storageServer.stdout.pipe(process.stdout)
+  var storageServer_version = 'unknown'
   storageServer.stdout.on('data', (data) => {
-    var parts = data.toString().split(/\n/)
-    parts.pop()
-    data = parts.join('\n')
-    console.log(`storageServer: ${data}`)
+    var lines = data.toString().split(/\n/)
+    for(var i in lines) {
+      var tline = lines[i].trim()
+      //Loki Storage Server v0.1
+      if (tline.match('Loki Storage Server v')) {
+        var parts = tline.split('Loki Storage Server v')
+        storageServer_version = parts[1]
+      }
+      // git commit hash: 94c835f
+      if (tline.match('git commit hash: ')) {
+        var parts = tline.split('git commit hash: ')
+        //lokinet_version = parts[1]
+        fs.writeFileSync('storageServer.version', storageServer_version+"\n"+parts[1])
+      }
+    }
+    lines.pop()
+    data = lines.join('\n')
+    // we're already piping to stdout
+    //console.log(`STORAGE: ${data}`)
   })
 
-  storageServer.stderr.on('data', (data) => {
-    console.log(`storageServerErr: ${data}`)
+  storageServer.stderr.on('STORAGE:', (data) => {
+    console.log(`STORAGE ERR: ${data}`)
   })
 
   storageServer.on('close', (code) => {
