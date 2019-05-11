@@ -290,6 +290,15 @@ if (config.network.testnet && config.network.netid === undefined) {
     config.network.netid = "demonet"
   }
 }
+if (config.network.data_dir) {
+  // lokid
+  //ident-privkey=/Users/admin/.lokinet/identity.private
+  // not lokig
+  //transport-privkey=/Users/admin/.lokinet/transport.private
+  //encryption-privkey=/Users/admin/.lokinet/encryption.private
+  config.network.transport_privkey = config.network.data_dir + '/transport.private'
+  config.network.encryption_privkey = config.network.data_dir + '/encryption.private'
+}
 lokinet.checkConfig(config.network) // can auto-configure network.binary_path
 // storage server auto config
 if (config.storage.lokid_key === undefined) {
