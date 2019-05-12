@@ -219,8 +219,8 @@ COPY src/loki-storage-server/install-deps-linux.sh install-deps-linux.sh
 RUN ./install-deps-linux.sh
 #COPY src/loki-storage-server .
 
-ADD https://api.github.com/repos/msgmaxim/loki-storage-server/git/refs/heads/debug-swarm version.json
-RUN git clone https://github.com/msgmaxim/loki-storage-server.git && cd loki-storage-server && git checkout debug-swarm 
+ADD https://api.github.com/repos/loki-project/loki-storage-server/git/refs/heads/master version.json
+RUN git clone https://github.com/loki-project/loki-storage-server.git && cd loki-storage-server && git checkout master
 #&& git submodule init && git submodule update
 
 WORKDIR /src/loki-storage-server
@@ -236,7 +236,7 @@ FROM ubuntu:latest
 RUN set -ex && \
     apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates curl && \
-    apt-get --reinstall --purge install netbase && \
+    apt-get --reinstall --purge install -y netbase iputils-ping net-tools gdb systemd-coredump && \
     apt-get clean && \
     rm -rf /var/lib/apt
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && apt-get install -y nodejs
@@ -256,7 +256,9 @@ COPY lokinet.js .
 COPY index.js .
 COPY client.js .
 COPY launcher-docker.ini launcher.ini
+# this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
+RUN mkdir -p /root/lokinet
 #RUN mkdir -p /usr/src/app/storage-logs
 
 #RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
