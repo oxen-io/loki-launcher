@@ -190,10 +190,12 @@ RUN set -ex && \
     fi
 
 # lokinet build
-FROM alpine:latest as network
+#FROM alpine:latest as network
+FROM ubuntu:latest as network
 
-RUN apk update && \
-    apk add build-base cmake git libcap-dev curl ninja bash binutils-gold
+#RUN apk update && \
+#    apk add build-base cmake git libcap-dev curl ninja bash binutils-gold
+RUN apt update && apt install -y cmake git libpcap-dev curl ninja bash binutils-gold
 
 WORKDIR /src
 #COPY src/loki-network /src/
@@ -204,7 +206,8 @@ WORKDIR /src/loki-network
 #&& git checkout master && git submodule init && git submodule update
 
 # do we want Release?
-RUN make NINJA=ninja STATIC_LINK=ON BUILD_TYPE=Release
+RUN make NINJA=ninja STATIC_LINK=ON 
+#BUILD_TYPE=Release
 #RUN ./lokinet-bootstrap
 
 # storage server build
