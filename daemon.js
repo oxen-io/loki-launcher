@@ -1,6 +1,6 @@
 // no npm!
 const fs        = require('fs')
-const os        = require('os')
+//const os        = require('os')
 const net       = require('net')
 const lib       = require('./lib')
 const lokinet   = require('./lokinet')
@@ -12,7 +12,7 @@ console.log('loki daemon library version', VERSION, 'registered')
 
 var connections = []
 function disconnectAllClients() {
-  console.log('disconnecting all', connections.length, 'clients')
+  console.log('SOCKET: disconnecting all', connections.length, 'clients')
   for(var i in connections) {
     var conn = connections[i]
     if (!conn.destroyed) {
@@ -28,7 +28,7 @@ function shutdown_everything() {
   shuttingDown = true
   stdin.pause()
   if (storageServer && !storageServer.killed) {
-    console.log('requesting storageServer be shutdown', storageServer.pid)
+    console.log('LAUNCHER: requesting storageServer be shutdown', storageServer.pid)
     // FIXME: if this pid isn't running we crash
     // FIXME: was killed not set?
     try {
@@ -41,7 +41,7 @@ function shutdown_everything() {
   // even if not running, yet, stop any attempts at starting it too
   lokinet.stop()
   if (loki_daemon && !loki_daemon.killed) {
-    console.log('requesting lokid be shutdown', loki_daemon.pid)
+    console.log('LAUNCHER: requesting lokid be shutdown', loki_daemon.pid)
     try {
       process.kill(loki_daemon.pid, 'SIGINT')
     } catch(e) {
@@ -56,7 +56,7 @@ function shutdown_everything() {
   var shutDownTimer = setInterval(function() {
     var stop = true
     if (storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)) {
-      console.log('storage server still running')
+      console.log('LAUNCHER: storage server still running')
       stop = false
     }
     if (loki_daemon) {
@@ -65,14 +65,14 @@ function shutdown_everything() {
       }
     }
     if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
-      console.log('lokid still running')
+      console.log('LAUNCHER: lokid still running')
       // lokid on macos may need a kill -9 after a couple failed 15
       // lets say 50s of not stopping -15 then wait 30s if still run -9
       stop = false
     }
     var lokinetState = lokinet.isRunning()
     if (lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)) {
-      console.log('lokinet still running')
+      console.log('LAUNCHER: lokinet still running')
       stop = false
     }
     if (stop) {
@@ -84,10 +84,10 @@ function shutdown_everything() {
       loki_daemon = null
       lokinetState = null
       if (fs.existsSync('pids.json')) {
-        console.log('clearing pids.json')
+        console.log('LAUNCHER: clearing pids.json')
         fs.unlinkSync('pids.json')
       } else {
-        console.log('NO pids.json found, can\'t clear')
+        console.log('LAUNCHER: NO pids.json found, can\'t clear')
       }
       clearInterval(shutDownTimer)
       // docker/node 10 on linux has issue with this
@@ -112,13 +112,13 @@ function shutdown_everything() {
   }, 1000)
 
   if (server) {
-    console.log('closing socket server')
+    console.log('SOCKET: closing socket server')
     disconnectAllClients()
     server.close()
     server.unref()
   }
   if (fs.existsSync('launcher.socket')) {
-    console.log('cleaning socket')
+    console.log('SOCKET: cleaning socket')
     fs.unlinkSync('launcher.socket')
   }
   // don't think we need, seems to handle itself
@@ -130,7 +130,7 @@ var storageServer
 function launcherStorageServer(config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
-    console.log('not going to start storageServer, shutting down')
+    console.log('STORAGE: not going to start storageServer, shutting down')
     return
   }
   if (!config.storage.lokid_key) {
@@ -169,6 +169,7 @@ function launcherStorageServer(config, args, cb) {
     return
   }
   storageServer.killed = false
+  storageServer.startTime = Date.now()
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   storageServer.stdout.pipe(process.stdout)
@@ -200,7 +201,7 @@ function launcherStorageServer(config, args, cb) {
   })
 
   storageServer.on('close', (code) => {
-    console.log(`storageServer process exited with code ${code}`)
+    console.log(`storageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
       console.warn('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
@@ -240,36 +241,6 @@ function launcherStorageServer(config, args, cb) {
   if (cb) cb(true)
 }
 
-// https://stackoverflow.com/a/40686853
-function mkDirByPathSync(targetDir, { isRelativeToScript = false } = {}) {
-  const sep = path.sep
-  const initDir = path.isAbsolute(targetDir) ? sep : ''
-  const baseDir = isRelativeToScript ? __dirname : '.'
-
-  return targetDir.split(sep).reduce((parentDir, childDir) => {
-    const curDir = path.resolve(baseDir, parentDir, childDir)
-    try {
-      fs.mkdirSync(curDir)
-    } catch (err) {
-      if (err.code === 'EEXIST') { // curDir already exists!
-        return curDir
-      }
-
-      // To avoid `EISDIR` error on Mac and `EACCES`-->`ENOENT` and `EPERM` on Windows.
-      if (err.code === 'ENOENT') { // Throw the original parentDir error on curDir `ENOENT` failure.
-        throw new Error(`EACCES: permission denied, mkdir '${parentDir}'`)
-      }
-
-      const caughtErr = ['EACCES', 'EPERM', 'EISDIR'].indexOf(err.code) > -1
-      if (!caughtErr || caughtErr && curDir === path.resolve(targetDir)) {
-        throw err // Throw if it's just the last created dir.
-      }
-    }
-
-    return curDir
-  }, initDir)
-}
-
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
   lokinet.getLokiNetIP(function(ip) {
@@ -280,7 +251,7 @@ function startStorageServer(config, args, cb) {
       config.storage.ip = ip
       if (config.storage.db_location !== undefined) {
         if (!fs.existsSync(config.storage.db_location)) {
-          mkDirByPathSync(config.storage.db_location)
+          lokinet.mkDirByPathSync(config.storage.db_location)
         }
       }
       launcherStorageServer(config, args, cb)
@@ -404,14 +375,14 @@ var server
 function launchLokid(binary_path, lokid_options, interactive, config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
-    console.log('not going to start lokid, shutting down')
+    console.log('BLOCKCHAIN: not going to start lokid, shutting down')
     return
   }
   // hijack STDIN but not OUT/ERR
   //console.log('launchLokid - interactive?', interactive)
   if (interactive) {
     // don't hijack stdout, so prepare_registration works
-    console.log('launchLokid - interactive mode')
+    console.log('BLOCKCHAIN: launchLokid - interactive mode')
     loki_daemon = spawn(binary_path, lokid_options, {
       stdio: ['pipe', 'inherit', 'inherit'],
       //shell: true
@@ -425,6 +396,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     console.error('BLOCKCHAIN: failed to start lokied, exiting...')
     shutdown_everything()
   }
+  loki_daemon.startTime = Date.now()
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   if (!interactive) {
@@ -447,7 +419,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   }
 
   loki_daemon.on('close', (code) => {
-    console.warn(`BLOCKCHAIN: loki_daemon process exited with code ${code}`)
+    console.warn(`BLOCKCHAIN: loki_daemon process exited with code ${code} after`, (Date.now() - loki_daemon.startTime)+'ms')
     // invalid param gives a code 1
     // code 0 means clean shutdown
     if (code === 0) {
@@ -479,10 +451,10 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     if (!shuttingDown) {
       // if we need to restart
       if (config.blockchain.restart) {
-        console.log('lokid is configured to be restarted. Will do so in 30s')
+        console.log('BLOCKCHAIN: lokid is configured to be restarted. Will do so in 30s')
         // restart it in 30 seconds to avoid pegging the cpu
         setTimeout(function() {
-          console.log('restarting lokid')
+          console.log('BLOCKCHAIN: restarting lokid')
           launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
         }, 30 * 1000)
       } else {
@@ -494,7 +466,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
 
   function flushOutput() {
     if (!loki_daemon) {
-      console.log('flushOutput lost handle, stopping flushing')
+      console.log('BLOCKCHAIN: flushOutput lost handle, stopping flushing')
       return
     }
     // FIXME turn off when in prepare status...
@@ -507,6 +479,50 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   //loki_daemon.outputFlushTimer = setTimeout(flushOutput, 1000)
 
   if (cb) cb()
+}
+
+function sendToClients(data) {
+  if (server) {
+    // broadcast
+    for(var i in connections) {
+      var conn = connections[i]
+      conn.write(data + "\n")
+    }
+  }
+}
+
+function lokinet_onMessageSockerHandler(data) {
+  if (lokinetLogging) {
+    console.log(`lokinet: ${data}`)
+    sendToClients('NETWORK: ' + data + '\n')
+  }
+}
+function lokinet_onErrorSockerHandler(data) {
+  console.log(`lokineterr: ${data}`)
+  sendToClients('NETWORK ERR: ' + data + '\n')
+}
+
+function setUpLokinetHandlers() {
+  lokinet.onMessage = lokinet_onMessageSockerHandler
+  lokinet.onError   = lokinet_onErrorSockerHandler
+}
+
+function handleInput(line) {
+  if (line.match(/^lokinet/i)) {
+    var remaining = line.replace(/^lokinet\s*/i, '')
+    if (remaining.match(/^log/i)) {
+      var param = remaining.replace(/^log\s*/i, '')
+      //console.log('lokinet log', param)
+      if (param.match(/^off/i)) {
+        lokinet.disableLogging()
+      }
+      if (param.match(/^on/i)) {
+        lokinet.enableLogging()
+      }
+    }
+    return true
+  }
+  return false
 }
 
 function startLokid(config, args) {
@@ -533,20 +549,7 @@ function startLokid(config, args) {
         shutdown_everything()
         return
       }
-      if (key.match(/^lokinet/i)) {
-        var remaining = key.replace(/^lokinet\s*/i, '')
-        if (remaining.match(/^log/i)) {
-          var param = remaining.replace(/^log\s*/i, '')
-          //console.log('lokinet log', param)
-          if (param.match(/^off/i)) {
-            lokinet.disableLogging()
-          }
-          if (param.match(/^on/i)) {
-            lokinet.enableLogging()
-          }
-        }
-        return
-      }
+      if (handleInput(line)) return
       if (!shuttingDown) {
         // local echo, write the key to stdout all normal like
         // on ssh we don't need this
@@ -577,14 +580,16 @@ function startLokid(config, args) {
         parts.pop()
         stripped = parts.join('\n')
         console.log('SOCKET: got', stripped)
+        if (handleInput(stripped)) return
         if (loki_daemon && !loki_daemon.killed) {
           console.log('SOCKET:sending to lokid')
           loki_daemon.stdin.write(data + "\n")
         }
       })
-      c.write('hello\n')
+      c.write('connection successful\n')
       c.pipe(c)
     })
+    setUpLokinetHandlers()
 
     server.on('error', (err) => {
       if (err.code == 'EADDRINUSE') {
@@ -601,7 +606,7 @@ function startLokid(config, args) {
         })
         return
       }
-      console.error('err', err)
+      console.error('SOCKET ERROR:', err)
       // some errors we need to shutdown
       //shutdown_everything()
     })
@@ -620,8 +625,25 @@ function setupHandlers() {
   if (handlersSetup) return
   process.on('SIGHUP', () => {
     console.log('shuttingDown?', shuttingDown)
+    var ts = Date.now()
+    var procInfo = {
+      blockchain: {
+        pid: loki_daemon.pid,
+        uptime: ts - loki_daemon.startTime
+      },
+      network: {
+        pid: lokinet.pid,
+        uptime: ts - lokinet.startTime
+      },
+      storage: {
+        pid: storageServer.pid,
+        uptime: ts - storageServer.startTime
+      },
+    }
+    console.table(procInfo)
     console.log('loki_daemon status', loki_daemon)
     console.log('lokinet status', lokinet.isRunning())
+    console.log('storageServer status', storageServer)
   })
   // ctrl-c
   process.on('SIGINT', function() {
