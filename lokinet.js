@@ -939,19 +939,19 @@ function launchLokinet(config, cb) {
       if (tline.match('lokinet-0.')) {
         var parts = tline.split('lokinet-0.')
         lokinet_version = parts[1]
-        fs.writeFileSync('lokinet.version', lokinet_version)
+        fs.writeFileSync('lokinet.version', lokinet_version + "\n")
       }
       // initalized service node: 7y95hnx8rrr1egfebpysntg5duh3dx5o1x7wycug99tjan19oejo.snode
       if (tline.match('initalized service node: ')) {
         var parts = tline.split('initalized service node: ')
         lokinet_snode = parts[1]
-        fs.writeFileSync('snode_address', lokinet_snode)
+        fs.writeFileSync('snode_address', lokinet_snode + "\n")
       }
       // in case we fix the spelling in the future
       if (tline.match('initialized service node: ')) {
         var parts = tline.split('initialized service node: ')
         lokinet_snode = parts[1]
-        fs.writeFileSync('snode_address', lokinet_snode)
+        fs.writeFileSync('snode_address', lokinet_snode + "\n")
       }
     }
     lines.pop()
