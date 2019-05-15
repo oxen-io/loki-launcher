@@ -929,6 +929,7 @@ function launchLokinet(config, cb) {
     // proper shutdown?
     process.exit()
   }
+  lokinet.startTime = Date.now()
   lokinet.killed = false
   lokinet.stdout.on('data', (data) => {
     var lines = data.toString().split(/\n/)
@@ -946,6 +947,7 @@ function launchLokinet(config, cb) {
         lokinet_snode = parts[1]
         fs.writeFileSync('snode_address', lokinet_snode)
       }
+      // in case we fix the spelling in the future
       if (tline.match('initialized service node: ')) {
         var parts = tline.split('initialized service node: ')
         lokinet_snode = parts[1]
@@ -966,7 +968,7 @@ function launchLokinet(config, cb) {
   })
 
   lokinet.on('close', (code) => {
-    log(`lokinet process exited with code ${code}`)
+    log(`lokinet process exited with code ${code} after`, (Date.now() - lokinet.startTime)+'ms')
     // code 0 means clean shutdown
     lokinet.killed = true
     if (!shuttingDown) {
@@ -1242,6 +1244,7 @@ module.exports = {
   disableLogging   : disableLogging,
   getPublicIPv4    : getPublicIPv4,
   getPID           : getPID,
+  mkDirByPathSync  : mkDirByPathSync, // for daemon
   // FIXME: should we allow hooking of log() too?
   onMessage        : function(data) {
     if (lokinetLogging) {
