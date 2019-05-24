@@ -7,11 +7,11 @@ const fs = require('fs')
 
 function hereDoc(f) {
   return f.toString().
-      replace(/^[^\/]+\/\*!?/, '').
-      replace(/\*\/[^\/]+$/, '')
+    replace(/^[^\/]+\/\*!?/, '').
+    replace(/\*\/[^\/]+$/, '')
 }
 
-var logo = hereDoc(function() {/*!
+var logo = hereDoc(function () {/*!
         .o0l.
        ;kNMNo.
      ;kNMMXd'
@@ -55,7 +55,7 @@ function isPidRunning(pid) {
     process.kill(pid, 0)
     //console.log('able to kill', pid)
     return true
-  } catch(e) {
+  } catch (e) {
     if (e.code == 'ERR_INVALID_ARG_TYPE') {
       // means pid was undefined
       return true
@@ -102,7 +102,7 @@ function getPids() {
   var obj = {}
   try {
     obj = JSON.parse(json)
-  } catch(e) {
+  } catch (e) {
     console.error("Can't parse JSON from launcher.pids", json)
   }
   return obj
@@ -110,8 +110,8 @@ function getPids() {
 
 module.exports = {
   getLogo: getLogo,
-//  args: args,
-//  stripArg: stripArg,
+  //  args: args,
+  //  stripArg: stripArg,
   isPidRunning: isPidRunning,
   getPids: getPids,
   savePids: savePids,
