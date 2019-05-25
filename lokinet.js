@@ -10,8 +10,10 @@ const https     = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.6
+const VERSION = 0.7
 console.log('lokinet launcher version', VERSION, 'registered')
+
+var lokinet_version = 'notStartedYet'
 
 function log() {
   var args = []
@@ -506,10 +508,20 @@ function generateINI(config, need, markDone, cb) {
   var use_lokinet_rpc_port = config.rpc_port
   var lokinet_bootstrap_path = homeDir + '/.lokinet/bootstrap.signed'
   var lokinet_nodedb = homeDir + '/.lokinet/netdb'
+  if (config.data_dir) {
+    lokinet_nodedb = config.data_dir + '/netdb'
+  }
+  if (config.netdb) {
+    lokinet_nodedb = config.netdb + '/netdb'
+  }
   if (config.netid) {
     lokinet_nodedb += '-' + config.netid
   }
-  if (!fs.existsSync(lokinet_nodedb)) {
+  if (config.data_dir && !fs.existsSync(config.data_dir)) {
+    log('making', config.data_dir)
+    mkDirByPathSync(config.data_dir)
+  }
+  if (config.lokinet_nodedb && !fs.existsSync(lokinet_nodedb)) {
     log('making', lokinet_nodedb)
     mkDirByPathSync(lokinet_nodedb)
   }
@@ -546,6 +558,7 @@ function generateINI(config, need, markDone, cb) {
     upstreams = 'upstream='+servers.join('\nupstream=')
     markDone('upstream', params)
   })
+  // check for lokinet RPC port
   log('trying', 'http://'+config.rpc_ip+':'+config.rpc_port)
   httpGet('http://'+config.rpc_ip+':'+config.rpc_port, function(testData) {
     //log('rpc has', testData)
@@ -619,6 +632,17 @@ function applyConfig(file_config, config_obj) {
   if (file_config.nickname) {
     config_obj.router.nickname = file_config.nickname
   }
+  if (file_config.transport_privkey) {
+    config_obj.router['transport-privkey'] = file_config.transport_privkey
+  }
+  if (file_config.encryption_privkey) {
+    config_obj.router['encryption-privkey'] = file_config.encryption_privkey
+  }
+  // inject manual NAT config?
+  if (file_config.public_ip) {
+    config_obj.router['public-ip']   = file_config.public_ip
+    config_obj.router['public-port'] = file_config.public_port
+  }
   // set default netid based on testnet
   if (file_config.lokid && file_config.lokid.network == "test") {
     config_obj.router.netid = 'service'
@@ -633,6 +657,10 @@ function applyConfig(file_config, config_obj) {
   }
   if (file_config.ifaddr) {
     config_obj.network.ifaddr = file_config.ifaddr
+  }
+  // logging section
+  if (config.log_path) {
+    runningConfig.logging = config.log_path
   }
   // dns section
   if (file_config.dns_ip || file_config.dns_port) {
@@ -728,18 +756,17 @@ function generateSerivceNodeINI(config, cb) {
       lokid: {
         enabled: true,
         jsonrpc: config.lokid.rpc_ip + ':' + config.lokid.rpc_port,
-        username: config.lokid.rpc_user,
-        password: config.lokid.rpc_pass,
+        //username: config.lokid.rpc_user,
+        //password: config.lokid.rpc_pass,
         'service-node-seed': keyPath
       }
     }
+    if (config.lokid.rpc_user) {
+      runningConfig.lokid.username = config.lokid.rpc_user
+      runningConfig.lokid.password = config.lokid.rpc_pass
+    }
     if (useNAT) {
       runningConfig.router['public-ip']   = params.publicIP
-      runningConfig.router['public-port'] = config.public_port
-    }
-    // inject manual NAT config?
-    if (config.public_ip) {
-      runningConfig.router['public-ip']   = config.public_ip
       runningConfig.router['public-port'] = config.public_port
     }
     runningConfig.bind[params.lokinet_nic] = config.public_port
@@ -894,7 +921,7 @@ function launchLokinet(config, cb) {
   if (config.verbose) {
     cli_options.push('-v')
   }
-  console.log('network: launching', config.binary_path, cli_options.join(' '))
+  console.log('NETWORK: launching', config.binary_path, cli_options.join(' '))
   lokinet = spawn(config.binary_path, cli_options)
 
   if (!lokinet) {
@@ -902,11 +929,33 @@ function launchLokinet(config, cb) {
     // proper shutdown?
     process.exit()
   }
+  lokinet.startTime = Date.now()
   lokinet.killed = false
   lokinet.stdout.on('data', (data) => {
-    var parts = data.toString().split(/\n/)
-    parts.pop()
-    data = parts.join('\n')
+    var lines = data.toString().split(/\n/)
+    for(var i in lines) {
+      var tline = lines[i].trim()
+      //lokinet-0.4.0-59e6a4bc (dev build)
+      if (tline.match('lokinet-0.')) {
+        var parts = tline.split('lokinet-0.')
+        lokinet_version = parts[1]
+        fs.writeFileSync('lokinet.version', lokinet_version + "\n")
+      }
+      // initalized service node: 7y95hnx8rrr1egfebpysntg5duh3dx5o1x7wycug99tjan19oejo.snode
+      if (tline.match('initalized service node: ')) {
+        var parts = tline.split('initalized service node: ')
+        lokinet_snode = parts[1]
+        fs.writeFileSync('snode_address', lokinet_snode + "\n")
+      }
+      // in case we fix the spelling in the future
+      if (tline.match('initialized service node: ')) {
+        var parts = tline.split('initialized service node: ')
+        lokinet_snode = parts[1]
+        fs.writeFileSync('snode_address', lokinet_snode + "\n")
+      }
+    }
+    lines.pop()
+    data = lines.join('\n')
     if (module.exports.onMessage) {
       module.exports.onMessage(data)
     }
@@ -919,17 +968,9 @@ function launchLokinet(config, cb) {
   })
 
   lokinet.on('close', (code) => {
-    log(`lokinet process exited with code ${code}`)
+    log(`lokinet process exited with code ${code} after`, (Date.now() - lokinet.startTime)+'ms')
     // code 0 means clean shutdown
     lokinet.killed = true
-    // clean up
-    // if we have a temp bootstrap, clean it
-    if (cleanUpBootstrap && runningConfig.bootstrap['add-node'] && fs.existsSync(runningConfig.bootstrap['add-node'])) {
-      fs.unlinkSync(runningConfig.bootstrap['add-node'])
-    }
-    if (cleanUpIni && fs.existsSync(config.ini_file)) {
-      fs.unlinkSync(config.ini_file)
-    }
     if (!shuttingDown) {
       if (config.restart) {
         // restart it in 30 seconds to avoid pegging the cpu
@@ -939,6 +980,14 @@ function launchLokinet(config, cb) {
         }, 30 * 1000)
       } else {
         // don't restart...
+        // clean up
+        // if we have a temp bootstrap, clean it
+        if (cleanUpBootstrap && runningConfig.bootstrap['add-node'] && fs.existsSync(runningConfig.bootstrap['add-node'])) {
+          fs.unlinkSync(runningConfig.bootstrap['add-node'])
+        }
+        if (cleanUpIni && fs.existsSync(config.ini_file)) {
+          fs.unlinkSync(config.ini_file)
+        }
       }
     }
     // else we're shutting down
@@ -1000,7 +1049,11 @@ function startServiceNode(config, cb) {
   preLaunchLokinet(config, function() {
     // test lokid rpc port first
     // also this makes sure the service key file exists
-    var url = 'http://'+config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'+config.lokid.rpc_ip+':'+config.lokid.rpc_port
+    var url = 'http://'
+    if (config.lokid.rpc_user) {
+      url += config.lokid.rpc_user+':'+config.lokid.rpc_pass+'@'
+    }
+    url += config.lokid.rpc_ip+':'+config.lokid.rpc_port+'/json_rpc'
     log('lokinet waiting for lokid RPC server')
     waitForUrl(url, function() {
       launchLokinet(config, cb)
@@ -1069,7 +1122,10 @@ function stop() {
   log('requesting lokinet be shutdown')
   if (lokinet && !lokinet.killed) {
     log('sending SIGINT to lokinet', lokinet.pid)
-    process.kill(lokinet.pid, 'SIGINT')
+    try {
+      process.kill(lokinet.pid, 'SIGINT')
+    } catch(e) {
+    }
     lokinet.killed = true
     // HACK: lokinet on macos can not be killed if rpc port is in use
     var monitorTimerStart = Date.now()
@@ -1083,7 +1139,10 @@ function stop() {
           // reach 15 secs and lokinet is still running
           // escalate it
           console.error('Lokinet is still running 15s after we intentionally stopped lokinet?')
-          process.kill(lokinet.pid, 'SIGKILL')
+          try {
+            process.kill(lokinet.pid, 'SIGKILL')
+          } catch(e) {
+          }
         } else
         if (diff > 30 * 1000) {
           // reach 30 secs and lokinet is still running
@@ -1101,7 +1160,7 @@ function stop() {
         }
       }
     }, 1000)
-    // this timer will stop the system from shutting down
+    // a setTimeout 15s will stop the system from shutting down
     /*
     setTimeout(function() {
       try {
@@ -1183,7 +1242,9 @@ module.exports = {
   getLokiNetIP     : getLokiNetIP,
   enableLogging    : enableLogging,
   disableLogging   : disableLogging,
+  getPublicIPv4    : getPublicIPv4,
   getPID           : getPID,
+  mkDirByPathSync  : mkDirByPathSync, // for daemon
   // FIXME: should we allow hooking of log() too?
   onMessage        : function(data) {
     if (lokinetLogging) {
