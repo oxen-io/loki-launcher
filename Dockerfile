@@ -174,33 +174,44 @@ RUN set -ex \
     && ldconfig
 
 WORKDIR /src
-
 #COPY src/loki .
-RUN git clone https://github.com/Doy-lee/loki.git . && git checkout ConsensusNet && git submodule init && git submodule update
+
+ADD https://api.github.com/repos/Doy-lee/loki/git/refs/heads/ConsensusNet version.json
+RUN git clone https://github.com/Doy-lee/loki.git && cd loki && git checkout ConsensusNet && git submodule init && git submodule update
 
 ENV USE_SINGLE_BUILDDIR=1
+WORKDIR /src/loki
 ARG NPROC
 RUN set -ex && \
     rm -rf build && \
     if [ -z "$NPROC" ] ; \
-    then make -j$(nproc) release-static ; \
-    else make -j$NPROC release-static ; \
+    then make -j$(nproc) release-static; \
+    else make -j$NPROC release-static; \
     fi
 
 # verify genesis
 #RUN cat src/cryptonote_config.h|grep -i GENESIS
 
 # lokinet build
-FROM alpine:latest as network
+#FROM alpine:latest as network
+FROM ubuntu:latest as network
 
-RUN apk update && \
-    apk add build-base cmake git libcap-dev curl ninja bash binutils-gold
+#RUN apk update && \
+#    apk add build-base cmake git libcap-dev curl ninja bash binutils-gold
+RUN apt update && apt install -y cmake git libpcap-dev curl ninja bash binutils-gold
 
 WORKDIR /src
-COPY src/loki-network /src/
+#COPY src/loki-network /src/
 
-RUN make NINJA=ninja STATIC_LINK=ON BUILD_TYPE=Release
-RUN ./lokinet-bootstrap
+ADD https://api.github.com/repos/loki-project/loki-network/git/refs/heads/master version.json
+RUN git clone https://github.com/loki-project/loki-network.git
+WORKDIR /src/loki-network
+#&& git checkout master && git submodule init && git submodule update
+
+# do we want Release?
+RUN make NINJA=ninja STATIC_LINK=ON 
+#BUILD_TYPE=Release
+#RUN ./lokinet-bootstrap
 
 # storage server build
 #FROM alpine:latest as storage
@@ -212,8 +223,14 @@ WORKDIR /src
 
 COPY src/loki-storage-server/install-deps-linux.sh install-deps-linux.sh
 RUN ./install-deps-linux.sh
-COPY src/loki-storage-server .
-RUN mkdir -p build && cd build && sodium_LIBRARY_RELEASE="deps/sodium/lib" cmake .. -DBOOST_ROOT="/src/deps/boost" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" && cmake --build .
+#COPY src/loki-storage-server .
+
+ADD https://api.github.com/repos/loki-project/loki-storage-server/git/refs/heads/master version.json
+RUN git clone https://github.com/loki-project/loki-storage-server.git && cd loki-storage-server && git checkout master
+#&& git submodule init && git submodule update
+
+WORKDIR /src/loki-storage-server
+RUN mkdir -p build && cd build && sodium_LIBRARY_RELEASE="deps/sodium/lib" cmake .. -DBOOST_ROOT="/src/deps/boost" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" -DCMAKE_BUILD_TYPE=Release && cmake --build .
 #RUN find . -name httpserver
 
 #CMD ["build/httpserver", "127.0.0.1", "3000"]
@@ -221,21 +238,23 @@ RUN mkdir -p build && cd build && sodium_LIBRARY_RELEASE="deps/sodium/lib" cmake
 
 # runtime stage
 FROM ubuntu:latest
+# have to reinstall netbase for /etc/services which the storage server needs
 RUN set -ex && \
     apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates curl && \
+    apt-get --reinstall --purge install -y netbase iputils-ping net-tools gdb systemd-coredump && \
     apt-get clean && \
     rm -rf /var/lib/apt
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && apt-get install -y nodejs
 
 WORKDIR /usr/src/app
 RUN mkdir bin
-COPY --from=blockchain /src/build/release/bin/lokid bin/lokid
-COPY --from=blockchain /src/build/release/bin/loki-wallet-cli bin/loki-wallet-cli
+COPY --from=blockchain /src/loki/build/release/bin/lokid bin/lokid
+#COPY --from=blockchain /src/build/release/bin/loki-wallet-cli bin/loki-wallet-cli
 #COPY lokinet-docker.ini /root/.lokinet/lokinet.ini
-COPY --from=network /src/build/lokinet bin/lokinet
+COPY --from=network /src/loki-network/build/lokinet bin/lokinet
 #COPY --from=network /root/.lokinet/bootstrap.signed /root/.lokinet/
-COPY --from=storage /src/build/httpserver/httpserver bin/httpserver
+COPY --from=storage /src/loki-storage-server/build/httpserver/httpserver bin/httpserver
 COPY daemon.js .
 COPY ini.js .
 COPY lib.js .
@@ -243,10 +262,13 @@ COPY lokinet.js .
 COPY index.js .
 COPY client.js .
 COPY launcher-docker.ini launcher.ini
+# this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
+RUN mkdir -p /root/lokinet
+#RUN mkdir -p /usr/src/app/storage-logs
 
-RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
-RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+#RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
+#RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
 EXPOSE 22022 22023 22024 1090/udp 1190 38154 38155 38157 38158 38159 38161
 CMD ["node", "index.js"]

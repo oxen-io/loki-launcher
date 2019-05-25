@@ -7,6 +7,9 @@ const lib       = require('./lib')
 const { spawn } = require('child_process')
 //const stdin     = process.openStdin()
 
+// to disable daemon mode for debugging
+// sudo __daemon=1 node index.js
+
 const VERSION = 0.6
 
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
@@ -102,14 +105,9 @@ if (config.launcher === undefined) {
     interface: false,
   }
 }
-// lokinet defaults
-if (config.network.testnet === undefined) {
-  config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
-}
-if (config.network.testnet && config.network.netid === undefined) {
-  if (config.blockchain.network == "demo") {
-    config.network.netid = "demonet"
-  }
+// actualize rpc_ip so we can pass it around to other daemons
+if (config.blockchain.rpc_ip === undefined) {
+  config.blockchain.rpc_ip = '127.0.0.1'
 }
 
 // autoconfig
@@ -283,11 +281,30 @@ setPort('zmq-rpc-bind-port', 'zmq_port')
 setPort('rpc-bind-port', 'rpc_port')
 setPort('p2p-bind-port', 'p2p_port')
 
+// lokinet defaults
+if (config.network.testnet === undefined) {
+  config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
+}
+if (config.network.testnet && config.network.netid === undefined) {
+  if (config.blockchain.network == "demo") {
+    config.network.netid = "demonet"
+  }
+}
+if (config.network.data_dir) {
+  // lokid
+  //ident-privkey=/Users/admin/.lokinet/identity.private
+  // not lokig
+  //transport-privkey=/Users/admin/.lokinet/transport.private
+  //encryption-privkey=/Users/admin/.lokinet/encryption.private
+  config.network.transport_privkey = config.network.data_dir + '/transport.private'
+  config.network.encryption_privkey = config.network.data_dir + '/encryption.private'
+}
+lokinet.checkConfig(config.network) // can auto-configure network.binary_path
+// storage server auto config
 if (config.storage.lokid_key === undefined) {
   config.storage.lokid_key = getLokiDataDir() + '/key'
 }
-
-lokinet.checkConfig(config.network) // can auto-configure network.binary_path
+config.storage.lokid_rpc_port = config.blockchain.rpc_port
 
 // lokid config and most other configs should be locked into stone by this point
 // (except for lokinet, since we need to copy lokid over to it)
@@ -473,7 +490,7 @@ function startEverything(config, args) {
   // sudo __daemon=1 node index.js
   //daemon(args, __filename, lokinet, config, getLokiDataDir)
   var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
-  console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
+  //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
   daemon.startLauncherDaemon(foregroundIt, __filename, args, function() {
     daemon.startLokinet(config, args, function(started) {
       //console.log('StorageServer now running', started)
