@@ -492,7 +492,7 @@ function sendToClients(data) {
 }
 
 function lokinet_onMessageSockerHandler(data) {
-  if (lokinetLogging) {
+  if (lokinet.lokinetLogging) {
     console.log(`lokinet: ${data}`)
     sendToClients('NETWORK: ' + data + '\n')
   }
