@@ -1,12 +1,12 @@
 // no npm!
-const fs        = require('fs')
-//const os        = require('os')
-const net       = require('net')
-const path      = require('path')
-const lib       = require('./lib')
-const lokinet   = require('./lokinet')
+const fs = require('fs')
+//const os = require('os')
+const net = require('net')
+const path = require('path')
+const lib = require('./lib')
+const lokinet = require('./lokinet')
 const { spawn } = require('child_process')
-const stdin     = process.openStdin()
+const stdin = process.openStdin()
 
 const VERSION = 0.1
 console.log('loki daemon library version', VERSION, 'registered')
@@ -54,7 +54,7 @@ function shutdown_everything() {
     fs.unlinkSync('launcher.pid')
   }
   // FIXME: should we be savings pids as we shutdown? probably
-  var shutDownTimer = setInterval(function() {
+  var shutDownTimer = setInterval(function () {
     var stop = true
     if (storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)) {
       console.log('LAUNCHER: storage server still running')
@@ -244,7 +244,7 @@ function launcherStorageServer(config, args, cb) {
 
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
-  lokinet.getLokiNetIP(function(ip) {
+  lokinet.getLokiNetIP(function (ip) {
     // lokinet has started, save config and various process pid
     lib.savePids(config, args, loki_daemon, lokinet, storageServer)
     if (ip) {
@@ -265,7 +265,7 @@ function startStorageServer(config, args, cb) {
 }
 
 function startLokinet(config, args, cb) {
-  lokinet.startServiceNode(config.network, function() {
+  lokinet.startServiceNode(config.network, function () {
     startStorageServer(config, args, cb)
   })
 }
@@ -348,21 +348,21 @@ function configureLokid(config, args) {
     //lokinet.disableLogging()
   }
   if (config.blockchain.zmq_port) {
-    lokid_options.push('--zmq-rpc-bind-port='+config.blockchain.zmq_port)
+    lokid_options.push('--zmq-rpc-bind-port=' + config.blockchain.zmq_port)
   }
   // FIXME: be nice to skip if it was the default...
   // can we turn it off?
   if (config.blockchain.rpc_port) {
-    lokid_options.push('--rpc-bind-port='+config.blockchain.rpc_port)
+    lokid_options.push('--rpc-bind-port=' + config.blockchain.rpc_port)
   }
   if (config.blockchain.p2p_port) {
-    lokid_options.push('--p2p-bind-port='+config.blockchain.p2p_port)
+    lokid_options.push('--p2p-bind-port=' + config.blockchain.p2p_port)
   }
   if (config.blockchain.data_dir) {
-    lokid_options.push('--data-dir='+config.blockchain.data_dir)
+    lokid_options.push('--data-dir=' + config.blockchain.data_dir)
   }
   // copy CLI options to lokid
-  for(var i in args) {
+  for (var i in args) {
     lokid_options.push(args[i])
   }
 
@@ -411,7 +411,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
       // seems to be working...
       if (server) {
         // broadcast
-        for(var i in connections) {
+        for (var i in connections) {
           var conn = connections[i]
           conn.write(data + "\n")
         }
@@ -429,7 +429,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
         // we're just going to restart
         if (server) {
           // broadcast
-          for(var i in connections) {
+          for (var i in connections) {
             var conn = connections[i]
             conn.write("Lokid has been exited but configured to restart. Disconnecting client and we'll be back shortly\n")
           }
@@ -454,7 +454,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
       if (config.blockchain.restart) {
         console.log('BLOCKCHAIN: lokid is configured to be restarted. Will do so in 30s')
         // restart it in 30 seconds to avoid pegging the cpu
-        setTimeout(function() {
+        setTimeout(function () {
           console.log('BLOCKCHAIN: restarting lokid')
           launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
         }, 30 * 1000)
@@ -541,12 +541,12 @@ function startLokid(config, args) {
     stdin.resume()
 
     // i don't want binary, do you?
-    stdin.setEncoding( 'utf8' )
+    stdin.setEncoding('utf8')
 
     // on any data into stdin
-    stdin.on( 'data', function( key ){
+    stdin.on('data', function (key) {
       // ctrl-c ( end of text )
-      if ( key === '\u0003' ) {
+      if (key === '\u0003') {
         shutdown_everything()
         return
       }
@@ -596,10 +596,10 @@ function startLokid(config, args) {
       if (err.code == 'EADDRINUSE') {
         // either already running or we were killed
         // try to connect to it
-        net.connect({ path: "launcher.socket" }, function() {
+        net.connect({ path: "launcher.socket" }, function () {
           // successfully connected, then it's in use...
           throw e;
-        }).on('error', function(e) {
+        }).on('error', function (e) {
           if (e.code !== 'ECONNREFUSED') throw e
           console.log('SOCKET: socket is stale, nuking')
           fs.unlinkSync('launcher.socket')
@@ -647,12 +647,12 @@ function setupHandlers() {
     console.log('storageServer status', storageServer)
   })
   // ctrl-c
-  process.on('SIGINT', function() {
+  process.on('SIGINT', function () {
     console.log('LAUNCHER daemon got SIGINT (ctrl-c)')
     shutdown_everything()
   })
   // -15
-  process.on('SIGTERM', function() {
+  process.on('SIGTERM', function () {
     console.log('LAUNCHER daemon got SIGTERM (kill -15)')
     shutdown_everything()
   })
