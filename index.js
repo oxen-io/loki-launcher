@@ -1,9 +1,9 @@
 // no npm!
-const fs        = require('fs')
-const os        = require('os')
-const net       = require('net')
-const ini       = require('./ini')
-const lib       = require('./lib')
+const fs = require('fs')
+const os = require('os')
+const net = require('net')
+const ini = require('./ini')
+const lib = require('./lib')
 const { spawn } = require('child_process')
 //const stdin     = process.openStdin()
 
@@ -14,13 +14,13 @@ const VERSION = 0.6
 
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log('loki SN launcher version', VERSION, 'registered')
-const lokinet   = require('./lokinet') // needed for checkConfig
+const lokinet = require('./lokinet') // needed for checkConfig
 
 // preprocess command line arguments
 var args = process.argv
 function stripArg(match) {
   var found = false
-  for(var i in args) {
+  for (var i in args) {
     var arg = args[i]
     if (arg.match(match)) {
       args.splice(i, 1)
@@ -39,22 +39,22 @@ function parseXmrOptions() {
     if (configSet[key] !== undefined) {
       if (configSet[key].constructor.name == 'String') {
         if (configSet[key] != value) {
-          configSet[key] = [ configSet[key], value ]
-        //} else {
+          configSet[key] = [configSet[key], value]
+          //} else {
           // if just setting the same thing again then nothing to do
         }
       } else
-      if (configSet[key].constructor.name == 'Array') {
-        // FIXME: most array options should be unique...
-        configSet[key].push(value)
-      } else {
-        console.warn('parseXmrOptions::setConfig - Unknown type', configSet[key].constructor.name)
-      }
+        if (configSet[key].constructor.name == 'Array') {
+          // FIXME: most array options should be unique...
+          configSet[key].push(value)
+        } else {
+          console.warn('parseXmrOptions::setConfig - Unknown type', configSet[key].constructor.name)
+        }
     } else {
       configSet[key] = value
     }
   }
-  for(var i in args) {
+  for (var i in args) {
     var arg = args[i]
     //console.log('arg', arg)
     if (arg.match(/^--/)) {
@@ -62,7 +62,7 @@ function parseXmrOptions() {
       if (arg.match(/=/)) {
         // key/value pairs
         var parts = removeDashes.split(/=/)
-        var key   = parts.shift()
+        var key = parts.shift()
         var value = parts.join('=')
         setConfig(key, value)
       } else {
@@ -80,7 +80,7 @@ var xmrOptions = parseXmrOptions()
 // load config from disk
 const ini_bytes = fs.readFileSync('launcher.ini')
 var disk_config = ini.iniToJSON(ini_bytes.toString())
-running_config   = {}
+running_config = {}
 requested_config = disk_config
 
 config = requested_config
@@ -91,14 +91,14 @@ var dataDirReady = false
 if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
   config.blockchain.network = 'test'
 } else
-if (config.blockchain.network.toLowerCase() == "consensusnet" || config.blockchain.network.toLowerCase() == "consensus" || config.blockchain.network.toLowerCase() == "demo") {
-  // it's called demo in the launcher because I feel strong this is the best label
-  // we can reuse this for future demos as an isolated network
-  config.blockchain.network = 'demo'
-} else
-if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
-  config.blockchain.network = 'staging'
-}
+  if (config.blockchain.network.toLowerCase() == "consensusnet" || config.blockchain.network.toLowerCase() == "consensus" || config.blockchain.network.toLowerCase() == "demo") {
+    // it's called demo in the launcher because I feel strong this is the best label
+    // we can reuse this for future demos as an isolated network
+    config.blockchain.network = 'demo'
+  } else
+    if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
+      config.blockchain.network = 'staging'
+    }
 if (config.launcher === undefined) {
   // set launcher defaults
   config.launcher = {
@@ -136,15 +136,15 @@ if (config.blockchain.rpc_port == '0') {
   if (config.blockchain.network == 'test') {
     config.blockchain.rpc_port = 38157
   } else
-  if (config.blockchain.network == 'demo') {
-    config.blockchain.rpc_port = 38160
-  } else
-  if (config.blockchain.network == 'staging') {
-    config.blockchain.rpc_port = 38154
-  } else {
-    // main
-    config.blockchain.rpc_port = 22023
-  }
+    if (config.blockchain.network == 'demo') {
+      config.blockchain.rpc_port = 38160
+    } else
+      if (config.blockchain.network == 'staging') {
+        config.blockchain.rpc_port = 38154
+      } else {
+        // main
+        config.blockchain.rpc_port = 22023
+      }
 }
 if (config.blockchain.p2p_port == '0') {
   // only really need this one set for lokinet
@@ -179,16 +179,16 @@ function setupInitialBlockchainOptions() {
     config.blockchain.data_dir = dir
     // does this directory exist?
     if (!fs.existsSync(dir)) {
-      console.warn('Configured data-dir ['+dir+'] does not exist, lokid will create it')
+      console.warn('Configured data-dir [' + dir + '] does not exist, lokid will create it')
     }
   }
   // need these to set default directory
   if (xmrOptions['stagenet']) {
     config.blockchain.network = 'staging'
   } else
-  if (xmrOptions['testnet']) {
-    config.blockchain.network = 'test'
-  }
+    if (xmrOptions['testnet']) {
+      config.blockchain.network = 'test'
+    }
 }
 
 setupInitialBlockchainOptions()
@@ -218,15 +218,15 @@ function getLokiDataDir() {
   }
   // I think Jason was wrong about this
   //if (blockchain_useDefaultDataDir) {
-    if (config.blockchain.network == 'staging') {
-      dir += '/stagenet'
-    } else
+  if (config.blockchain.network == 'staging') {
+    dir += '/stagenet'
+  } else
     if (config.blockchain.network == 'demo') {
       dir += '/testnet'
     } else
-    if (config.blockchain.network == 'test') {
-      dir += '/testnet'
-    }
+      if (config.blockchain.network == 'test') {
+        dir += '/testnet'
+      }
   //}
   return dir
 }
@@ -241,7 +241,7 @@ if (xmrOptions['config-file']) {
     const moneroDiskConfig = fs.readFileSync(filePath)
     const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
     console.log('parsed loki config', moneroDiskOptions.unknown)
-    for(var k in moneroDiskOptions.unknown) {
+    for (var k in moneroDiskOptions.unknown) {
       var v = moneroDiskOptions.unknown[k]
       xmrOptions[k] = v
     }
@@ -290,6 +290,7 @@ if (config.network.testnet && config.network.netid === undefined) {
     config.network.netid = "demonet"
   }
 }
+// FIXME: maybe this should be inside the lokinet library...
 if (config.network.data_dir) {
   // lokid
   //ident-privkey=/Users/admin/.lokinet/identity.private
@@ -298,6 +299,8 @@ if (config.network.data_dir) {
   //encryption-privkey=/Users/admin/.lokinet/encryption.private
   config.network.transport_privkey = config.network.data_dir + '/transport.private'
   config.network.encryption_privkey = config.network.data_dir + '/encryption.private'
+  config.network.ident_privkey = config.network.data_dir + '/identity.private'
+  config.network.contact_file = config.network.data_dir + '/self.signed'
 }
 lokinet.checkConfig(config.network) // can auto-configure network.binary_path
 // storage server auto config
@@ -574,15 +577,15 @@ function launcherRecoveryMonitor() {
       startEverything(config, args)
     }
   } else
-  if (!lib.isPidRunning(pids.lokinet)) {
-    // kill storage server
-    killStorageServer(running, pids)
-    // well assuming old lokid is still running
-    daemon.startLokinet(config, shutdownIfNotStarted)
-  } else
-  if (!lib.isPidRunning(pids.storageServer)) {
-    daemon.startStorageServer(config, args, shutdownIfNotStarted)
-  }
+    if (!lib.isPidRunning(pids.lokinet)) {
+      // kill storage server
+      killStorageServer(running, pids)
+      // well assuming old lokid is still running
+      daemon.startLokinet(config, shutdownIfNotStarted)
+    } else
+      if (!lib.isPidRunning(pids.storageServer)) {
+        daemon.startStorageServer(config, args, shutdownIfNotStarted)
+      }
   setTimeout(launcherRecoveryMonitor, 15 * 1000)
 }
 
@@ -598,10 +601,10 @@ if (!running.lokinet) {
   // therefore starting storageServer
   daemon.startLokinet(config, shutdownIfNotStarted)
 } else
-if (!running.storageServer) {
-  // start storageServer
-  daemon.startStorageServer(config, args, shutdownIfNotStarted)
-}
+  if (!running.storageServer) {
+    // start storageServer
+    daemon.startStorageServer(config, args, shutdownIfNotStarted)
+  }
 
 // we need start watching everything all over again
 launcherRecoveryMonitor()
