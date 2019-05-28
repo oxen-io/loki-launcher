@@ -635,9 +635,9 @@ function applyConfig(file_config, config_obj) {
   }
   // connect section
   if (file_config.connects) {
-    if (config_obj.connects === undefined) config_obj.connects = {}
+    if (config_obj.connect === undefined) config_obj.connect = {}
     for(var k in file_config.connects) {
-      config_obj.connects[k] = file_config.connects[k]
+      config_obj.connect[k] = file_config.connects[k]
     }
   }
   // router section
@@ -867,7 +867,7 @@ function generateClientINI(config, cb) {
     }
     applyConfig(config, runningConfig)
     // a bootstrap is required, can't have a seed client
-    if (!runningConfig.bootstrap && !runningConfig.connects) {
+    if (!runningConfig.bootstrap && !runningConfig.connect) {
       console.error('no bootstrap or connects for client')
       process.exit()
     }
@@ -927,7 +927,7 @@ function preLaunchLokinet(config, cb) {
   }
 
   const tmpDir = os.tmpdir()
-  const tmpPath = tmpDir + '/' + randomString(8) + '.lokinet_ini'
+  const tmpPath = tmpDir + '/' + config.nickname + '_' + randomString(8) + '.lokinet_ini'
   cleanUpIni = true
   config.ini_writer(config, function (iniData) {
     if (shuttingDown) {
