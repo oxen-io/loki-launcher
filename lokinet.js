@@ -10,7 +10,7 @@ const https = require('https')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
-const VERSION = 0.7
+const VERSION = 0.8
 console.log('lokinet launcher version', VERSION, 'registered')
 
 var lokinet_version = 'notStartedYet'
@@ -278,7 +278,7 @@ function testDNSForLokinet(server, cb) {
 
 function lookup(host, cb) {
   var resolver = new dns.Resolver()
-  //console.log('lokinet lookup servers', runningConfig.dns.bind)
+  console.log('lookuping', host, 'against servers', runningConfig.dns.bind)
   resolver.setServers([runningConfig.dns.bind])
   resolver.resolve(host, function (err, records) {
     if (err) {
@@ -293,7 +293,7 @@ function lookup(host, cb) {
           console.error('lokinet lookup unknown err', err)
         }
     }
-    //console.log(host, 'lokinet dns test results', records)
+    console.log(host, 'lokinet dns test results', records)
     cb(records)
   })
 }
@@ -669,6 +669,10 @@ function applyConfig(file_config, config_obj) {
     if (config_obj.network === undefined) config_obj.network = {}
     config_obj.network.profiles = file_config.profiling_file
   }
+  // just pass through (truish/falsish flag)
+  if (file_config.profiling) {
+    config_obj.network.profiling = file_config.profiling
+  }
   if (file_config.ifname) {
     if (config_obj.network === undefined) config_obj.network = {}
     config_obj.network.ifname = file_config.ifname
@@ -681,7 +685,7 @@ function applyConfig(file_config, config_obj) {
   if (file_config.log_path) {
     // make sure section is created
     if (config_obj.logging === undefined) config_obj.logging = {}
-    config_obj.logging.log_path = file_config.log_path
+    config_obj.logging.file = file_config.log_path
   }
   // metrics section
   if (file_config.metrics_path) {
@@ -700,6 +704,10 @@ function applyConfig(file_config, config_obj) {
     var dnsPort = file_config.dns_port
     if (dnsPort === undefined) dnsPort = 53
     config_obj.dns.bind = ip + ':' + dnsPort
+  }
+  // api section
+  if (file_config.rpc_ip === false) {
+    config_obj.api.enabled = false
   }
 }
 
@@ -804,6 +812,10 @@ function generateSerivceNodeINI(config, cb) {
     if (config.public_ip) {
       runningConfig.router['public-ip'] = config.public_ip
       runningConfig.router['public-port'] = config.public_port
+    }
+    if (config.forceNatOff) {
+      delete runningConfig.router['public-ip']
+      delete runningConfig.router['public-port']
     }
     runningConfig.bind[params.lokinet_nic] = config.public_port
     if (config.internal_port) {
@@ -942,7 +954,7 @@ function preLaunchLokinet(config, cb) {
   })
 }
 
-function launchLokinet(config, cb) {
+function launchLokinet(config, instance, cb) {
   if (shuttingDown) {
     //if (cb) cb()
     log('not going to start lokinet, shutting down')
@@ -1010,9 +1022,10 @@ function launchLokinet(config, cb) {
     if (!shuttingDown) {
       if (config.restart) {
         // restart it in 30 seconds to avoid pegging the cpu
+        instance.restarts++
         setTimeout(function () {
-          log('loki_daemon is still running, restarting lokinet')
-          launchLokinet(config)
+          log('shutdown has not been requested, restarting lokinet, there has been', instance.restart, 'restart(s)')
+          launchLokinet(config, instance)
         }, 30 * 1000)
       } else {
         // don't restart...
@@ -1085,7 +1098,7 @@ function startServiceNode(config, cb) {
   preLaunchLokinet(config, function () {
     if (config.lokid === undefined) {
       // lokinet only version
-      launchLokinet(config, cb)
+      launchLokinet(config, { restarts: 0 }, cb)
       return
     }
     // test lokid rpc port first
@@ -1097,7 +1110,7 @@ function startServiceNode(config, cb) {
     url += config.lokid.rpc_ip+':'+config.lokid.rpc_port+'/json_rpc'
     log('lokinet waiting for lokid RPC server')
     waitForUrl(url, function () {
-      launchLokinet(config, cb)
+      launchLokinet(config, { restarts: 0 }, cb)
     })
   })
 }
@@ -1108,7 +1121,7 @@ function startClient(config, cb) {
      config.bootstrap_url === undefined) config.bootstrap_url = 'https://i2p.rocks/bootstrap.signed'
   config.ini_writer = generateClientINI
   preLaunchLokinet(config, function () {
-    launchLokinet(config, cb)
+    launchLokinet(config, { restarts: 0 }, cb)
   })
 }
 
@@ -1264,7 +1277,7 @@ function getLokiNetIP(cb) {
       }
     })
   }
-  if (runningConfig.api.enabled) {
+  if (runningConfig.api && runningConfig.api.enabled) {
     log('wait for lokinet startup', runningConfig.api)
     var url = 'http://' + runningConfig.api.bind + '/'
     waitForUrl(url, function () {
@@ -1286,11 +1299,12 @@ module.exports = {
   getLokiNetIP: getLokiNetIP,
   enableLogging: enableLogging,
   disableLogging: disableLogging,
-  getPublicIPv4    : getPublicIPv4,
+  getPublicIPv4: getPublicIPv4,
   getPID: getPID,
   // other functions that should be in lib but they're here for now
   randomString: randomString,
   mkDirByPathSync: mkDirByPathSync, // for daemon
+  httpGet: httpGet, // for public-ports
   // FIXME: should we allow hooking of log() too?
   onMessage: function (data) {
     if (lokinetLogging) {
