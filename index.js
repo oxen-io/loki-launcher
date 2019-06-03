@@ -281,6 +281,15 @@ setPort('zmq-rpc-bind-port', 'zmq_port')
 setPort('rpc-bind-port', 'rpc_port')
 setPort('p2p-bind-port', 'p2p_port')
 
+// launcher defaults
+// only thing you can't turn off is blockchain (lokid)
+if (config.network.enabled === undefined) {
+  config.network.enabled = false
+}
+if (config.storage.enabled === undefined) {
+  config.storage.enabled = false
+}
+
 // lokinet defaults
 if (config.network.testnet === undefined) {
   config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
@@ -368,20 +377,23 @@ if (!fs.existsSync(config.blockchain.binary_path)) {
   console.error('lokid is not at configured location', config.blockchain.binary_path)
   process.exit()
 }
-if (!fs.existsSync(config.storage.binary_path)) {
-  console.error('storageServer is not at configured location', config.storage.binary_path)
-  process.exit()
+if (config.storage.enabled) {
+  if (!fs.existsSync(config.storage.binary_path)) {
+    console.error('storageServer is not at configured location', config.storage.binary_path)
+    process.exit()
+  }
 }
-if (!fs.existsSync(config.network.binary_path)) {
-  console.error('lokinet is not at configured location', config.network.binary_path)
-  process.exit()
-}
+if (config.network.enabled) {
+  if (!fs.existsSync(config.network.binary_path)) {
+    console.error('lokinet is not at configured location', config.network.binary_path)
+    process.exit()
+  }
 
-if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_path)) {
-  console.error('lokinet bootstrap not found at location', config.network.binary_path)
-  process.exit()
+  if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_path)) {
+    console.error('lokinet bootstrap not found at location', config.network.binary_path)
+    process.exit()
+  }
 }
-
 // isn't create until lokid runs
 /*
 if (!fs.existsSync(config.storage.lokid_key)) {
@@ -395,33 +407,38 @@ if (fs.lstatSync(config.blockchain.binary_path).isDirectory()) {
   console.error('lokid configured location is a directory', config.blockchain.binary_path)
   process.exit()
 }
-if (fs.lstatSync(config.storage.binary_path).isDirectory()) {
-  console.error('storageServer configured location is a directory', config.storage.binary_path)
-  process.exit()
+if (config.storage.enabled) {
+  if (fs.lstatSync(config.storage.binary_path).isDirectory()) {
+    console.error('storageServer configured location is a directory', config.storage.binary_path)
+    process.exit()
+  }
 }
-if (fs.lstatSync(config.network.binary_path).isDirectory()) {
-  console.error('lokinet configured location is a directory', config.network.binary_path)
-  process.exit()
-}
+if (config.network.enabled) {
+  if (fs.lstatSync(config.network.binary_path).isDirectory()) {
+    console.error('lokinet configured location is a directory', config.network.binary_path)
+    process.exit()
+  }
 
-if (config.network.bootstrap_path && fs.lstatSync(config.network.bootstrap_path).isDirectory()) {
-  console.error('lokinet bootstrap configured location is a directory', config.network.binary_path)
-  process.exit()
+  if (config.network.bootstrap_path && fs.lstatSync(config.network.bootstrap_path).isDirectory()) {
+    console.error('lokinet bootstrap configured location is a directory', config.network.binary_path)
+    process.exit()
+  }
 }
+if (config.storage.enabled) {
+  if (fs.existsSync(config.storage.lokid_key) && fs.lstatSync(config.storage.lokid_key).isDirectory()) {
+    console.error('lokid key location is a directory', config.storage.lokid_key)
+    process.exit()
+  }
 
-if (fs.existsSync(config.storage.lokid_key) && fs.lstatSync(config.storage.lokid_key).isDirectory()) {
-  console.error('lokid key location is a directory', config.storage.lokid_key)
-  process.exit()
+  if (config.storage.db_location !== undefined) {
+    if (fs.existsSync(config.storage.db_location)) {
+      if (!fs.lstatSync(config.storage.db_location).isDirectory()) {
+        console.error('storage server db_location is not a directory', config.storage.db_location)
+        process.exit()
+      } // else perfect
+    } // else we'll make
+  } // else we'll just current dir
 }
-
-if (config.storage.db_location !== undefined) {
-  if (fs.existsSync(config.storage.db_location)) {
-    if (!fs.lstatSync(config.storage.db_location).isDirectory()) {
-      console.error('storage server db_location is not a directory', config.storage.db_location)
-      process.exit()
-    } // else perfect
-  } // else we'll make
-} // else we'll just current dir
 
 //console.log('userInfo', os.userInfo('utf8'))
 //console.log('started as', process.getuid(), process.geteuid())
@@ -469,13 +486,17 @@ function getProcessState() {
     console.log("LAUNCHER: old lokid is still running", pids.lokid)
     running.lokid = pids.lokid
   }
-  if (pids.lokinet && lib.isPidRunning(pids.lokinet)) {
-    console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
-    running.lokinet = pids.lokinet
+  if (config.network.enabled) {
+    if (pids.lokinet && lib.isPidRunning(pids.lokinet)) {
+      console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
+      running.lokinet = pids.lokinet
+    }
   }
-  if (pids.storageServer && lib.isPidRunning(pids.storageServer)) {
-    console.log("LAUNCHER: old storage server is still running", pids.storageServer)
-    running.storageServer = pids.storageServer
+  if (config.storage.enabled) {
+    if (pids.storageServer && lib.isPidRunning(pids.storageServer)) {
+      console.log("LAUNCHER: old storage server is still running", pids.storageServer)
+      running.storageServer = pids.storageServer
+    }
   }
   return running
 }
@@ -495,6 +516,7 @@ function startEverything(config, args) {
   var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
   //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
   daemon.startLauncherDaemon(foregroundIt, __filename, args, function() {
+    // start the lokinet prep
     daemon.startLokinet(config, args, function(started) {
       //console.log('StorageServer now running', started)
       if (!started) {
@@ -512,14 +534,18 @@ function startEverything(config, args) {
 // kill what needs to be killed
 
 // storage needs it's lokinet, kill any strays
-if (!running.lokinet && running.storageServer) {
-  console.log('LAUNCHER: we have storage server with no lokinet, killing it', pids.storageServer)
-  process.kill(pids.storageServer, 'SIGINT')
-  running.storageServer = 0
+if (config.network.enabled && config.storage.enable) {
+  // FIXME: clearnet support?
+  if (!running.lokinet && running.storageServer) {
+    console.log('LAUNCHER: we have storage server with no lokinet, killing it', pids.storageServer)
+    process.kill(pids.storageServer, 'SIGINT')
+    running.storageServer = 0
+  }
+  // FIXME if just blockchain and storage server, should we restart the storage if lokid dies?
 }
 
 function killStorageServer(running, pids) {
-  if (running.storageServer) {
+  if (config.storage.enable && running.storageServer) {
     console.log('LAUNCHER: killing storage on', pids.storageServer)
     process.kill(pids.storageServer, 'SIGINT')
     running.storageServer = 0
@@ -531,14 +557,16 @@ function killLokinetAndStorageServer(running, pids) {
   //console.log('LAUNCHER: old storage', running.storageServer, pids.storageServer)
   killStorageServer(running, pids)
   // FIXME: only need to restart if the key changed
-  if (running.lokinet) {
-    console.log('LAUNCHER: killing lokinet on', pids.lokinet)
-    process.kill(pids.lokinet, 'SIGINT')
-    running.lokinet = 0
+  if (config.network.enable) {
+    if (running.lokinet) {
+      console.log('LAUNCHER: killing lokinet on', pids.lokinet)
+      process.kill(pids.lokinet, 'SIGINT')
+      running.lokinet = 0
+    }
   }
 }
 
-if (!running.lokid) {
+if (config.network.enable && !running.lokid) {
   // no lokid, kill remaining
   console.log('LAUNCHER: lokid is down, kill idlers')
   killLokinetAndStorageServer(running, pids)
@@ -601,7 +629,7 @@ if (!running.lokinet) {
   // therefore starting storageServer
   daemon.startLokinet(config, shutdownIfNotStarted)
 } else
-  if (!running.storageServer) {
+  if (config.storage.enable && !running.storageServer) {
     // start storageServer
     daemon.startStorageServer(config, args, shutdownIfNotStarted)
   }
