@@ -1,0 +1,26 @@
+{
+  "name": "@loki.network/loki-launcher",
+  "version": "0.0.1",
+  "description": "manages the Loki.network suite of software primarily for service node operation",
+  "main": "index.js",
+  "dependencies": {
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loki-project/loki-launcher.git"
+  },
+  "keywords": [
+    "loki",
+    "lokinet"
+  ],
+  "author": "Ryan Tharp",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/loki-project/loki-launcher/issues"
+  },
+  "homepage": "https://github.com/loki-project/loki-launcher#readme"
+}
