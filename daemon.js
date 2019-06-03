@@ -265,9 +265,15 @@ function startStorageServer(config, args, cb) {
 }
 
 function startLokinet(config, args, cb) {
-  lokinet.startServiceNode(config.network, function () {
-    startStorageServer(config, args, cb)
-  })
+  if (config.network.enable) {
+    lokinet.startServiceNode(config.network, function () {
+      startStorageServer(config, args, cb)
+    })
+  } else {
+    if (config.storage.enable) {
+      startStorageServer(config, args, cb)
+    }
+  }
 }
 
 function startLauncherDaemon(interactive, entryPoint, args, cb) {
