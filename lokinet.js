@@ -952,6 +952,7 @@ function preLaunchLokinet(config, cb) {
     config.ini_file = tmpPath
     cb()
   })
+  return tmpPath
 }
 
 function launchLokinet(config, instance, cb) {
@@ -1095,7 +1096,7 @@ function startServiceNode(config, cb) {
   config.restart = true
   // FIXME: check for bootstrap stomp and strip it
   // only us lokinet devs will need to make our own seed node
-  preLaunchLokinet(config, function () {
+  var configFile = preLaunchLokinet(config, function () {
     if (config.lokid === undefined) {
       // lokinet only version
       launchLokinet(config, { restarts: 0 }, cb)
@@ -1113,6 +1114,7 @@ function startServiceNode(config, cb) {
       launchLokinet(config, { restarts: 0 }, cb)
     })
   })
+  return configFile
 }
 
 function startClient(config, cb) {
@@ -1120,9 +1122,10 @@ function startClient(config, cb) {
   if (config.bootstrap_path === undefined && config.connects === undefined &&
      config.bootstrap_url === undefined) config.bootstrap_url = 'https://i2p.rocks/bootstrap.signed'
   config.ini_writer = generateClientINI
-  preLaunchLokinet(config, function () {
+  var configFile = preLaunchLokinet(config, function () {
     launchLokinet(config, { restarts: 0 }, cb)
   })
+  return configFile
 }
 
 // return a truish value if so
