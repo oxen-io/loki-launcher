@@ -22,5 +22,8 @@
   "bugs": {
     "url": "https://github.com/loki-project/loki-launcher/issues"
   },
-  "homepage": "https://github.com/loki-project/loki-launcher#readme"
+  "homepage": "https://github.com/loki-project/loki-launcher#readme",
+  "bin": {
+    "loki-launcher": "./index.js"
+  }
 }
