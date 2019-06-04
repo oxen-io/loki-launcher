@@ -119,7 +119,7 @@ Usage:
   loki-launcher [mode] [OPTIONS]
 
   Modes:
-    start   start the loki suite with OPTIIONS
+    start   start the loki suite with OPTIONS
     status  get the current loki suite status
     client  connect to lokid
     prequal prequalify your server for service node operation
