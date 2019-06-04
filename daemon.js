@@ -301,8 +301,8 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
         detached: true
       }
       console.log('launching', process.execPath, entryPoint, args)
-      var child = spawn(process.execPath, [entryPoint].concat(args), cp_opt)
-      //console.log('child', child)
+      var child = spawn(process.execPath, [entryPoint, 'daemon-start'].concat(args), cp_opt)
+      console.log('child', child)
       if (!child) {
         console.error('Could not spawn detached process')
         process.exit()
