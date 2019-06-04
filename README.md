@@ -34,11 +34,11 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 edit the config [launcher.ini](launcher.ini) and check over the settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for details on options.
 
-`node index.js`
+`./index.js start`
 
 Running it once should start the suite of services into the background or give you a message why it can't
 
-Running `node client.js`, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
+Running `./index.js client`, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
 `exit` will stop your service node. If you just want to exit the interactive terminal, please use `ctrl-c`.
 
 You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to index.js
