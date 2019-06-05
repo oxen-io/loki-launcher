@@ -263,7 +263,7 @@ function startStorageServer(config, args, cb) {
         //shutdown_everything()
       }
     })
-  } elseif (config.storage.enabled) {
+  } else if (config.storage.enabled) {
     lokinet.getPublicIPv4(function(ip) {
       console.log('DAEMON: starting storageServer on', ip)
       config.storage.ip = ip
