@@ -105,7 +105,6 @@ function httpGet(url, cb) {
   const urlDetails = urlparser.parse(url)
   //console.log('httpGet url', urlDetails)
   //console.log('httpGet', url)
-  //console.trace('who started dis', url)
   var protoClient = http
   if (urlDetails.protocol == 'https:') {
     protoClient = https
@@ -129,6 +128,9 @@ function httpGet(url, cb) {
     port: urlDetails.port,
     path: urlDetails.path,
     timeout: 5000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
+    }
   }, (resp) => {
     //log('httpGet setting up handlers')
     clearInterval(watchdog)
