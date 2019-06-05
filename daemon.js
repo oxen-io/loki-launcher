@@ -244,10 +244,27 @@ function launcherStorageServer(config, args, cb) {
 
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
-  lokinet.getLokiNetIP(function (ip) {
-    // lokinet has started, save config and various process pid
-    lib.savePids(config, args, loki_daemon, lokinet, storageServer)
-    if (ip) {
+  if (config.network.enabled) {
+    lokinet.getLokiNetIP(function (ip) {
+      // lokinet has started, save config and various process pid
+      lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      if (ip) {
+        console.log('DAEMON: starting storageServer on', ip)
+        config.storage.ip = ip
+        if (config.storage.db_location !== undefined) {
+          if (!fs.existsSync(config.storage.db_location)) {
+            lokinet.mkDirByPathSync(config.storage.db_location)
+          }
+        }
+        launcherStorageServer(config, args, cb)
+      } else {
+        console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
+        if (cb) cb(false)
+        //shutdown_everything()
+      }
+    })
+  } elseif (config.storage.enabled) {
+    lokinet.getPublicIPv4(function(ip) {
       console.log('DAEMON: starting storageServer on', ip)
       config.storage.ip = ip
       if (config.storage.db_location !== undefined) {
@@ -256,12 +273,10 @@ function startStorageServer(config, args, cb) {
         }
       }
       launcherStorageServer(config, args, cb)
-    } else {
-      console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
-      if (cb) cb(false)
-      //shutdown_everything()
-    }
-  })
+    })
+  } else {
+    console.log('storageServer is not enabled')
+  }
 }
 
 function startLokinet(config, args, cb) {
