@@ -519,7 +519,7 @@ module.exports = function(args, entryPoint) {
   // kill what needs to be killed
 
   // storage needs it's lokinet, kill any strays
-  if (config.network.enabled && config.storage.enable) {
+  if (config.network.enabled && config.storage.enabled) {
     // FIXME: clearnet support?
     if (!running.lokinet && running.storageServer) {
       console.log('LAUNCHER: we have storage server with no lokinet, killing it', pids.storageServer)
@@ -530,7 +530,7 @@ module.exports = function(args, entryPoint) {
   }
 
   function killStorageServer(running, pids) {
-    if (config.storage.enable && running.storageServer) {
+    if (config.storage.enabled && running.storageServer) {
       console.log('LAUNCHER: killing storage on', pids.storageServer)
       process.kill(pids.storageServer, 'SIGINT')
       running.storageServer = 0
@@ -542,7 +542,7 @@ module.exports = function(args, entryPoint) {
     //console.log('LAUNCHER: old storage', running.storageServer, pids.storageServer)
     killStorageServer(running, pids)
     // FIXME: only need to restart if the key changed
-    if (config.network.enable) {
+    if (config.network.enabled) {
       if (running.lokinet) {
         console.log('LAUNCHER: killing lokinet on', pids.lokinet)
         process.kill(pids.lokinet, 'SIGINT')
@@ -551,7 +551,7 @@ module.exports = function(args, entryPoint) {
     }
   }
 
-  if (config.network.enable && !running.lokid) {
+  if (config.network.enabled && !running.lokid) {
     // no lokid, kill remaining
     console.log('LAUNCHER: lokid is down, kill idlers')
     killLokinetAndStorageServer(running, pids)
@@ -614,7 +614,7 @@ module.exports = function(args, entryPoint) {
     // therefore starting storageServer
     daemon.startLokinet(config, shutdownIfNotStarted)
   } else
-    if (config.storage.enable && !running.storageServer) {
+    if (config.storage.enabled && !running.storageServer) {
       // start storageServer
       daemon.startStorageServer(config, args, shutdownIfNotStarted)
     }
