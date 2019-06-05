@@ -10,6 +10,30 @@ const { spawn } = require('child_process')
 // to disable daemon mode for debugging
 // sudo __daemon=1 node index.js
 
+var pids = {}
+
+function killStorageServer(running, pids) {
+  if (config.storage.enabled && running.storageServer) {
+    console.log('LAUNCHER: killing storage on', pids.storageServer)
+    process.kill(pids.storageServer, 'SIGINT')
+    running.storageServer = 0
+  }
+}
+
+function killLokinetAndStorageServer(running, pids) {
+  //console.log('LAUNCHER: old network', running.lokinet, pids.lokinet)
+  //console.log('LAUNCHER: old storage', running.storageServer, pids.storageServer)
+  killStorageServer(running, pids)
+  // FIXME: only need to restart if the key changed
+  if (config.network.enabled) {
+    if (running.lokinet) {
+      console.log('LAUNCHER: killing lokinet on', pids.lokinet)
+      process.kill(pids.lokinet, 'SIGINT')
+      running.lokinet = 0
+    }
+  }
+}
+
 module.exports = function(args, entryPoint) {
   const VERSION = 0.6
 
@@ -268,6 +292,9 @@ module.exports = function(args, entryPoint) {
 
   // launcher defaults
   // only thing you can't turn off is blockchain (lokid)
+  // if you have storage without lokinet, it will use the public IP to serve on
+  // we will internally change these defaults over time
+  // users are not encourage (currently) to put these in their INI (only loki devs)
   if (config.network.enabled === undefined) {
     config.network.enabled = false
   }
@@ -458,34 +485,8 @@ module.exports = function(args, entryPoint) {
     }
   }
 
-  var pids = {}
-  function getProcessState() {
-    pids = lib.getPids()
-
-    // what happens if we get different options than what we had before
-    // maybe prompt to confirm restart
-    // if already running just connect for now
-
-    var running = {}
-    if (pids.lokid && lib.isPidRunning(pids.lokid)) {
-      console.log("LAUNCHER: old lokid is still running", pids.lokid)
-      running.lokid = pids.lokid
-    }
-    if (config.network.enabled) {
-      if (pids.lokinet && lib.isPidRunning(pids.lokinet)) {
-        console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
-        running.lokinet = pids.lokinet
-      }
-    }
-    if (config.storage.enabled) {
-      if (pids.storageServer && lib.isPidRunning(pids.storageServer)) {
-        console.log("LAUNCHER: old storage server is still running", pids.storageServer)
-        running.storageServer = pids.storageServer
-      }
-    }
-    return running
-  }
-  var running = getProcessState()
+  pids = lib.getPids()
+  var running = lib.getProcessState()
 
   function isNothingRunning(running) {
     return !(running.lokid || running.lokinet || running.storageServer)
@@ -529,28 +530,6 @@ module.exports = function(args, entryPoint) {
     // FIXME if just blockchain and storage server, should we restart the storage if lokid dies?
   }
 
-  function killStorageServer(running, pids) {
-    if (config.storage.enabled && running.storageServer) {
-      console.log('LAUNCHER: killing storage on', pids.storageServer)
-      process.kill(pids.storageServer, 'SIGINT')
-      running.storageServer = 0
-    }
-  }
-
-  function killLokinetAndStorageServer(running, pids) {
-    //console.log('LAUNCHER: old network', running.lokinet, pids.lokinet)
-    //console.log('LAUNCHER: old storage', running.storageServer, pids.storageServer)
-    killStorageServer(running, pids)
-    // FIXME: only need to restart if the key changed
-    if (config.network.enabled) {
-      if (running.lokinet) {
-        console.log('LAUNCHER: killing lokinet on', pids.lokinet)
-        process.kill(pids.lokinet, 'SIGINT')
-        running.lokinet = 0
-      }
-    }
-  }
-
   if (config.network.enabled && !running.lokid) {
     // no lokid, kill remaining
     console.log('LAUNCHER: lokid is down, kill idlers')
@@ -583,7 +562,8 @@ module.exports = function(args, entryPoint) {
       // if existed previous / if we started them
       // we can't make a pids into the started style
       // so we'll have to just update from disk
-      running = getProcessState()   // update locations of lokinet/storageServer
+      pids = lib.getPids()
+      running = lib.getProcessState()   // update locations of lokinet/storageServer
       killLokinetAndStorageServer(running, pids) // kill them
       // and restart it all?
       if (config.blockchain.restart) {
