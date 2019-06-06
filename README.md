@@ -49,6 +49,20 @@ Running `loki-launcher client`, will give you an interactive terminal to lokid (
 
 You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to `loki-launcher start`
 
+# How to keep the launcher up to date
+
+## Update your launcher
+
+`npm update loki-launcher`
+
+## Get the latest Loki software versions
+
+`loki-launcher download-binaries`
+
+And be sure to make sure you restart your service node (if it's staked) by
+
+`loki-launcher start`
+
 # Popular linux distribution instructions to install NodeJS
 
 Ubuntu NodeJS installation:
