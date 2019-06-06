@@ -2,8 +2,9 @@
 const fs = require('fs')
 const os = require('os')
 const net = require('net')
-const ini = require('./ini')
-const lib = require('./lib')
+const ini = require(__dirname + '/ini')
+const lib = require(__dirname + '/lib')
+const configUtil = require(__dirname + '/config')
 const { spawn } = require('child_process')
 //const stdin     = process.openStdin()
 
@@ -39,7 +40,7 @@ module.exports = function(args, entryPoint) {
 
   //var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
   console.log('loki SN launcher version', VERSION, 'registered')
-  const lokinet = require('./lokinet') // needed for checkConfig
+  const lokinet = require(__dirname + '/lokinet') // needed for checkConfig
 
   // preprocess command line arguments
   function parseXmrOptions() {
@@ -87,14 +88,43 @@ module.exports = function(args, entryPoint) {
   //console.log('xmrOptions', xmrOptions)
 
   // load config from disk
+  var disk_config = {}
+  var config = configUtil.getDefaultConfig(__filename)
+  var running_config = {}
+  if (fs.existsSync('/etc/loki-launcher/launcher.ini')) {
+    const ini_bytes = fs.readFileSync('/etc/loki-launcher/launcher.ini')
+    disk_config = ini.iniToJSON(ini_bytes.toString())
+    config = disk_config
+  }
+  // local overrides default path
+  if (fs.existsSync(__dirname + 'launcher.ini')) {
+    const ini_bytes = fs.readFileSync(__dirname + '/launcher.ini')
+    disk_config = ini.iniToJSON(ini_bytes.toString())
+    config = disk_config
+  }
+  var requested_config = disk_config
+
+  /*
   const ini_bytes = fs.readFileSync('launcher.ini')
   var disk_config = ini.iniToJSON(ini_bytes.toString())
   running_config = {}
   requested_config = disk_config
 
   config = requested_config
-
+  */
   var dataDirReady = false
+
+  configUtil.check(config)
+
+  /*
+  if (config.network === undefined) config.network = {}
+  if (config.storage === undefined) config.storage = {}
+
+  // set default
+  if (config.blockchain.network === undefined) {
+    config.blockchain.network = 'main'
+  }
+  */
 
   // normalize inputs (allow for more options but clamping it down internally)
   if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
@@ -486,14 +516,14 @@ module.exports = function(args, entryPoint) {
   }
 
   pids = lib.getPids()
-  var running = lib.getProcessState()
+  var running = lib.getProcessState(config)
 
   function isNothingRunning(running) {
     return !(running.lokid || running.lokinet || running.storageServer)
   }
 
   // progress to 2nd phase where we might need to start something
-  const daemon = require('./daemon')
+  const daemon = require(__dirname + '/daemon')
 
   function startEverything(config, args) {
     // to debug
@@ -563,7 +593,7 @@ module.exports = function(args, entryPoint) {
       // we can't make a pids into the started style
       // so we'll have to just update from disk
       pids = lib.getPids()
-      running = lib.getProcessState()   // update locations of lokinet/storageServer
+      running = lib.getProcessState(config)   // update locations of lokinet/storageServer
       killLokinetAndStorageServer(running, pids) // kill them
       // and restart it all?
       if (config.blockchain.restart) {
