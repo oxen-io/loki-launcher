@@ -176,7 +176,7 @@ function downloadTarXz(url, config) {
 function start(config) {
   var running = lib.getProcessState(config)
   if (running.lokid) {
-    var pids = lib.getPids()
+    var pids = lib.getPids(config)
     console.log('lokid is running, request shutdown')
     process.kill(pids.lokid, 'SIGINT')
     // should be down by the time the file downloads...
