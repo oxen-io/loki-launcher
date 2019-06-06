@@ -3,9 +3,11 @@
 function getDefaultConfig(entrypoint) {
   const config = {
     launcher: {
+      prefix: '/opt/loki-launcher',
+      //var_path: '/opt/loki-launcher/var',
     },
     blockchain: {
-      binary_path: '/opt/loki-launcher/bin/lokid',
+      //binary_path: '/opt/loki-launcher/bin/lokid',
     },
   }
 
@@ -15,12 +17,20 @@ function getDefaultConfig(entrypoint) {
   // but what if we had both? we need to know which loki-launcher is called
   if (entrypoint.match('/usr/bin')) {
     // apt install
+    delete config.launcher.prefix // remove prefix
     config.blockchain.binary_path = '/usr/sbin/lokid'
+    config.launcher.run_path = '/var/lib/loki-launcher'
   }
   return config
 }
 
 function precheckConfig(config) {
+  // replace any trailing slash before use...
+  config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
+  if (config.launcher.prefix) {
+    if (config.launcher.var_path === undefined) config.launcher.var_path = config.launcher.prefix + '/var'
+    if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = config.launcher.prefix + '/bin/lokid'
+  }
 }
 
 function checkBlockchainConfig(config) {
@@ -58,6 +68,9 @@ function checkStorageConfig(config) {
 }
 
 function postcheckConfig(config) {
+  // replace any trailing slash
+  config.launcher.var_path = config.launcher.var_path.replace(/\/$/, '')
+
 }
 
 function checkConfig(config) {
