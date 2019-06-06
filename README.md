@@ -25,12 +25,15 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 # How to install
 
 This will use npm to install the launcher
+
 `sudo npm install -g loki-launcher`
 
 After it's installed, you can ask to prequalify your server to be a service node
+
 `loki-launcher prequal`
 
 you can also ask it to download the Loki binaries if you don't already have them
+
 `loki-launcher download-binaries`
 
 # How to run
@@ -63,9 +66,13 @@ then
 - [httpserver (storage server)](https://github.com/loki-project/loki-storage-server)
 
 To get the required software you can run `loki-launcher download-binaries` and they will be placed in `/opt/loki-launcher/bin`
+
 or
+
 You can download the loki binaries (faster) from each above page's release section
+
 or
+
 You can build from source, you can use the [init.sh](init.sh) script to pull the latest source.
 
 And if you don't have the dependencies to build from source check out [contrib/dependency_helper/](contrib/dependency_helper/getDepsUnix.sh)
