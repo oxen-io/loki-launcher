@@ -3,8 +3,8 @@ const fs = require('fs')
 //const os = require('os')
 const net = require('net')
 const path = require('path')
-const lib = require('./lib')
-const lokinet = require('./lokinet')
+const lib = require(__dirname + '/lib')
+const lokinet = require(__dirname + '/lokinet')
 const { spawn } = require('child_process')
 const stdin = process.openStdin()
 
@@ -318,7 +318,7 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
       }
       console.log('launching', process.execPath, entryPoint, args)
       var child = spawn(process.execPath, [entryPoint, 'daemon-start'].concat(args), cp_opt)
-      console.log('child', child)
+      //console.log('child', child)
       if (!child) {
         console.error('Could not spawn detached process')
         process.exit()
