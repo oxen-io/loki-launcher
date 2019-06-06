@@ -35,8 +35,8 @@ function killLokinetAndStorageServer(running, pids) {
   }
 }
 
-module.exports = function(args, entryPoint) {
-  const VERSION = 0.6
+module.exports = function(args, config, entryPoint) {
+  const VERSION = 0.7
 
   //var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
   console.log('loki SN launcher version', VERSION, 'registered')
@@ -87,6 +87,7 @@ module.exports = function(args, entryPoint) {
   var xmrOptions = parseXmrOptions()
   //console.log('xmrOptions', xmrOptions)
 
+  /*
   // load config from disk
   var disk_config = {}
   var config = configUtil.getDefaultConfig(__filename)
@@ -102,7 +103,8 @@ module.exports = function(args, entryPoint) {
     disk_config = ini.iniToJSON(ini_bytes.toString())
     config = disk_config
   }
-  var requested_config = disk_config
+  */
+  var requested_config = config
 
   /*
   const ini_bytes = fs.readFileSync('launcher.ini')
@@ -444,6 +446,13 @@ module.exports = function(args, entryPoint) {
   }
   */
 
+  if (!fs.existsSync(config.launcher.var_path)) {
+    // just make sure this directory exists
+    // FIXME: maybe skip if root...
+    console.log('making', config.launcher.var_path)
+    lokinet.mkDirByPathSync(config.launcher.var_path)
+  }
+
   // make sure the binary_path that exists are not a directory
   if (fs.lstatSync(config.blockchain.binary_path).isDirectory()) {
     console.error('lokid configured location is a directory', config.blockchain.binary_path)
@@ -500,22 +509,13 @@ module.exports = function(args, entryPoint) {
   //
 
   // are we already running
-  var alreadyRunning = false
-  var pid = 0
-  if (fs.existsSync('launcher.pid')) {
-    // we are already running
-    pid = fs.readFileSync('launcher.pid', 'utf8')
-    if (pid && lib.isPidRunning(pid)) {
-      alreadyRunning = true
-      console.log('LAUNCHER: loki launcher already active under', pid)
-      process.exit()
-    } else {
-      console.log('LAUNCHER: stale launcher.pid, overwriting')
-      pid = 0
-    }
+  var pid = lib.areWeRunning(config)
+  if (pid) {
+    console.log('LAUNCHER: loki launcher already active under', pid)
+    process.exit()
   }
 
-  pids = lib.getPids()
+  pids = lib.getPids(config)
   var running = lib.getProcessState(config)
 
   function isNothingRunning(running) {
@@ -524,6 +524,7 @@ module.exports = function(args, entryPoint) {
 
   // progress to 2nd phase where we might need to start something
   const daemon = require(__dirname + '/daemon')
+  daemon.config = config // update config for shutdownEverything
 
   function startEverything(config, args) {
     // to debug
@@ -531,7 +532,7 @@ module.exports = function(args, entryPoint) {
     //daemon(args, __filename, lokinet, config, getLokiDataDir)
     var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
     //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
-    daemon.startLauncherDaemon(foregroundIt, entryPoint, args, function() {
+    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
       // start the lokinet prep
       daemon.startLokinet(config, args, function(started) {
         //console.log('StorageServer now running', started)
@@ -582,6 +583,10 @@ module.exports = function(args, entryPoint) {
 
   // adopt responsibility of watching the existing suite
   function launcherRecoveryMonitor() {
+    // concern: what if it's running but quitting
+    // our timer will catch this
+    // concern: what if lokinet/storage is restarted elsewhere
+    // it won't because we've already ensured we're the only launcher for this
     if (!lib.isPidRunning(pids.lokid)) {
       console.log('LAUNCHER: lokid just died', pids.lokid)
       // no launcher, so we may need to do someclean up
@@ -592,7 +597,7 @@ module.exports = function(args, entryPoint) {
       // if existed previous / if we started them
       // we can't make a pids into the started style
       // so we'll have to just update from disk
-      pids = lib.getPids()
+      pids = lib.getPids(config)
       running = lib.getProcessState(config)   // update locations of lokinet/storageServer
       killLokinetAndStorageServer(running, pids) // kill them
       // and restart it all?
@@ -633,7 +638,7 @@ module.exports = function(args, entryPoint) {
   launcherRecoveryMonitor()
 
   // well now register ourselves as the proper guardian of the suite
-  fs.writeFileSync('launcher.pid', process.pid)
+  lib.setStartupLock(config)
 
   // handle handlers...
   daemon.setupHandlers()
