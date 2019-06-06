@@ -3,10 +3,11 @@ const os = require('os')
 const fs = require('fs')
 const dns = require('dns')
 const net = require('net')
-const ini = require('./ini')
+const ini = require(__dirname + '/ini')
 const path = require('path')
 const http = require('http')
 const https = require('https')
+const urlparser = require('url')
 const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
@@ -98,8 +99,6 @@ function getIfNameFromIP(ip) {
   }
   return ''
 }
-
-const urlparser = require('url')
 
 function httpGet(url, cb) {
   const urlDetails = urlparser.parse(url)
@@ -241,6 +240,21 @@ function getPublicIPv4(cb) {
   }
   doCall(0)
   doCall(1)
+}
+
+function portIsFree(port, cb) {
+  const server = net.createServer((socket) => {
+  })
+  server.on('error', (err) => {
+    console.error('portIsFree', err)
+    cb(false)
+  })
+  server.listen(port, () => {
+    // port is free
+    server.close(function() {
+      cb(true)
+    })
+  })
 }
 
 // used for generating temp filenames
@@ -1309,6 +1323,7 @@ module.exports = {
   getPublicIPv4: getPublicIPv4,
   getBoundIPv4s: getBoundIPv4s,
   getNetworkIP: getNetworkIP,
+  portIsFree: portIsFree,
   // other functions that should be in lib but they're here for now
   randomString: randomString,
   mkDirByPathSync: mkDirByPathSync, // for daemon
