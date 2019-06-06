@@ -8,7 +8,7 @@ const lokinet = require(__dirname + '/lokinet')
 const { spawn } = require('child_process')
 const stdin = process.openStdin()
 
-const VERSION = 0.1
+const VERSION = 0.2
 console.log('loki daemon library version', VERSION, 'registered')
 
 var connections = []
@@ -50,9 +50,7 @@ function shutdown_everything() {
     loki_daemon.killed = true
   }
   // clear our start up lock (if needed, will crash if not there)
-  if (fs.existsSync('launcher.pid')) {
-    fs.unlinkSync('launcher.pid')
-  }
+  lib.clearStartupLock(module.exports.config)
   // FIXME: should we be savings pids as we shutdown? probably
   var shutDownTimer = setInterval(function () {
     var stop = true
@@ -84,12 +82,15 @@ function shutdown_everything() {
       storageServer = null
       loki_daemon = null
       lokinetState = null
-      if (fs.existsSync('pids.json')) {
+      lib.clearPids(module.exports.config)
+      /*
+      if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
         console.log('LAUNCHER: clearing pids.json')
-        fs.unlinkSync('pids.json')
+        fs.unlinkSync(config.launcher.var_path + '/pids.json')
       } else {
         console.log('LAUNCHER: NO pids.json found, can\'t clear')
       }
+      */
       clearInterval(shutDownTimer)
       // docker/node 10 on linux has issue with this
       // 10.15 on macos has a handle, probably best to release
@@ -118,9 +119,9 @@ function shutdown_everything() {
     server.close()
     server.unref()
   }
-  if (fs.existsSync('launcher.socket')) {
+  if (fs.existsSync(module.exports.config.launcher.var_path + '/launcher.socket')) {
     console.log('SOCKET: cleaning socket')
-    fs.unlinkSync('launcher.socket')
+    fs.unlinkSync(module.exports.config.launcher.var_path + '/launcher.socket')
   }
   // don't think we need, seems to handle itself
   //console.log('should exit?')
@@ -188,7 +189,7 @@ function launcherStorageServer(config, args, cb) {
       if (tline.match('git commit hash: ')) {
         var parts = tline.split('git commit hash: ')
         //lokinet_version = parts[1]
-        fs.writeFileSync('storageServer.version', storageServer_version+"\n"+parts[1])
+        fs.writeFileSync(config.launcher.var_path + '/storageServer.version', storageServer_version+"\n"+parts[1])
       }
     }
     lines.pop()
@@ -292,7 +293,7 @@ function startLokinet(config, args, cb) {
   }
 }
 
-function startLauncherDaemon(interactive, entryPoint, args, cb) {
+function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
   /*
   try {
     process.seteuid('rtharp')
@@ -332,7 +333,7 @@ function startLauncherDaemon(interactive, entryPoint, args, cb) {
   }
   // backgrounded or launched in interactive mode
   //console.log('backgrounded or launched in interactive mode')
-  fs.writeFileSync('launcher.pid', process.pid)
+  lib.setStartupLock(config)
   cb()
 }
 
@@ -618,14 +619,14 @@ function startLokid(config, args) {
       if (err.code == 'EADDRINUSE') {
         // either already running or we were killed
         // try to connect to it
-        net.connect({ path: "launcher.socket" }, function () {
+        net.connect({ path: config.launcher.var_path + '/launcher.socket' }, function () {
           // successfully connected, then it's in use...
           throw e;
         }).on('error', function (e) {
           if (e.code !== 'ECONNREFUSED') throw e
           console.log('SOCKET: socket is stale, nuking')
-          fs.unlinkSync('launcher.socket')
-          server.listen('launcher.socket')
+          fs.unlinkSync(config.launcher.var_path + '/launcher.socket')
+          server.listen(config.launcher.var_path + '/launcher.socket')
         })
         return
       }
@@ -634,7 +635,7 @@ function startLokid(config, args) {
       //shutdown_everything()
     })
 
-    server.listen('launcher.socket', () => {
+    server.listen(config.launcher.var_path + '/launcher.socket', () => {
       console.log('SOCKET: bound')
     })
   }
@@ -688,4 +689,5 @@ module.exports = {
   startLokid: startLokid,
   setupHandlers: setupHandlers,
   shutdown_everything: shutdown_everything,
+  config: {}
 }
