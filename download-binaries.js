@@ -202,11 +202,11 @@ function start() {
     for(var i in data.assets) {
       var asset = data.assets[i]
       //console.log(i, 'asset', asset.browser_download_url)
-      if (asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
+      if (search == 'linux' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
         // linux
         downloadTarXz(asset.browser_download_url)
       }
-      if (asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.zip/i)) {
+      if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.zip/i)) {
         // MacOS
         downloadZip(asset.browser_download_url)
       }
