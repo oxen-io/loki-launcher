@@ -108,25 +108,25 @@ function getPids() {
   return obj
 }
 
-function getProcessState() {
+function getProcessState(config) {
   // what happens if we get different options than what we had before
   // maybe prompt to confirm restart
   // if already running just connect for now
   var pids = getPids()
   var running = {}
-  if (pids.lokid && lib.isPidRunning(pids.lokid)) {
-    console.log("LAUNCHER: old lokid is still running", pids.lokid)
+  if (pids.lokid && isPidRunning(pids.lokid)) {
+    //console.log("LAUNCHER: old lokid is still running", pids.lokid)
     running.lokid = pids.lokid
   }
   if (config.network.enabled) {
-    if (pids.lokinet && lib.isPidRunning(pids.lokinet)) {
-      console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
+    if (pids.lokinet && isPidRunning(pids.lokinet)) {
+      //console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
       running.lokinet = pids.lokinet
     }
   }
   if (config.storage.enabled) {
-    if (pids.storageServer && lib.isPidRunning(pids.storageServer)) {
-      console.log("LAUNCHER: old storage server is still running", pids.storageServer)
+    if (pids.storageServer && isPidRunning(pids.storageServer)) {
+      //console.log("LAUNCHER: old storage server is still running", pids.storageServer)
       running.storageServer = pids.storageServer
     }
   }
