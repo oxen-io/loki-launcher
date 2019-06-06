@@ -19,29 +19,32 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 # Requirements
 
 - [nodejs](https://nodejs.org/en/) 8.x or later
-- [lokid](https://github.com/loki-project/loki)
-- [lokinet](https://github.com/loki-project/loki-network)
-- [httpserver (storage server)](https://github.com/loki-project/loki-storage-server)
+- [npm](https://www.npmjs.com/get-npm) usually installed with nodejs
 - Linux (though macos does works and Windows kind of works)
 
-You can download the loki binaries (faster) from each above page's release section
-or
-You can build from source, you can use the [init.sh](init.sh) script to pull the latest source.
+# How to install
 
-And if you don't have the dependencies to build from source check out [contrib/dependency_helper/](contrib/dependency_helper/getDepsUnix.sh)
+This will use npm to install the launcher
+`sudo npm install -g loki-launcher`
+
+After it's installed, you can ask to prequalify your server to be a service node
+`loki-launcher prequal`
+
+you can also ask it to download the Loki binaries if you don't already have them
+`loki-launcher download-binaries`
 
 # How to run
 
 edit the config [launcher.ini](launcher.ini) and check over the settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for details on options.
 
-`./index.js start`
+`loki-launcher start`
 
 Running it once should start the suite of services into the background or give you a message why it can't
 
-Running `./index.js client`, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
+Running `loki-launcher client`, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
 `exit` will stop your service node. If you just want to exit the interactive terminal, please use `ctrl-c`.
 
-You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to index.js
+You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to `loki-launcher start`
 
 # Popular linux distribution instructions to install NodeJS
 
@@ -52,3 +55,17 @@ Ubuntu NodeJS installation:
 then
 
 `sudo apt-get install -y nodejs`
+
+# Software the launcher manages
+
+- [lokid](https://github.com/loki-project/loki)
+- [lokinet](https://github.com/loki-project/loki-network)
+- [httpserver (storage server)](https://github.com/loki-project/loki-storage-server)
+
+To get the required software you can run `loki-launcher download-binaries` and they will be placed in `/opt/loki-launcher/bin`
+or
+You can download the loki binaries (faster) from each above page's release section
+or
+You can build from source, you can use the [init.sh](init.sh) script to pull the latest source.
+
+And if you don't have the dependencies to build from source check out [contrib/dependency_helper/](contrib/dependency_helper/getDepsUnix.sh)
