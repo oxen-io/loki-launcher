@@ -84,7 +84,7 @@ function downloadGithubFile(dest, url, cb) {
 }
 
 // MacOS
-function downloadZip(url) {
+function downloadZip(url, config) {
   const baseZipDir = pathUtil.basename(url, '.zip')
   console.log('Will download', url)
   var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.zip'
@@ -99,7 +99,7 @@ function downloadZip(url) {
       const { exec } = require('child_process');
 
       function waitForLokidToBeDeadAndExtract() {
-        running = lib.getProcessState()
+        running = lib.getProcessState(config)
         if (running.lokid) {
           console.log('waiting 5s for lokid to quit...')
           setTimeout(waitForLokidToBeDeadAndExtract, 5000)
@@ -133,7 +133,7 @@ function downloadZip(url) {
 }
 
 // Linux
-function downloadTarXz(url) {
+function downloadTarXz(url, config) {
   const baseZipDir = pathUtil.basename(url, '.tar.xz')
   console.log('Will download', url)
   var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.tar.xz'
@@ -148,7 +148,7 @@ function downloadTarXz(url) {
       const { exec } = require('child_process');
 
       function waitForLokidToBeDeadAndExtract() {
-        running = lib.getProcessState()
+        running = lib.getProcessState(config)
         if (running.lokid) {
           console.log('waiting 5s for lokid to quit...')
           setTimeout(waitForLokidToBeDeadAndExtract, 5000)
@@ -173,9 +173,10 @@ function downloadTarXz(url) {
   })
 }
 
-function start() {
-  var running = lib.getProcessState()
+function start(config) {
+  var running = lib.getProcessState(config)
   if (running.lokid) {
+    var pids = lib.getPids()
     console.log('lokid is running, request shutdown')
     process.kill(pids.lokid, 'SIGINT')
     // should be down by the time the file downloads...
@@ -190,6 +191,8 @@ function start() {
       console.log('error with', github_url, e)
       process.exit()
     }
+    // FIXME: compare against version we have downloaded...
+    // FIXME: how can we get the version of a binary?
     var search = 'UNKNOWN'
     if (os.platform() == 'darwin') search = 'osx'
     else
@@ -204,11 +207,11 @@ function start() {
       //console.log(i, 'asset', asset.browser_download_url)
       if (search == 'linux' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
         // linux
-        downloadTarXz(asset.browser_download_url)
+        downloadTarXz(asset.browser_download_url, config)
       }
       if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.zip/i)) {
         // MacOS
-        downloadZip(asset.browser_download_url)
+        downloadZip(asset.browser_download_url, config)
       }
     }
   })
