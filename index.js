@@ -51,24 +51,24 @@ stripArg(mode)
 // load config from disk
 const fs = require('fs')
 const ini = require(__dirname + '/ini')
-const ini_bytes = fs.readFileSync(__dirname + '/launcher.ini')
-var disk_config = ini.iniToJSON(ini_bytes.toString())
-config = disk_config
-
-if (config.blockchain.rpc_port == '0') {
-  if (config.blockchain.network == 'test') {
-    config.blockchain.rpc_port = 38157
-  } else
-  if (config.blockchain.network == 'demo') {
-    config.blockchain.rpc_port = 38160
-  } else
-  if (config.blockchain.network == 'staging') {
-    config.blockchain.rpc_port = 38154
-  } else {
-    // main
-    config.blockchain.rpc_port = 22023
-  }
+const configUtil = require(__dirname + '/config')
+// FIXME: get config dir
+// via cli param
+// via . ?
+var disk_config = {}
+var config = configUtil.getDefaultConfig(__filename)
+if (fs.existsSync('/etc/loki-launcher/launcher.ini')) {
+  const ini_bytes = fs.readFileSync('/etc/loki-launcher/launcher.ini')
+  disk_config = ini.iniToJSON(ini_bytes.toString())
+  config = disk_config
 }
+// local overrides default path
+if (fs.existsSync(__dirname + 'launcher.ini')) {
+  const ini_bytes = fs.readFileSync(__dirname + '/launcher.ini')
+  disk_config = ini.iniToJSON(ini_bytes.toString())
+  config = disk_config
+}
+configUtil.check(config)
 
 const lib = require(__dirname + '/lib')
 //console.log('Launcher config:', config)
@@ -84,7 +84,8 @@ switch(mode) {
     require('./start')(args)
   break;
   case 'status':
-    console.log('coming soon')
+    var running = lib.getProcessState(config)
+    console.log('lokid status:', running.lokid?('running on ' + running.lokid):'offline')
   break;
   case 'config-build':
     // build a default config
@@ -106,12 +107,15 @@ switch(mode) {
   case 'prequal-debug':
     require('./snbench')(config, true)
   break;
+  case 'check-systemd':
+    require('./check-systemd').start()
+  break;
   case 'args-debug':
     console.log('in :', process.argv)
     console.log('out:', args)
   break;
   case 'download-binaries':
-    require('./download-binaries').start()
+    require('./download-binaries').start(config)
   break;
   default:
     console.log(`
@@ -126,6 +130,7 @@ Usage:
     status  get the current loki suite status
     client  connect to lokid
     prequal prequalify your server for service node operation
+    download-binaries download the latest version of the loki software suite
 `)
   break;
 }
