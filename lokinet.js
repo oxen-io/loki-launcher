@@ -1304,9 +1304,11 @@ module.exports = {
   getLokiNetIP: getLokiNetIP,
   enableLogging: enableLogging,
   disableLogging: disableLogging,
+  getPID: getPID,
+  // network utils (that maybe shouldn't be here)
   getPublicIPv4: getPublicIPv4,
   getBoundIPv4s: getBoundIPv4s,
-  getPID: getPID,
+  getNetworkIP: getNetworkIP,
   // other functions that should be in lib but they're here for now
   randomString: randomString,
   mkDirByPathSync: mkDirByPathSync, // for daemon
