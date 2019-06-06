@@ -74,6 +74,41 @@ function isPidRunning(pid) {
   return false
 }
 
+function clearStartupLock(config) {
+  // clear our start up lock (if needed, will crash if not there)
+  if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {
+    fs.unlinkSync(config.launcher.var_path + '/launcher.pid')
+  }
+}
+
+function areWeRunning(config) {
+  var pid = 0 // default is not running
+  if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {
+    // we are already running
+    pid = fs.readFileSync(config.launcher.var_path + '/launcher.pid', 'utf8')
+    if (isPidRunning(pid)) {
+      // pid is correct
+    } else {
+      console.log('stale ' + config.launcher.var_path + '/launcher.pid')
+      pid = 0
+    }
+  }
+  return pid
+}
+
+function setStartupLock(config) {
+  fs.writeFileSync(config.launcher.var_path + '/launcher.pid', process.pid)
+}
+
+function clearPids(config) {
+  if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
+    console.log('LAUNCHER: clearing ' + config.launcher.var_path + '/pids.json')
+    fs.unlinkSync(config.launcher.var_path + '/pids.json')
+  } else {
+    console.log('LAUNCHER: NO ' + config.launcher.var_path + '/pids.json found, can\'t clear')
+  }
+}
+
 function savePids(config, args, loki_daemon, lokinet, storageServer) {
   var obj = {
     runningConfig: config,
@@ -90,20 +125,20 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
   if (lokinetPID) {
     obj.lokinet = lokinetPID
   }
-  fs.writeFileSync('pids.json', JSON.stringify(obj))
+  fs.writeFileSync(config.launcher.var_path + '/pids.json', JSON.stringify(obj))
 }
 
-function getPids() {
-  if (!fs.existsSync('pids.json')) {
+function getPids(config) {
+  if (!fs.existsSync(config.launcher.var_path + '/pids.json')) {
     return {}
   }
   // we are already running
-  var json = fs.readFileSync('pids.json', 'utf8')
+  var json = fs.readFileSync(config.launcher.var_path + '/pids.json', 'utf8')
   var obj = {}
   try {
     obj = JSON.parse(json)
   } catch (e) {
-    console.error("Can't parse JSON from launcher.pids", json)
+    console.error('Can not parse JSON from', config.launcher.var_path + '/pids.json', json)
   }
   return obj
 }
@@ -112,7 +147,7 @@ function getProcessState(config) {
   // what happens if we get different options than what we had before
   // maybe prompt to confirm restart
   // if already running just connect for now
-  var pids = getPids()
+  var pids = getPids(config)
   var running = {}
   if (pids.lokid && isPidRunning(pids.lokid)) {
     //console.log("LAUNCHER: old lokid is still running", pids.lokid)
@@ -133,13 +168,25 @@ function getProcessState(config) {
   return running
 }
 
+function stopLauncher(config) {
+  // locate launcher pid
+  var pids = getPids(config)
+  // request launcher shutdown...
+}
+
 module.exports = {
   getLogo: getLogo,
   //  args: args,
   //  stripArg: stripArg,
+  clearStartupLock: clearStartupLock,
+  areWeRunning: areWeRunning,
+  setStartupLock: setStartupLock,
+
   isPidRunning: isPidRunning,
   getPids: getPids,
   savePids: savePids,
+  clearPids: clearPids,
+
   falsish: falsish,
   getProcessState: getProcessState,
 }
