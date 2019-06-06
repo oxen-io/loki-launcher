@@ -1305,11 +1305,13 @@ module.exports = {
   enableLogging: enableLogging,
   disableLogging: disableLogging,
   getPublicIPv4: getPublicIPv4,
+  getBoundIPv4s: getBoundIPv4s,
   getPID: getPID,
   // other functions that should be in lib but they're here for now
   randomString: randomString,
   mkDirByPathSync: mkDirByPathSync, // for daemon
   httpGet: httpGet, // for public-ports
+
   // FIXME: should we allow hooking of log() too?
   onMessage: function (data) {
     if (lokinetLogging) {
