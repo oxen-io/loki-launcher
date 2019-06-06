@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // no npm!
 const os = require('os')
-const VERSION = 0.7
+const VERSION = 0.8
 
 if (os.platform() == 'darwin') {
   if (process.getuid() != 0) {
@@ -9,6 +9,9 @@ if (os.platform() == 'darwin') {
     process.exit()
   }
 } else {
+  // FIXME:
+  // ok if you run this once as root, it may create directories as root
+  // maybe we should never make dirs as root... (unless macos, ugh)
   if (process.getuid() == 0) {
     console.error('Its not recommended you run this as root')
   }
@@ -77,15 +80,81 @@ console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
 
 switch(mode) {
   case 'start':
-    require('./start')(args, __filename)
-  break;
-  case 'daemon-start':
-    process.env.__daemon = true
-    require('./start')(args)
+    require(__dirname + '/start')(args, config, __filename)
   break;
   case 'status':
+    var pid = lib.areWeRunning(config)
+    console.log('launcher status:', pid?('running on ' + pid):'not running')
     var running = lib.getProcessState(config)
-    console.log('lokid status:', running.lokid?('running on ' + running.lokid):'offline')
+    console.log('blockchain status:', running.lokid?('running on ' + running.lokid):'offline')
+    if (running.lokinet) {
+      console.log('network status:', running.lokinet?('running on ' + running.lokinet):'offline')
+    }
+    if (running.storageServer) {
+      console.log('storage status:', running.storageServer?('running on ' + running.storageServer):'offline')
+    }
+  break;
+  case 'stop':
+    var pid = lib.areWeRunning(config)
+    if (pid) {
+      // request launcher stop
+      process.kill(pid, 'SIGINT')
+      // we quit too fast
+      //require(__dirname + '/client')(config)
+    } else {
+      var running = lib.getProcessState(config)
+      var pids = lib.getPids(config)
+      if (running.lokid) {
+        process.kill(pids.lokid, 'SIGINT')
+      }
+      if (config.storage.enabled && running.storageServer) {
+        process.kill(pids.storageServer, 'SIGINT')
+      }
+      if (config.network.enabled && running.lokinet) {
+        process.kill(pids.lokinet, 'SIGINT')
+      }
+    }
+    function shutdownMonitor() {
+      var running = lib.getProcessState(config)
+      var waiting = []
+      if (running.lokid) {
+        waiting.push('blockchain')
+      }
+      if (running.lokinet) {
+        waiting.push('network')
+      }
+      if (running.storageServer) {
+        waiting.push('storage')
+      }
+      if (running.lokid || running.lokinet || running.storageServer) {
+        console.log('shutdown waiting on', waiting.join(' '))
+        setTimeout(shutdownMonitor, 1000)
+      } else {
+        console.log('successfully shutdown')
+      }
+    }
+    var running = lib.getProcessState(config)
+    var wait = 500
+    if (running.lokid) wait += 4500
+    if (running.lokid || running.lokinet || running.storageServer) {
+      setTimeout(shutdownMonitor, wait)
+    }
+  break;
+  case 'daemon-start':
+    // debug mode basically (but also used internally now)
+    // how this different from systemd-start?
+    // this allows for interactive mode...
+    process.env.__daemon = true
+    require(__dirname + '/start')(args, config, __filename)
+  break;
+  case 'systemd-start':
+    // stay in foreground mode...
+    // force docker mode...
+    // somehow I don't like this hack...
+    // what we if reload config from disk...
+    config.launcher.docker = true
+    process.env.__daemon = true
+    require(__dirname + '/start')(args, config, __filename)
   break;
   case 'config-build':
     // build a default config
@@ -99,23 +168,23 @@ switch(mode) {
     // xdg-open / open ?
   break;
   case 'client':
-    require('./client')
+    require(__dirname + '/client')(config)
   break;
   case 'prequal':
-    require('./snbench')(config, false)
+    require(__dirname + '/snbench')(config, false)
   break;
   case 'prequal-debug':
-    require('./snbench')(config, true)
+    require(__dirname + '/snbench')(config, true)
   break;
   case 'check-systemd':
-    require('./check-systemd').start()
+    require(__dirname + '/check-systemd').start(config, __filename)
   break;
   case 'args-debug':
     console.log('in :', process.argv)
     console.log('out:', args)
   break;
   case 'download-binaries':
-    require('./download-binaries').start(config)
+    require(__dirname + '/download-binaries').start(config)
   break;
   default:
     console.log(`
