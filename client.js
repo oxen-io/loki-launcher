@@ -2,7 +2,7 @@
 const fs        = require('fs')
 const os        = require('os')
 const net       = require('net')
-const lib       = require('./lib')
+const lib       = require(__dirname + '/lib')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
