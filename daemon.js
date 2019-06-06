@@ -264,9 +264,10 @@ function startStorageServer(config, args, cb) {
       }
     })
   } else if (config.storage.enabled) {
-    lokinet.getPublicIPv4(function(ip) {
-      console.log('DAEMON: starting storageServer on', ip)
-      config.storage.ip = ip
+    // FIXME: unhardcode for NAT
+    lokinet.getBoundIPv4s(function(ips) {
+      console.log('DAEMON: starting storageServer on', ips[0])
+      config.storage.ip = ips[0]
       if (config.storage.db_location !== undefined) {
         if (!fs.existsSync(config.storage.db_location)) {
           lokinet.mkDirByPathSync(config.storage.db_location)
