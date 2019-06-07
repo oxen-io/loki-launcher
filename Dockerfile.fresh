@@ -1,0 +1,33 @@
+FROM ubuntu:16.04
+
+RUN set -ex && \
+    apt-get update && \
+    apt-get --no-install-recommends --yes install ca-certificates curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt
+ARG node_ver=10
+ENV node_var ${node_ver}
+RUN curl -sL https://deb.nodesource.com/setup_${node_ver}.x | bash - && apt-get install -y nodejs
+
+# install local dev version
+WORKDIR /usr/src/app
+#ADD *.js .
+COPY check-systemd.js .
+COPY client.js .
+COPY config.js .
+COPY daemon.js .
+COPY download-binaries.js .
+COPY index.js .
+COPY ini.js .
+COPY lets_tcp.js .
+COPY lib.js .
+COPY lib.networkTest.js .
+COPY lokinet.js .
+COPY snbench.js .
+COPY start.js .
+
+# configure npm
+COPY package.json .
+
+# install the CLI utility
+RUN npm i -g

@@ -1,0 +1,34 @@
+sudo: require
+language: node_js
+
+services:
+  - docker
+
+env:
+#  global:
+#   - IMAGE_NAME=ubuntu:latest
+  matrix:
+    - DOCKERFILE = Dockerfile.fresh
+#   - MIGRATION=1
+#   - MIGRATION=0 UPGRADE=0
+#   - MIGRATION=0 UPGRADE=1
+
+#before_script:
+#  - version="$(awk '$2 == "LOKI_LAUNCHER_VERSION" { print $3; exit }' Dockerfile)"
+#  - docker pull "$IMAGE_NAME" || true
+
+before_install:
+  - docker build --build-arg MIGRATION=$MIGRATION UPGRADE=$UPGRADE -t loki-project/loki-launcher .
+#  - if [[ $MIGRATION ]]; then ; fi
+
+script:
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher status"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher prequal"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries"
+
+#script:
+#  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
+
+#after_script:
+#  - docker images
