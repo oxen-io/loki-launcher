@@ -261,6 +261,8 @@ COPY lib.js .
 COPY lokinet.js .
 COPY index.js .
 COPY client.js .
+COPY start.js .
+COPY config.js .
 COPY launcher-docker.ini launcher.ini
 # this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
