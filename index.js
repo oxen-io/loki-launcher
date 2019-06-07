@@ -30,6 +30,7 @@ function stripArg(match) {
   }
   return found
 }
+// well argvs[0] we will always want to strip...
 stripArg('/usr/local/bin/node')
 stripArg('/usr/local/bin/nodejs')
 stripArg('/usr/bin/node')
@@ -40,14 +41,14 @@ stripArg(__filename) // will just be index.js
 stripArg('loki-launcher')
 stripArg('/usr/bin/loki-launcher')
 stripArg('/usr/local/bin/loki-launcher')
-console.debug('index filename:', __filename)
-console.debug('Launcher arguments:', args)
+//console.debug('index filename:', __filename)
+//console.debug('Launcher arguments:', args)
 
 // find the first arg without --
 var mode = ''
 for(var i in args) {
   var arg = args[i]
-  console.log('arg is', arg)
+  //console.log('arg is', arg)
   if (arg.match(/^-/)) continue
   //console.log('command', arg)
   if (mode == '') mode = arg
