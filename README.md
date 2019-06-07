@@ -22,7 +22,29 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - [npm](https://www.npmjs.com/get-npm) usually installed with nodejs
 - Linux (though macos does works and Windows kind of works)
 
-# How to install
+# How to upgrade to the launcher from running a lokid 3.0.6 service node (set up with systemd)
+
+1. Install nodejs (and npm) and then install the launcher as root:
+
+`sudo npm install -g loki-launcher`
+
+2. Stop your existing service node:
+
+`sudo systemctl stop lokid.service`
+
+3. Run the check-systemd to make systemd now launch the launcher instead of lokid:
+
+`sudo loki-launcher check-systemd`
+
+4. Make sure the service is up to date:
+
+`sudo systemctl daemon-reload`
+
+5. Start lokid.service:
+
+`sudo systemctl start lokid.service`
+
+# How to do a fresh service node install
 
 This will use npm to install the launcher
 
@@ -36,9 +58,7 @@ you can also ask it to download the Loki binaries if you don't already have them
 
 `loki-launcher download-binaries`
 
-# How to run
-
-edit the config [launcher.ini](launcher.ini) and check over the settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for details on options.
+# How to use
 
 `loki-launcher start`
 
@@ -48,6 +68,8 @@ Running `loki-launcher client`, will give you an interactive terminal to lokid (
 `exit` will stop your service node. If you just want to exit the interactive terminal, please use `ctrl-c`.
 
 You can pass most [command line parameters](https://lokidocs.com/Advanced/lokid/) that you would give to lokid to `loki-launcher start`
+
+You can make a launcher config file in /etc/loki-launcher/launcher.ini and change various settings, [Check our wiki](https://github.com/loki-project/loki-launcher/wiki/Launcher.ini-configuration-documentation) for details on options.
 
 # How to keep the launcher up to date
 
