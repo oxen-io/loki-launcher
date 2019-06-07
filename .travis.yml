@@ -1,14 +1,17 @@
 sudo: require
 language: node_js
+git:
+  submodules: false
 
 services:
   - docker
-
+ 
 env:
 #  global:
 #   - IMAGE_NAME=ubuntu:latest
   matrix:
-    - DOCKERFILE = Dockerfile.fresh
+    - DOCKERFILE=Dockerfile.fresh node_ver=8
+    - DOCKERFILE=Dockerfile.fresh node_ver=10
 #   - MIGRATION=1
 #   - MIGRATION=0 UPGRADE=0
 #   - MIGRATION=0 UPGRADE=1
@@ -18,7 +21,7 @@ env:
 #  - docker pull "$IMAGE_NAME" || true
 
 before_install:
-  - docker build --build-arg MIGRATION=$MIGRATION UPGRADE=$UPGRADE -t loki-project/loki-launcher .
+  - docker build --build-arg MIGRATION=$MIGRATION --build-arg UPGRADE=$UPGRADE --build-arg node_ver=$node_ver -f $DOCKERFILE -t loki-project/loki-launcher .
 #  - if [[ $MIGRATION ]]; then ; fi
 
 script:
