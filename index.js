@@ -37,12 +37,14 @@ stripArg('/usr/bin/nodejs')
 stripArg('node')
 stripArg('nodejs')
 stripArg(__filename)
-//console.log('Launcher arguments:', args)
+console.debug('index filename:', __filename)
+console.debug('Launcher arguments:', args)
 
 // find the first arg without --
 var mode = ''
 for(var i in args) {
   var arg = args[i]
+  console.log('arg is', arg)
   if (arg.match(/^-/)) continue
   //console.log('command', arg)
   if (mode == '') mode = arg
