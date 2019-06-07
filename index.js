@@ -187,6 +187,8 @@ switch(mode) {
     require(__dirname + '/download-binaries').start(config)
   break;
   default:
+    console.debug('in :', process.argv)
+    console.debug('out:', args)
     console.log(`
 Unknown mode [${mode}]
 
