@@ -26,8 +26,8 @@ function getDefaultConfig(entrypoint) {
 
 function precheckConfig(config) {
   // replace any trailing slash before use...
-  config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
   if (config.launcher.prefix) {
+    config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
     if (config.launcher.var_path === undefined) config.launcher.var_path = config.launcher.prefix + '/var'
     if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = config.launcher.prefix + '/bin/lokid'
   }
