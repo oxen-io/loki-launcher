@@ -1,9 +1,11 @@
 sudo: require
 language: node_js
+git:
+  submodules: false
 
 services:
   - docker
-
+ 
 env:
 #  global:
 #   - IMAGE_NAME=ubuntu:latest
