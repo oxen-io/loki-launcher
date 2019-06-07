@@ -36,7 +36,10 @@ stripArg('/usr/bin/node')
 stripArg('/usr/bin/nodejs')
 stripArg('node')
 stripArg('nodejs')
-stripArg(__filename)
+stripArg(__filename) // will just be index.js
+stripArg('loki-launcher')
+stripArg('/usr/bin/loki-launcher')
+stripArg('/usr/local/bin/loki-launcher')
 console.debug('index filename:', __filename)
 console.debug('Launcher arguments:', args)
 
