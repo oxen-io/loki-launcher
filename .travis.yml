@@ -28,7 +28,9 @@ script:
   - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher status"
   - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher prequal"
   - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries"
-  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher start"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher status"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher stop"
 
 #script:
 #  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
