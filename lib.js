@@ -133,7 +133,13 @@ function getPids(config) {
     return {}
   }
   // we are already running
-  var json = fs.readFileSync(config.launcher.var_path + '/pids.json', 'utf8')
+  try {
+    var json = fs.readFileSync(config.launcher.var_path + '/pids.json', 'utf8')
+  } catch (e) {
+    // we had one integration test say this file was deleted after the existence check
+    console.warn(config.launcher.var_path + '/pids.json', 'had a problem', e)
+    return {}
+  }
   var obj = {}
   try {
     obj = JSON.parse(json)
