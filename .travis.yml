@@ -12,16 +12,15 @@ env:
   matrix:
     - DOCKERFILE=Dockerfile.fresh node_ver=8
     - DOCKERFILE=Dockerfile.fresh node_ver=10
-#   - MIGRATION=1
-#   - MIGRATION=0 UPGRADE=0
-#   - MIGRATION=0 UPGRADE=1
+    - DOCKERFILE=Dockerfile.migration node_ver=8
+    - DOCKERFILE=Dockerfile.migration node_ver=10
 
 #before_script:
 #  - version="$(awk '$2 == "LOKI_LAUNCHER_VERSION" { print $3; exit }' Dockerfile)"
 #  - docker pull "$IMAGE_NAME" || true
 
 before_install:
-  - docker build --build-arg MIGRATION=$MIGRATION --build-arg UPGRADE=$UPGRADE --build-arg node_ver=$node_ver -f $DOCKERFILE -t loki-project/loki-launcher .
+  - docker build --build-arg node_ver=$node_ver -f $DOCKERFILE -t loki-project/loki-launcher .
 #  - if [[ $MIGRATION ]]; then ; fi
 
 script:
