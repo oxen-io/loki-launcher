@@ -322,7 +322,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
       //console.log('child', child)
       if (!child) {
         console.error('Could not spawn detached process')
-        process.exit()
+        process.exit(1)
       }
       // required so we can exit
       child.unref()
