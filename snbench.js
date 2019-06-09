@@ -103,7 +103,7 @@ module.exports = function(config, debug) {
           console.warn('weird codes do not match but probably fine for now')
         }
         if (results.result != 'good') {
-          console.warn('WE COULD NOT VERIFY THAT YOU HAVE PORT ', config.blockchain.rpc_port,', OPEN ON YOUR FIREWALL, this is now required to run a service node')
+          console.warn('WE COULD NOT VERIFY THAT YOU HAVE PORT', config.blockchain.rpc_port+', OPEN ON YOUR FIREWALL, this is now required to run a service node')
           snode_problems++
         }
         client.disconnect()
