@@ -56,6 +56,7 @@ for(var i in args) {
 
 //console.log('mode', mode)
 stripArg(mode)
+mode = mode.toLowerCase() // make sure it's lowercase
 
 // load config from disk
 const fs = require('fs')
@@ -85,14 +86,18 @@ var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
 
 switch(mode) {
-  case 'start':
+  case 'start': // official
     require(__dirname + '/start')(args, config, __filename)
   break;
-  case 'status':
+  case 'status': // official
     var pid = lib.areWeRunning(config)
     console.log('launcher status:', pid?('running on ' + pid):'not running')
     var running = lib.getProcessState(config)
     console.log('blockchain status:', running.lokid?('running on ' + running.lokid):'offline')
+    if (running.lokid) {
+      // read config, run it with status param...
+      // spawn out and relay output...
+    }
     if (running.lokinet) {
       console.log('network status:', running.lokinet?('running on ' + running.lokinet):'offline')
     }
@@ -100,7 +105,7 @@ switch(mode) {
       console.log('storage status:', running.storageServer?('running on ' + running.storageServer):'offline')
     }
   break;
-  case 'stop':
+  case 'stop': // official
     var pid = lib.areWeRunning(config)
     if (pid) {
       // request launcher stop
@@ -146,14 +151,14 @@ switch(mode) {
       setTimeout(shutdownMonitor, wait)
     }
   break;
-  case 'daemon-start':
+  case 'daemon-start': // official
     // debug mode basically (but also used internally now)
     // how this different from systemd-start?
     // this allows for interactive mode...
     process.env.__daemon = true
     require(__dirname + '/start')(args, config, __filename)
   break;
-  case 'systemd-start':
+  case 'systemd-start': // official
     // stay in foreground mode...
     // force docker mode...
     // somehow I don't like this hack...
@@ -162,36 +167,40 @@ switch(mode) {
     process.env.__daemon = true
     require(__dirname + '/start')(args, config, __filename)
   break;
-  case 'config-build':
+  case 'config-build': // official
     // build a default config
     // commit it to disk if it doesn't exist
   break;
-  case 'config-view':
+  case 'config-view': // official
     console.log('loki-launcher is in', __dirname)
     console.log('Launcher config:', config)
   break;
-  case 'config-edit':
+  case 'config-edit': // official
     // xdg-open / open ?
   break;
-  case 'client':
+  case 'client': // official
     require(__dirname + '/client')(config)
   break;
-  case 'prequal':
+  case 'prequal': // official
     require(__dirname + '/snbench')(config, false)
   break;
-  case 'prequal-debug':
+  case 'prequal-debug': // official
     require(__dirname + '/snbench')(config, true)
   break;
-  case 'check-systemd':
+  case 'check-systemd': // official
     require(__dirname + '/check-systemd').start(config, __filename)
   break;
-  case 'args-debug':
+  case 'args-debug': // official
     console.log('in :', process.argv)
     console.log('out:', args)
   break;
-  case 'download-binaries':
+  case 'download-binaries': // official
     require(__dirname + '/download-binaries').start(config)
   break;
+  case 'help': // official
+  case 'hlep':
+  case 'hepl':
+  case 'lpeh':
   default:
     console.debug('in :', process.argv)
     console.debug('out:', args)
