@@ -82,7 +82,7 @@ Stop your service node if it's running (you can use `loki-launcher status` to ch
 
 Update the launcher
 
-`npm update loki-launcher`
+`npm install -g loki-launcher`
 
 And be sure to make sure you restart your service node (if it's staked) by
 

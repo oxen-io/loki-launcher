@@ -14,6 +14,8 @@ env:
     - DOCKERFILE=Dockerfile.fresh node_ver=10
     - DOCKERFILE=Dockerfile.migration node_ver=8
     - DOCKERFILE=Dockerfile.migration node_ver=10
+    - DOCKERFILE=Dockerfile.outdated node_ver=8
+    - DOCKERFILE=Dockerfile.outdated node_ver=10
 
 #before_script:
 #  - version="$(awk '$2 == "LOKI_LAUNCHER_VERSION" { print $3; exit }' Dockerfile)"
@@ -24,9 +26,8 @@ before_install:
 #  - if [[ $MIGRATION ]]; then ; fi
 
 script:
-  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher status"
-  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher prequal"
-  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries && loki-launcher start && sleep 30 && loki-launcher status && loki-launcher stop"
+  # npm upgrade test/status/prequal/systemd/upgrade/start/stop test
+  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status && loki-launcher prequal && loki-launcher check-systemd && loki-launcher download-binaries && loki-launcher start && sleep 30 && loki-launcher status && loki-launcher stop"
 
 #script:
 #  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
