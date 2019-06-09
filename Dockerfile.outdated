@@ -12,5 +12,23 @@ RUN curl -sL https://deb.nodesource.com/setup_${node_ver}.x | bash - && apt-get 
 # install local dev version
 WORKDIR /usr/src/app
 
-# install the CLI utility
+#ADD *.js .
+COPY check-systemd.js .
+COPY client.js .
+COPY config.js .
+COPY daemon.js .
+COPY download-binaries.js .
+COPY index.js .
+COPY ini.js .
+COPY lets_tcp.js .
+COPY lib.js .
+COPY lib.networkTest.js .
+COPY lokinet.js .
+COPY snbench.js .
+COPY start.js .
+
+# place new package
+COPY package.json .
+
+# install the old CLI utility (change to 0.0.2 after 0.0.3 and then hopefully leave for a bit)
 RUN npm i -g loki-launcher@0.0.1
