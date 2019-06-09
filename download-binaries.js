@@ -92,7 +92,7 @@ function downloadZip(url, config) {
   downloadGithubFile(tmpPath, url, function(result) {
     if (result !== undefined) {
       console.log('something went wrong with download, try again later or check with us')
-      process.exit()
+      process.exit(1)
     }
     console.log('result is', result)
     if (url.match(/\.zip/i)) {
@@ -124,7 +124,7 @@ function downloadZip(url, config) {
         } else {
           // how to extract a zip on linux?
           console.error('Do not know how to extract zips on linux')
-          process.exit()
+          process.exit(1)
         }
       }
       waitForLokidToBeDeadAndExtract()
@@ -141,7 +141,7 @@ function downloadTarXz(url, config) {
   downloadGithubFile(tmpPath, url, function(result) {
     if (result !== undefined) {
       console.log('something went wrong with download, try again later or check with us')
-      process.exit()
+      process.exit(1)
     }
     console.log('result is', result)
     if (url.match(/\.tar.xz/i)) {
@@ -189,7 +189,7 @@ function start(config) {
     } catch(e) {
       console.log('json', json)
       console.log('error with', github_url, e)
-      process.exit()
+      process.exit(1)
     }
     // FIXME: compare against version we have downloaded...
     // FIXME: how can we get the version of a binary?
@@ -199,7 +199,7 @@ function start(config) {
     if (os.platform() == 'linux') search = 'linux'
     else {
       console.log('Sorry, platform', os.platform(), 'is not currently supported, please let us know you would like us to support this platform by opening an issue on github: https://github.com/loki-project/loki-launcher/issues')
-      process.exit()
+      process.exit(1)
     }
     var searchRE = new RegExp(search, 'i');
     for(var i in data.assets) {
