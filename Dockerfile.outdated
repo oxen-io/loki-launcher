@@ -1,0 +1,16 @@
+FROM ubuntu:16.04
+
+RUN set -ex && \
+    apt-get update && \
+    apt-get --no-install-recommends --yes install ca-certificates curl xz-utils && \
+    apt-get clean && \
+    rm -rf /var/lib/apt
+ARG node_ver=10
+ENV node_var ${node_ver}
+RUN curl -sL https://deb.nodesource.com/setup_${node_ver}.x | bash - && apt-get install -y nodejs
+
+# install local dev version
+WORKDIR /usr/src/app
+
+# install the CLI utility
+RUN npm i -g loki-launcher@0.0.1
