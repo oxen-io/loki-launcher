@@ -21,6 +21,7 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - [nodejs](https://nodejs.org/en/) 8.x or later
 - [npm](https://www.npmjs.com/get-npm) usually installed with nodejs
 - Linux (though macos does works and Windows kind of works)
+- xz (xz-utils apt package) to be able to download and extract updated Linux binaries
 
 # How to upgrade to the launcher from running a lokid 3.0.6 service node (set up with systemd)
 
