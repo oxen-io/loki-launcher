@@ -94,7 +94,7 @@ function downloadZip(url, config) {
       console.log('something went wrong with download, try again later or check with us')
       process.exit(1)
     }
-    console.log('result is', result)
+    //console.log('result is', result)
     if (url.match(/\.zip/i)) {
       const { exec } = require('child_process');
 
@@ -134,7 +134,7 @@ function downloadZip(url, config) {
 
 // Linux
 function downloadTarXz(url, config) {
-  const baseZipDir = pathUtil.basename(url, '.tar.xz')
+  const baseArchDir = pathUtil.basename(url, '.tar.xz')
   console.log('Will download', url)
   var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.tar.xz'
   //console.log('downloading to tmp file', tmpPath)
@@ -143,7 +143,7 @@ function downloadTarXz(url, config) {
       console.log('something went wrong with download, try again later or check with us')
       process.exit(1)
     }
-    console.log('result is', result)
+    //console.log('result is', result)
     if (url.match(/\.tar.xz/i)) {
       const { exec } = require('child_process');
 
@@ -154,7 +154,7 @@ function downloadTarXz(url, config) {
           setTimeout(waitForLokidToBeDeadAndExtract, 5000)
           return
         }
-        exec('tar xvf '+tmpPath+' --strip-components=1 -C /opt/loki-launcher/bin '+baseZipDir+'/lokid', (err, stdout, stderr) => {
+        exec('tar xvf '+tmpPath+' --strip-components=1 -C /opt/loki-launcher/bin '+baseArchDir+'/lokid', (err, stdout, stderr) => {
           // delete tmp file
           if (1) {
             console.log('cleaning up', tmpPath)
