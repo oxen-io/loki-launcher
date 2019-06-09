@@ -249,7 +249,7 @@ module.exports = function(args, config, entryPoint) {
   function getLokiDataDir() {
     if (!dataDirReady) {
       console.log('getLokiDataDir is not ready for use!')
-      process.exit()
+      process.exit(1)
     }
     // has no trailing slash
     var dir = config.blockchain.data_dir
@@ -419,23 +419,23 @@ module.exports = function(args, config, entryPoint) {
 
   if (!fs.existsSync(config.blockchain.binary_path)) {
     console.error('lokid is not at configured location', config.blockchain.binary_path)
-    process.exit()
+    process.exit(1)
   }
   if (config.storage.enabled) {
     if (!fs.existsSync(config.storage.binary_path)) {
       console.error('storageServer is not at configured location', config.storage.binary_path)
-      process.exit()
+      process.exit(1)
     }
   }
   if (config.network.enabled) {
     if (!fs.existsSync(config.network.binary_path)) {
       console.error('lokinet is not at configured location', config.network.binary_path)
-      process.exit()
+      process.exit(1)
     }
 
     if (config.network.bootstrap_path && !fs.existsSync(config.network.bootstrap_path)) {
       console.error('lokinet bootstrap not found at location', config.network.binary_path)
-      process.exit()
+      process.exit(1)
     }
   }
   // isn't create until lokid runs
@@ -456,36 +456,36 @@ module.exports = function(args, config, entryPoint) {
   // make sure the binary_path that exists are not a directory
   if (fs.lstatSync(config.blockchain.binary_path).isDirectory()) {
     console.error('lokid configured location is a directory', config.blockchain.binary_path)
-    process.exit()
+    process.exit(1)
   }
   if (config.storage.enabled) {
     if (fs.lstatSync(config.storage.binary_path).isDirectory()) {
       console.error('storageServer configured location is a directory', config.storage.binary_path)
-      process.exit()
+      process.exit(1)
     }
   }
   if (config.network.enabled) {
     if (fs.lstatSync(config.network.binary_path).isDirectory()) {
       console.error('lokinet configured location is a directory', config.network.binary_path)
-      process.exit()
+      process.exit(1)
     }
 
     if (config.network.bootstrap_path && fs.lstatSync(config.network.bootstrap_path).isDirectory()) {
       console.error('lokinet bootstrap configured location is a directory', config.network.binary_path)
-      process.exit()
+      process.exit(1)
     }
   }
   if (config.storage.enabled) {
     if (fs.existsSync(config.storage.lokid_key) && fs.lstatSync(config.storage.lokid_key).isDirectory()) {
       console.error('lokid key location is a directory', config.storage.lokid_key)
-      process.exit()
+      process.exit(1)
     }
 
     if (config.storage.db_location !== undefined) {
       if (fs.existsSync(config.storage.db_location)) {
         if (!fs.lstatSync(config.storage.db_location).isDirectory()) {
           console.error('storage server db_location is not a directory', config.storage.db_location)
-          process.exit()
+          process.exit(1)
         } // else perfect
       } // else we'll make
     } // else we'll just current dir
@@ -496,7 +496,7 @@ module.exports = function(args, config, entryPoint) {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
       console.error('MacOS requires you start this with sudo')
-      process.exit()
+      process.exit(1)
     }
   } else {
     if (process.getuid() == 0) {
