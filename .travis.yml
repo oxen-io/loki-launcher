@@ -27,8 +27,7 @@ before_install:
 script:
   - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher status"
   - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher prequal"
-  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries"
-  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries"
+  - docker run loki-project/loki-launcher /bin/sh -c "loki-launcher download-binaries && loki-launcher start && sleep 30 && loki-launcher status && loki-launcher stop"
 
 #script:
 #  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
