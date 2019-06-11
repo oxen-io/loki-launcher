@@ -181,6 +181,7 @@ function start(config) {
     process.kill(pids.lokid, 'SIGINT')
     // should be down by the time the file downloads...
   }
+  // deb support? nope, you use apt to update...
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
   const github_url = 'https://api.github.com/repos/loki-project/loki/releases/latest'
   lokinet.httpGet(github_url, function(json) {
