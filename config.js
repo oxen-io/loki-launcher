@@ -25,15 +25,22 @@ function getDefaultConfig(entrypoint) {
 }
 
 function precheckConfig(config) {
+  if (config.launcher === undefined) config.launcher = {}
   // replace any trailing slash before use...
   if (config.launcher.prefix) {
     config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
     if (config.launcher.var_path === undefined) config.launcher.var_path = config.launcher.prefix + '/var'
     if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = config.launcher.prefix + '/bin/lokid'
   }
+  // in case they have a config file with no launcher section but had a blockchain section with this missing
+  if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = '/opt/loki-launcher/bin/lokid'
+
+  // we do need a var_path set for the all the PID stuff
+  if (config.launcher.var_path === undefined) config.launcher.var_path = '/opt/loki-launcher/var'
 }
 
 function checkBlockchainConfig(config) {
+  if (config.blockchain === undefined) config.blockchain = {}
   // set default
   // set network so we can run toLowerCase on it
   if (config.blockchain.network === undefined) {
@@ -69,8 +76,9 @@ function checkStorageConfig(config) {
 
 function postcheckConfig(config) {
   // replace any trailing slash
-  config.launcher.var_path = config.launcher.var_path.replace(/\/$/, '')
-
+  if (config.launcher.var_path instanceof String) {
+    config.launcher.var_path = config.launcher.var_path.replace(/\/$/, '')
+  }
 }
 
 function checkConfig(config) {
