@@ -386,6 +386,34 @@ function configureLokid(config, args) {
   }
   // copy CLI options to lokid
   for (var i in args) {
+    // should we prevent --non-interactive?
+    // probably not, if they want to run it that way, why not support it?
+    // FIXME: we just need to adjust internal config
+    var arg = args[i]
+    if (arg.match(/=/)) {
+      // assignment
+      var parts = arg.split(/=/)
+      var key = parts.shift()
+      for(var j in lokid_options) {
+        var option = lokid_options[j]
+        if (option.match(/=/)) {
+          var parts2 = args.split(/=/)
+          var option_key = parts.shift()
+          if (option_key == key) {
+            console.log('BLOCKCHAIN: removing previous established option', option)
+            lokid_options.splice(j, 1)
+          }
+        }
+      }
+    } else {
+      for(var j in lokid_options) {
+        var option = lokid_options[j]
+        if (arg == option) {
+          console.log('BLOCKCHAIN: removing previous established option', option)
+          lokid_options.splice(j, 1)
+        }
+      }
+    }
     lokid_options.push(args[i])
   }
 
