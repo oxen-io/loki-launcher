@@ -146,7 +146,7 @@ function httpGet(url, cb) {
         // we already called back
         return
       }
-      if (resp.statusCode == 404) {
+      if (resp.statusCode == 404 || resp.statusCode == 403) {
         console.error('NETWORK:', url, 'is not found')
         cb()
         return
