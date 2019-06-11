@@ -446,6 +446,11 @@ module.exports = function(args, config, entryPoint) {
   }
   */
 
+  if (!config.launcher.var_path) {
+    console.error('no var_path set')
+    process.exit(1)
+  }
+
   if (!fs.existsSync(config.launcher.var_path)) {
     // just make sure this directory exists
     // FIXME: maybe skip if root...
