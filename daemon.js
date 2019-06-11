@@ -25,6 +25,7 @@ function disconnectAllClients() {
 }
 
 var shuttingDown = false
+var shutDownTimer = null
 function shutdown_everything() {
   shuttingDown = true
   stdin.pause()
@@ -52,66 +53,70 @@ function shutdown_everything() {
   // clear our start up lock (if needed, will crash if not there)
   lib.clearStartupLock(module.exports.config)
   // FIXME: should we be savings pids as we shutdown? probably
-  var shutDownTimer = setInterval(function () {
-    var stop = true
-    if (storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)) {
-      console.log('LAUNCHER: storage server still running')
-      stop = false
-    }
-    if (loki_daemon) {
-      if (loki_daemon.outputFlushTimer) {
-        clearInterval(loki_daemon.outputFlushTimer)
+
+  // only set this timer once... (and we'll shut ourselves down)
+  if (shutDownTimer === null) {
+    shutDownTimer = setInterval(function () {
+      var stop = true
+      if (storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)) {
+        console.log('LAUNCHER: storage server still running')
+        stop = false
       }
-    }
-    if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
-      console.log('LAUNCHER: lokid still running')
-      // lokid on macos may need a kill -9 after a couple failed 15
-      // lets say 50s of not stopping -15 then wait 30s if still run -9
-      stop = false
-    }
-    var lokinetState = lokinet.isRunning()
-    if (lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)) {
-      console.log('LAUNCHER: lokinet still running')
-      stop = false
-    }
-    if (stop) {
-      console.log('all daemons down')
-      // deallocate
-      // can't null these yet because lokid.onExit
-      // race between the pid dying and registering of the exit
-      storageServer = null
-      loki_daemon = null
-      lokinetState = null
-      lib.clearPids(module.exports.config)
-      /*
-      if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
-        console.log('LAUNCHER: clearing pids.json')
-        fs.unlinkSync(config.launcher.var_path + '/pids.json')
-      } else {
-        console.log('LAUNCHER: NO pids.json found, can\'t clear')
+      if (loki_daemon) {
+        if (loki_daemon.outputFlushTimer) {
+          clearInterval(loki_daemon.outputFlushTimer)
+        }
       }
-      */
-      clearInterval(shutDownTimer)
-      // docker/node 10 on linux has issue with this
-      // 10.15 on macos has a handle, probably best to release
-      if (stdin.unref) {
-        //console.log('unref stdin')
-        stdin.unref()
+      if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
+        console.log('LAUNCHER: lokid still running')
+        // lokid on macos may need a kill -9 after a couple failed 15
+        // lets say 50s of not stopping -15 then wait 30s if still run -9
+        stop = false
       }
-      // if lokinet wasn't started yet, due to slow net/dns stuff
-      // then it'll take a long time for a timeout to happen
-      // 2 writes, 1 read
-      /*
-      var handles = process._getActiveHandles()
-      console.log('handles', handles.length)
-      for(var i in handles) {
-        var handle = handles[i]
-        console.log(i, 'type', handle._type)
+      var lokinetState = lokinet.isRunning()
+      if (lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)) {
+        console.log('LAUNCHER: lokinet still running')
+        stop = false
       }
-      console.log('requests', process._getActiveRequests().length)
-      */
-    }
-  }, 1000)
+      if (stop) {
+        console.log('all daemons down')
+        // deallocate
+        // can't null these yet because lokid.onExit
+        // race between the pid dying and registering of the exit
+        storageServer = null
+        loki_daemon = null
+        lokinetState = null
+        lib.clearPids(module.exports.config)
+        /*
+        if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
+          console.log('LAUNCHER: clearing pids.json')
+          fs.unlinkSync(config.launcher.var_path + '/pids.json')
+        } else {
+          console.log('LAUNCHER: NO pids.json found, can\'t clear')
+        }
+        */
+        clearInterval(shutDownTimer)
+        // docker/node 10 on linux has issue with this
+        // 10.15 on macos has a handle, probably best to release
+        if (stdin.unref) {
+          //console.log('unref stdin')
+          stdin.unref()
+        }
+        // if lokinet wasn't started yet, due to slow net/dns stuff
+        // then it'll take a long time for a timeout to happen
+        // 2 writes, 1 read
+        /*
+        var handles = process._getActiveHandles()
+        console.log('handles', handles.length)
+        for(var i in handles) {
+          var handle = handles[i]
+          console.log(i, 'type', handle._type)
+        }
+        console.log('requests', process._getActiveRequests().length)
+        */
+      }
+    }, 1000)
+  }
 
   if (server) {
     console.log('SOCKET: closing socket server')
