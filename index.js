@@ -44,15 +44,19 @@ stripArg('/usr/local/bin/loki-launcher')
 //console.debug('index filename:', __filename)
 //console.debug('Launcher arguments:', args)
 
-// find the first arg without --
-var mode = ''
-for(var i in args) {
-  var arg = args[i]
-  //console.log('arg is', arg)
-  if (arg.match(/^-/)) continue
-  //console.log('command', arg)
-  if (mode == '') mode = arg
+function findFirstArgWithoutDash() {
+  for(var i in args) {
+    var arg = args[i]
+    //console.log('arg is', arg)
+    if (arg.match(/^-/)) continue
+    //console.log('command', arg)
+    return arg
+  }
+  return ''
 }
+
+// find the first arg without --
+var mode = findFirstArgWithoutDash()
 
 //console.log('mode', mode)
 stripArg(mode)
@@ -195,8 +199,43 @@ switch(mode) {
   case 'prequal-debug': // official
     require(__dirname + '/snbench')(config, true)
   break;
+  case 'bwtest':
+  case 'bw-test': // official
+    // write me!
+  break;
   case 'check-systemd': // official
     require(__dirname + '/check-systemd').start(config, __filename)
+  break;
+  case 'chown':
+  case 'fixperms':
+  case 'fix-perms': // official
+    var user = findFirstArgWithoutDash()
+    const uidGetter = require(__dirname + '/uid')
+    console.log('setting permissions to', user)
+    uidGetter.uidNumber(user, function(err, uid) {
+      if (err) {
+        console.error(err)
+        return
+      }
+      console.log('user', user, 'uid is', uid)
+      // binary paths
+      fs.chownSync(config.blockchain.binary_path, uid, 0)
+      if (config.network.binary_path) fs.chownSync(config.network.binary_path, uid, 0)
+      if (config.storage.binary_path) fs.chownSync(config.storage.binary_path, uid, 0)
+      // config.launcher.var_path
+      fs.chownSync(config.launcher.var_path, uid, 0)
+      // config.blockchain.data_dir
+      if (config.blockchain.data_dir) fs.chownSync(config.blockchain.data_dir, uid, 0)
+      // config.network.data_dir
+      if (config.network.data_dir) fs.chownSync(config.network.data_dir, uid, 0)
+      // config.network.lokinet_nodedb
+      if (config.network.lokinet_nodedb) fs.chownSync(config.network.lokinet_nodedb, uid, 0)
+      // config.storage.db_location
+      if (config.storage.db_location) fs.chownSync(config.storage.db_location, uid, 0)
+      // apt will all be owned as root...
+      // /opt/loki-launcher/bin
+      fs.chownSync('/opt/loki-launcher/bin', uid, 0)
+    })
   break;
   case 'args-debug': // official
     console.log('in :', process.argv)
