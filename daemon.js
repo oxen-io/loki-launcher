@@ -115,7 +115,7 @@ function shutdown_everything() {
         console.log('requests', process._getActiveRequests().length)
         */
       }
-    }, 1000)
+    }, 5000)
   }
 
   if (server) {
