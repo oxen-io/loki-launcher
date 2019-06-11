@@ -527,6 +527,16 @@ module.exports = function(args, config, entryPoint) {
   daemon.config = config // update config for shutdownEverything
 
   function startEverything(config, args) {
+    for (var i in args) {
+      // should we prevent --non-interactive?
+      // probably not, if they want to run it that way, why not support it?
+      var arg = args[i]
+      if (arg == '--non-interactive') {
+        // inform launcher to work like they desire
+        config.launcher.docker = true
+      }
+    }
+
     // to debug
     // sudo __daemon=1 node index.js
     //daemon(args, __filename, lokinet, config, getLokiDataDir)
