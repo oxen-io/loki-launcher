@@ -67,17 +67,22 @@ const configUtil = require(__dirname + '/config')
 // via . ?
 var disk_config = {}
 var config = configUtil.getDefaultConfig(__filename)
+var config_type = 'default'
 if (fs.existsSync('/etc/loki-launcher/launcher.ini')) {
   const ini_bytes = fs.readFileSync('/etc/loki-launcher/launcher.ini')
   disk_config = ini.iniToJSON(ini_bytes.toString())
   config = disk_config
+  config_type = 'etc'
 }
 // local overrides default path
-if (fs.existsSync(__dirname + 'launcher.ini')) {
+//console.log('test', __dirname + '/launcher.ini')
+if (fs.existsSync(__dirname + '/launcher.ini')) {
   const ini_bytes = fs.readFileSync(__dirname + '/launcher.ini')
   disk_config = ini.iniToJSON(ini_bytes.toString())
   config = disk_config
+  config_type = __dirname
 }
+config.type = config_type
 configUtil.check(config)
 
 const lib = require(__dirname + '/lib')
@@ -106,9 +111,11 @@ switch(mode) {
     }
   break;
   case 'stop': // official
+    console.log('Getting launcher state')
     var pid = lib.areWeRunning(config)
     if (pid) {
       // request launcher stop
+      console.log('requesting launcher stop')
       process.kill(pid, 'SIGINT')
       // we quit too fast
       //require(__dirname + '/client')(config)
@@ -148,6 +155,7 @@ switch(mode) {
     var wait = 500
     if (running.lokid) wait += 4500
     if (running.lokid || running.lokinet || running.storageServer) {
+      console.log('waiting for daemons to stop')
       setTimeout(shutdownMonitor, wait)
     }
   break;
