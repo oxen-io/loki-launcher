@@ -173,6 +173,7 @@ function downloadTarXz(url, config) {
   })
 }
 
+var start_retries = 0
 function start(config) {
   var running = lib.getProcessState(config)
   if (running.lokid) {
@@ -185,6 +186,19 @@ function start(config) {
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
   const github_url = 'https://api.github.com/repos/loki-project/loki/releases/latest'
   lokinet.httpGet(github_url, function(json) {
+    if (json === undefined) {
+      // possibly a 403
+      start_retries++
+      if (start_retries < 3) {
+        setTimeout(function() {
+          console.log('retrying...')
+          start(config)
+        }, 5000)
+      } else {
+        console.log('failure communicating with api.github.com')
+      }
+      return;
+    }
     try {
       var data = JSON.parse(json)
     } catch(e) {
