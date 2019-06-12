@@ -202,11 +202,11 @@ function start(config) {
     if (json === undefined) {
       // possibly a 403
       start_retries++
-      if (start_retries < 3) {
+      if (start_retries < 10) {
         setTimeout(function() {
           console.log('retrying...')
           start(config)
-        }, 5000)
+        }, 30 * 1000)
       } else {
         console.warn('failure communicating with api.github.com')
       }
