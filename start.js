@@ -114,7 +114,6 @@ module.exports = function(args, config, entryPoint) {
 
   config = requested_config
   */
-  var dataDirReady = false
 
   configUtil.check(config)
 
@@ -243,39 +242,11 @@ module.exports = function(args, config, entryPoint) {
     blockchain_useDefaultDataDir = true
   }
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
-  dataDirReady = true
-
-  // should only be called after this point
-  function getLokiDataDir() {
-    if (!dataDirReady) {
-      console.log('getLokiDataDir is not ready for use!')
-      process.exit(1)
-    }
-    // has no trailing slash
-    var dir = config.blockchain.data_dir
-    // enforce: no trailing slash
-    if (dir[dir.length - 1] == '/') {
-      dir = dir.slice(0, -1)
-    }
-    // I think Jason was wrong about this
-    //if (blockchain_useDefaultDataDir) {
-    if (config.blockchain.network == 'staging') {
-      dir += '/stagenet'
-    } else
-      if (config.blockchain.network == 'demo') {
-        dir += '/testnet'
-      } else
-        if (config.blockchain.network == 'test') {
-          dir += '/testnet'
-        }
-    //}
-    return dir
-  }
 
   // data dir has to be set but should be before everything else
   if (xmrOptions['config-file']) {
     // read file in lokidata dir
-    var filePath = getLokiDataDir() + '/' + xmrOptions['config-file']
+    var filePath = configUtil.getLokiDataDir(config) + '/' + xmrOptions['config-file']
     if (!fs.existsSync(filePath)) {
       console.warn('Can\'t read config-file command line argument, file does not exist: ', filePath)
     } else {
@@ -358,7 +329,7 @@ module.exports = function(args, config, entryPoint) {
   lokinet.checkConfig(config.network) // can auto-configure network.binary_path
   // storage server auto config
   if (config.storage.lokid_key === undefined) {
-    config.storage.lokid_key = getLokiDataDir() + '/key'
+    config.storage.lokid_key = configUtil.getLokiDataDir(config) + '/key'
   }
   config.storage.lokid_rpc_port = config.blockchain.rpc_port
 
