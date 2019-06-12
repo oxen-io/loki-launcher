@@ -4,8 +4,9 @@ const blocksPerTick = 100
 const VERSION = 0.1
 
 // FIXME: lock, so only one uploadTest can run at a time
-function createClient(host, port, cb) {
+function createClient(host, port, cb, debug) {
   const netWrap = require('./lets_tcp')
+  netWrap.debug = debug
 
   var timer = null
   var uiTimer = null
@@ -48,7 +49,7 @@ function createClient(host, port, cb) {
     //console.log('starting port test for', port)
     client.send('port ' + port)
     timeoutTimer = setTimeout(function() {
-      console.log('port test timed out')
+      console.warn('port test timed out')
       if (portTestCallback) {
         portTestCallback({
           ip: '127.0.0.1',
@@ -70,7 +71,7 @@ function createClient(host, port, cb) {
     var w0    = parts[0]
     switch(w0) {
       case 'ip':
-        console.log('my public ip is maybe', parts[1])
+        if (debug) console.log('Your public IP address is', parts[1])
         ip = parts[1]
       break
       case 'stop':
