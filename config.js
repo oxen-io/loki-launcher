@@ -71,7 +71,7 @@ function precheckConfig(config) {
 
   // if we're not specifying the data_dir
   if (!config.blockchain.data_dir) {
-    console.log('using default data_dir, network', config.blockchain.network)
+    //console.log('using default data_dir, network', config.blockchain.network)
     config.blockchain.data_dir = os.homedir() + '/.loki'
   }
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
