@@ -5,7 +5,7 @@
  */
 const net = require('net');
 
-const VERSION = 0.1
+const VERSION = 0.2
 
 // works for client/server
 // you'd never want the client and server to be the same
@@ -330,7 +330,7 @@ module.exports={
           module.exports.disconnect(client);
         },
       }
-      console.debug('lets_tcp::serveTCP - serverClientCounter', serverClientCounter);
+      if (module.exports.debug) console.debug('lets_tcp::serveTCP - serverClientCounter', serverClientCounter);
       socket.serverClientCounter=serverClientCounter;
       // we can't use an array if we want a handle
       server_clients[handle]=client;
@@ -417,11 +417,11 @@ module.exports={
 
       // Remove the client from the list when it leaves
       socket.on('end', function () {
-        console.debug(client.name, 'socket end');
+        if (module.exports.debug) console.debug(client.name, 'socket end');
         //broadcast(socket.name + " left the chat.\n");
       });
       socket.on('close', function() {
-        console.debug(client.name, 'socket close');
+        if (module.exports.debug) console.debug(client.name, 'socket close');
         //console.log('socket end', clients.length);
         // we changed server_clients from an array to an object
         /*
@@ -443,7 +443,7 @@ module.exports={
       });
     });
     server.letsClose=function(cb) {
-      console.debug('closing server', port, 'connections', clients.length);
+      if (module.exports.debug) console.debug('closing server', port, 'connections', clients.length);
       for(var i in server_clients) {
         //console.debug('destroying server', port, 'client', i);
         // http://stackoverflow.com/questions/5048231/force-client-disconnect-from-server-with-socket-io-and-nodejs
