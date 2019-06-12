@@ -243,6 +243,9 @@ switch(mode) {
       if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
         fs.chownSync(config.launcher.var_path + '/pids.json', uid, 0)
       }
+      if (fs.existsSync(config.launcher.var_path + '/launcher.socket')) {
+        fs.chownSync(config.launcher.var_path + '/launcher.socket', uid, 0)
+      }
       fs.chownSync('/opt/loki-launcher/bin', uid, 0)
     })
   break;
