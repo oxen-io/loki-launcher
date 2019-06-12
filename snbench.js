@@ -10,8 +10,8 @@ const child_process = require('child_process')
 // we're not running it, so there's no output
 //lokinet.disableLogging()
 
-const VERSION = 0.2
-console.log('loki snbench version', VERSION, 'registered')
+//const VERSION = 0.3
+//console.log('loki snbench version', VERSION, 'registered')
 
 // now can't call this directly
 module.exports = function(config, debug) {
@@ -46,6 +46,12 @@ module.exports = function(config, debug) {
     diskspace: false,
     rpcport: false,
   }
+  const blockchain_size = 15 //gb
+  const storage_size = 3.5 //gb
+  const total_size = blockchain_size + storage_size
+
+  var diskspaces = {}
+  var log = []
   function markCheckDone(doneSubSystem) {
     if (debug) console.info(doneSubSystem, 'check complete')
     need[doneSubSystem] = true;
@@ -56,28 +62,69 @@ module.exports = function(config, debug) {
       }
     }
     if (debug) console.debug('all checks are complete')
-    if (snode_problems) {
-      console.error('We have found', snode_problems, 'please address them before running a servide node')
+    if (diskspaces.storage === null) {
+      diskspaces.storage = diskspaces.blockchain
+    }
+    if (diskspaces.blockchain === diskspaces.storage) {
+      if (diskspaces.blockchain < total_size) {
+        log.push('DiskSpace: Failed !')
+        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + total_size + 'GBi free, you have', diskspaces.blockchain.toFixed(2), 'GBi')
+        snode_problems++
+      }
     } else {
-      console.info('We have prequalified that you are ready to run a service node')
+      // different drives...
+      if (diskspaces.blockchain < blockchain_size) {
+        log.push('DiskSpace_blockchain: Failed !')
+        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + blockchain_size + 'GBi free, you have', diskspaces.blockchain.toFixed(2), 'GBi on', config.blockchain.data_dir)
+        snode_problems++
+      }
+      if (diskspaces.storage < storage_size) {
+        log.push('DiskSpace_storage: Failed !')
+        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + storage_size + 'GBi free, you have', diskspaces.storage.toFixed(2), 'GBi on', config.storage.db_location)
+        snode_problems++
+      }
+    }
+
+    console.log('') // space for impact
+    if (snode_problems) {
+      console.error('We have found', snode_problems, 'issue(s), please address them before running a service node')
+      console.log('')
+      console.log(log.join("\n"))
+    } else {
+      console.info('Your node successfully passed all tests')
     }
   }
 
   // diskspace check
   if (1) {
-    const blockchain_size = 15 //gb
-    const storage_size = 3.5 //gb
-    const total_size = blockchain_size + storage_size
     // blockchain path
     // storage server path
     // if they're the same path, combine and compare
-    getFreeSpaceUnix('.', function(space) {
-      if (debug) console.debug('space', space, 'GBi free')
-      if (space < total_size) {
-        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + total_size + 'GBi free, you have', space, 'GBi')
-        snode_problems++
-      }
+    console.log('Starting disk space check on blockchain partition', config.blockchain.data_dir)
+    if (!fs.existsSync(config.blockchain.data_dir)) {
+      // FIXME: hopefully the right user
+      lokinet.mkDirByPathSync(config.blockchain.data_dir)
+    }
+    getFreeSpaceUnix(config.blockchain.data_dir, function(space) {
+      if (debug) console.debug(config.blockchain.data_dir, 'space', space, 'GBi free')
+      diskspaces.blockchain = space
       markCheckDone('diskspace')
+      // can't do these in parallel apparently
+      if (0) {
+        if (config.storage.db_location === undefined) config.storage.db_location = '.'
+        console.log('Starting disk space check on storage server partition', config.blockchain.data_dir)
+        if (config.storage.db_location) {
+          need.diskspace2 = false
+          getFreeSpaceUnix(config.storage.db_location, function(space) {
+            if (debug) console.debug(config.storage.db_location, 'space', space, 'GBi free')
+            diskspaces.storage = space
+            markCheckDone('diskspace2')
+          })
+        }
+      } else {
+        diskspaces.storage = null
+        markCheckDone('diskspace2')
+      }
     })
   }
 
@@ -92,17 +139,20 @@ module.exports = function(config, debug) {
       if (debug) console.debug('port verified')
       incomingConnection.send('quit ' + code + ' ' + Date.now())
     })
-    networkTest.createClient('51.79.57.236', 3000, function(client) {
+    networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
       if (client === false) {
         console.warn('We could not connect to our testing server, please try again later')
         process.exit()
       }
       client.testPort(config.blockchain.rpc_port, function(results) {
         if (debug) console.debug('port test complete', results)
+        /*
         if (results.code != code) {
           console.warn('weird codes do not match but probably fine for now')
         }
+        */
         if (results.result != 'good') {
+          log.push('OpenPort: Failed !')
           console.warn('WE COULD NOT VERIFY THAT YOU HAVE PORT', config.blockchain.rpc_port+', OPEN ON YOUR FIREWALL, this is now required to run a service node')
           snode_problems++
         }
@@ -111,6 +161,6 @@ module.exports = function(config, debug) {
           markCheckDone('rpcport')
         })
       })
-    })
+    }, debug)
   }
 }
