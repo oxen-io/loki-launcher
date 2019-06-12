@@ -18,7 +18,7 @@ if (os.platform() == 'darwin') {
 }
 
 // preprocess command line arguments
-var args = process.argv
+var args = JSON.parse(JSON.stringify(process.argv))
 function stripArg(match) {
   var found = false
   for (var i in args) {
