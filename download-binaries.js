@@ -7,8 +7,11 @@ const https = require('https')
 const urlparser = require('url')
 const pathUtil = require('path')
 
-const VERSION = 0.1
-console.log('loki binary downloader version', VERSION, 'registered')
+const debug = false
+
+// we need this for github header
+const VERSION = 0.2
+//console.log('loki binary downloader version', VERSION, 'registered')
 
 function getFileSizeSync(path) {
   const stats = fs.statSync(path);
@@ -50,7 +53,7 @@ function downloadGithubFile(dest, url, cb) {
     //log('httpGet setting up handlers')
     clearInterval(watchdog)
     if (resp.statusCode == 302) {
-      console.log('Got redirect to', resp.headers.location)
+      if (debug) console.debug('Got redirect to', resp.headers.location)
       downloadGithubFile(dest, resp.headers.location, cb)
       return
     }
@@ -64,15 +67,17 @@ function downloadGithubFile(dest, url, cb) {
       var tenPer = parseInt(10 * downloaded / len, 10)
       //console.log('tenper', tenper, downloaded / len)
       if (tenPer != lastPer) {
-        console.log('Downloaded', tenPer * 10, '%')
+        console.log('Downloaded', (tenPer * 10) + '%', downloaded.toLocaleString() + '/' + len.toLocaleString(), 'bytes')
         lastPer = tenPer
       }
     })
     resp.pipe(file);
     file.on('finish', function() {
-      console.log('File download ', downloaded, '/', len, 'bytes of', url, 'complete')
+      //console.log('File download ', downloaded, '/', len, 'bytes of', url, 'complete')
       if (downloaded < len) {
-        console.log('file is incomplete')
+        console.warn('file is incomplete, please try again later...')
+        fs.unlinkSync(dest)
+        process.exit(1)
       }
       file.close(cb)
     })
@@ -86,7 +91,8 @@ function downloadGithubFile(dest, url, cb) {
 // MacOS
 function downloadZip(url, config) {
   const baseZipDir = pathUtil.basename(url, '.zip')
-  console.log('Will download', url)
+  console.log('Downloading Loki binaries from', url)
+  console.log('')
   var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.zip'
   //console.log('downloading to tmp file', tmpPath)
   downloadGithubFile(tmpPath, url, function(result) {
@@ -94,6 +100,7 @@ function downloadZip(url, config) {
       console.log('something went wrong with download, try again later or check with us')
       process.exit(1)
     }
+    console.log('')
     //console.log('result is', result)
     if (url.match(/\.zip/i)) {
       const { exec } = require('child_process');
@@ -109,18 +116,20 @@ function downloadZip(url, config) {
         // we could do this check earlier
         // but maybe we'll add support in the future
         if (os.platform() == 'darwin') {
+          console.log('Unzipping')
           exec('tar xvf '+tmpPath+' --strip-components=1 -C /opt/loki-launcher/bin '+baseZipDir+'/lokid', (err, stdout, stderr) => {
             // delete tmp file
             if (1) {
-              console.log('cleaning up', tmpPath)
+              //console.debug('cleaning up', tmpPath)
               fs.unlinkSync(tmpPath)
             }
             if (err) {
               console.error('file extract error', err)
               return
             }
-            console.log('stdout', stdout)
-            console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
+            console.log('Unzip Success')
+            //console.log('stdout', stdout)
+            //console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
           })
         } else {
           // how to extract a zip on linux?
@@ -136,7 +145,8 @@ function downloadZip(url, config) {
 // Linux
 function downloadTarXz(url, config) {
   const baseArchDir = pathUtil.basename(url, '.tar.xz')
-  console.log('Will download', url)
+  console.log('Downloading Loki binaries from', url)
+  console.log('')
   var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.tar.xz'
   //console.log('downloading to tmp file', tmpPath)
   downloadGithubFile(tmpPath, url, function(result) {
@@ -155,18 +165,20 @@ function downloadTarXz(url, config) {
           setTimeout(waitForLokidToBeDeadAndExtract, 5000)
           return
         }
+        console.log('Untarring')
         exec('tar xvf '+tmpPath+' --strip-components=1 -C /opt/loki-launcher/bin '+baseArchDir+'/lokid', (err, stdout, stderr) => {
           // delete tmp file
           if (1) {
-            console.log('cleaning up', tmpPath)
+            //console.debug('cleaning up', tmpPath)
             fs.unlinkSync(tmpPath)
           }
           if (err) {
             console.error('file extract error', err)
             return
           }
-          console.log('stdout', stdout)
-          console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
+          console.log('Untar Success')
+          //console.log('stdout', stdout)
+          //console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
         })
       }
       waitForLokidToBeDeadAndExtract()
@@ -196,15 +208,15 @@ function start(config) {
           start(config)
         }, 5000)
       } else {
-        console.log('failure communicating with api.github.com')
+        console.warn('failure communicating with api.github.com')
       }
       return;
     }
     try {
       var data = JSON.parse(json)
     } catch(e) {
-      console.log('json', json)
-      console.log('error with', github_url, e)
+      console.debug('json', json)
+      console.error('error with', github_url, e)
       process.exit(1)
     }
     // FIXME: compare against version we have downloaded...
@@ -214,7 +226,7 @@ function start(config) {
     else
     if (os.platform() == 'linux') search = 'linux'
     else {
-      console.log('Sorry, platform', os.platform(), 'is not currently supported, please let us know you would like us to support this platform by opening an issue on github: https://github.com/loki-project/loki-launcher/issues')
+      console.error('Sorry, platform', os.platform(), 'is not currently supported, please let us know you would like us to support this platform by opening an issue on github: https://github.com/loki-project/loki-launcher/issues')
       process.exit(1)
     }
     var searchRE = new RegExp(search, 'i');
