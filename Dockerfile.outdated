@@ -26,6 +26,8 @@ COPY lib.networkTest.js .
 COPY lokinet.js .
 COPY snbench.js .
 COPY start.js .
+COPY get-uid.js .
+COPY uid.js .
 
 # place new package
 COPY package.json .
