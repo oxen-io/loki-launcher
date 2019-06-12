@@ -27,8 +27,7 @@ before_install:
 
 script:
   # npm upgrade test/status/prequal/systemd/upgrade/start/stop test
-  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status && loki-launcher prequal && loki-launcher check-systemd && loki-launcher download-binaries && loki-launcher start && sleep 30 && loki-launcher status && loki-launcher stop"
-  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher fix-perms root"
+  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status && loki-launcher prequal && loki-launcher check-systemd && loki-launcher download-binaries && loki-launcher fix-perms root && loki-launcher start && sleep 30 && loki-launcher status && loki-launcher stop"
 
 #script:
 #  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
