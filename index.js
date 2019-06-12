@@ -96,6 +96,68 @@ const lib = require(__dirname + '/lib')
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
 
+// FIXME: move into fix-perms.js
+const pathUtil = require('path')
+function walk(dir, fn, cb) {
+  var count,
+      last_err,
+      files_modified = [];
+
+  var done = function(err, modified) {
+    if (err) last_err = err;
+
+    if (modified) {
+      files_modified = files_modified.concat(modified);
+    }
+
+    --count || finished();
+  }
+
+  var finished = function() {
+    fn(dir, function(err) {
+      if (!err)
+        files_modified.push(dir);
+
+      cb(err || last_err, files_modified);
+    })
+  }
+
+  fs.readdir(dir, function(err, files) {
+    if (err) { // or stopped
+      if (err.code == 'ENOTDIR')
+        return finished();
+      else
+        return done(err);
+    }
+    else if (files.length == 0)
+      return finished();
+
+    count = files.length;
+
+    files.forEach(function(file, index) {
+      var path = pathUtil.join(dir, file);
+
+      fs.lstat(path, function(err, stat) {
+        if (err) // or stopped
+          return done(err);
+
+        if (stat.isDirectory()) { // recurse
+          walk(path, fn, done);
+        } else {
+          fn(path, function(err) {
+            if (!err) files_modified.push(path);
+
+            // handle unexisting symlinks
+            // var e = err && err.code != 'ENOENT' ? err : null;
+            done(err);
+          });
+        }
+      })
+    })
+  })
+
+}
+
 switch(mode) {
   case 'start': // official
     require(__dirname + '/start')(args, config, __filename)
@@ -217,7 +279,7 @@ switch(mode) {
     console.log('setting permissions to', user)
     uidGetter.uidNumber(user, function(err, uid) {
       if (err) {
-        console.error(err)
+        console.error('Username lookup failed: ', err)
         return
       }
       console.log('user', user, 'uid is', uid)
@@ -247,6 +309,17 @@ switch(mode) {
         fs.chownSync(config.launcher.var_path + '/launcher.socket', uid, 0)
       }
       fs.chownSync('/opt/loki-launcher/bin', uid, 0)
+      if (config.blockchain.data_dir) {
+        walk(config.blockchain.data_dir, function(path, cb) {
+          console.log('fixing blockchain.data_dir file', path)
+          var res = fs.chownSync(path, uid, 0)
+          cb(res)
+        }, function() {
+          // done
+        })
+      } else {
+        console.log('no blockchain data_dir')
+      }
     })
   break;
   case 'args-debug': // official
