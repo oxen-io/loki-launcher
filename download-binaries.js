@@ -98,6 +98,7 @@ function downloadZip(url, config) {
     if (url.match(/\.zip/i)) {
       const { exec } = require('child_process');
 
+      // FIXME: refactor out
       function waitForLokidToBeDeadAndExtract() {
         running = lib.getProcessState(config)
         if (running.lokid) {
