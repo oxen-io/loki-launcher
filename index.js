@@ -211,6 +211,7 @@ switch(mode) {
   case 'chown':
   case 'fixperms':
   case 'fix-perms': // official
+    // FIXME: make sure the launcher isn't running
     var user = findFirstArgWithoutDash()
     const uidGetter = require(__dirname + '/uid')
     console.log('setting permissions to', user)
@@ -236,6 +237,12 @@ switch(mode) {
       if (config.storage.db_location) fs.chownSync(config.storage.db_location, uid, 0)
       // apt will all be owned as root...
       // /opt/loki-launcher/bin
+      if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {
+        fs.chownSync(config.launcher.var_path + '/launcher.pid', uid, 0)
+      }
+      if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
+        fs.chownSync(config.launcher.var_path + '/pids.json', uid, 0)
+      }
       fs.chownSync('/opt/loki-launcher/bin', uid, 0)
     })
   break;
