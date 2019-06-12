@@ -5,7 +5,7 @@ const VERSION = 0.8
 
 if (os.platform() == 'darwin') {
   if (process.getuid() != 0) {
-    console.error('MacOS requires you start this with sudo, i.e. # sudo ' + __filename)
+    console.error('MacOS requires you start this with sudo, i.e. $ sudo ' + __filename)
     process.exit()
   }
 } else {
@@ -254,7 +254,10 @@ switch(mode) {
   case 'config-edit': // official
     // xdg-open / open ?
   break;
-  case 'client': // official
+  case 'client': // deprecated
+  case 'console': // official
+    // enable all 3
+  case 'blockchain':
     require(__dirname + '/client')(config)
   break;
   case 'prequal': // official
@@ -349,6 +352,8 @@ Usage:
     client  connect to lokid
     prequal prequalify your server for service node operation
     download-binaries download the latest version of the loki software suite
+    check-systemd upgrade your lokid.service to use the launcher (requires root)
+    fix-perms requires user OPTION, make all operational files own by user passed in
 `)
   break;
 }
