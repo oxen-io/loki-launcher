@@ -41,6 +41,8 @@ stripArg(__filename) // will just be index.js
 stripArg('loki-launcher')
 stripArg('/usr/bin/loki-launcher')
 stripArg('/usr/local/bin/loki-launcher')
+// how is this not __filename??
+stripArg('/usr/lib/node_modules/loki-launcher/index.js')
 //console.debug('index filename:', __filename)
 //console.debug('Launcher arguments:', args)
 
