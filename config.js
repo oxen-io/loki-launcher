@@ -1,3 +1,4 @@
+const os = require('os')
 
 // only defaults we can save to disk
 function getDefaultConfig(entrypoint) {
@@ -24,6 +25,36 @@ function getDefaultConfig(entrypoint) {
   return config
 }
 
+// FIXME: convert getLokiDataDir to internal config value
+// something like estimated/calculated loki_data_dir
+// also this will change behavior if we actually set the CLI option to lokid
+var dataDirReady = false
+function getLokiDataDir(config) {
+  if (!dataDirReady) {
+    console.log('getLokiDataDir is not ready for use!')
+    process.exit(1)
+  }
+  // has no trailing slash
+  var dir = config.blockchain.data_dir
+  // enforce: no trailing slash
+  if (dir[dir.length - 1] == '/') {
+    dir = dir.slice(0, -1)
+  }
+  // I think Jason was wrong about this
+  //if (blockchain_useDefaultDataDir) {
+  if (config.blockchain.network == 'staging') {
+    dir += '/stagenet'
+  } else
+    if (config.blockchain.network == 'demo') {
+      dir += '/testnet'
+    } else
+      if (config.blockchain.network == 'test') {
+        dir += '/testnet'
+      }
+  //}
+  return dir
+}
+
 function precheckConfig(config) {
   if (config.launcher === undefined) config.launcher = {}
   // replace any trailing slash before use...
@@ -37,6 +68,15 @@ function precheckConfig(config) {
 
   // we do need a var_path set for the all the PID stuff
   if (config.launcher.var_path === undefined) config.launcher.var_path = '/opt/loki-launcher/var'
+
+  // if we're not specifying the data_dir
+  if (!config.blockchain.data_dir) {
+    console.log('using default data_dir, network', config.blockchain.network)
+    config.blockchain.data_dir = os.homedir() + '/.loki'
+  }
+  config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
+  // getLokiDataDir should only be called after this point
+  dataDirReady = true
 }
 
 function checkBlockchainConfig(config) {
@@ -97,4 +137,5 @@ module.exports = {
   checkNetworkConfig: checkNetworkConfig,
   checkStorageConfig: checkStorageConfig,
   postcheckConfig: postcheckConfig,
+  getLokiDataDir: getLokiDataDir,
 }
