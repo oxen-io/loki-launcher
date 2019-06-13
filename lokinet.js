@@ -141,13 +141,16 @@ function httpGet(url, cb) {
     })
     // The whole response has been received. Print out the result.
     resp.on('end', () => {
-      log('result code', resp.statusCode)
+      if (resp.statusCode != 200) {
+        log('httpGet result code', resp.statusCode)
+      }
       if (abort) {
         // we already called back
         return
       }
       if (resp.statusCode == 404 || resp.statusCode == 403) {
-        console.error('NETWORK:', url, 'is not found')
+        if (resp.statusCode == 403) console.error('NETWORK:', url, 'is forbidden')
+        if (resp.statusCode == 404) console.error('NETWORK:', url, 'is not found')
         cb()
         return
       }
