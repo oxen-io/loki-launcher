@@ -29,6 +29,7 @@ COPY uid.js .
 
 # configure npm
 COPY package.json .
+RUN find .
 
 # install the CLI utility
 RUN npm i -g
