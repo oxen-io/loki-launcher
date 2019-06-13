@@ -16,16 +16,15 @@ COPY check-systemd.js .
 COPY client.js .
 COPY config.js .
 COPY daemon.js .
-COPY download-binaries.js .
+COPY get-uid.js .
 COPY index.js .
 COPY ini.js .
 COPY lets_tcp.js .
 COPY lib.js .
 COPY lib.networkTest.js .
+COPY modes/ .
 COPY lokinet.js .
-COPY snbench.js .
 COPY start.js .
-COPY get-uid.js .
 COPY uid.js .
 
 # configure npm
