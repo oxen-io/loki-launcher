@@ -1,10 +1,10 @@
 // no npm!
 const fs = require('fs')
-const ini = require(__dirname + '/ini')
-const lib = require(__dirname + '/lib')
-const lokinet = require(__dirname + '/lokinet') // expects 0.8 used for randomString
-const netWrap = require(__dirname + '/lets_tcp')
-const networkTest = require(__dirname + '/lib.networkTest')
+const ini = require(__dirname + '/../ini')
+const lib = require(__dirname + '/../lib')
+const lokinet = require(__dirname + '/../lokinet') // expects 0.8 used for randomString
+const netWrap = require(__dirname + '/../lets_tcp')
+const networkTest = require(__dirname + '/../lib.networkTest')
 const child_process = require('child_process')
 
 // we're not running it, so there's no output
