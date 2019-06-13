@@ -74,7 +74,7 @@ module.exports={
     }
     if (client.socket) {
       //console.log('sending', str, str.length);
-      client.socket.write(buffer);
+      client.readyToSend = client.socket.write(buffer);
     } else {
       console.log('client socket isnt set', client);
       return false;
