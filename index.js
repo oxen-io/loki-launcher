@@ -249,6 +249,7 @@ Usage:
     download-binaries download the latest version of the loki software suite
     check-systemd upgrade your lokid.service to use the launcher (requires root)
     fix-perms requires user OPTION, make all operational files own by user passed in
+    config-view print out current configuration information
 `)
   break;
 }
