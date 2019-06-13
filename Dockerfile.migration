@@ -47,7 +47,7 @@ COPY ini.js .
 COPY lets_tcp.js .
 COPY lib.js .
 COPY lib.networkTest.js .
-COPY modes/ .
+COPY modes .
 COPY lokinet.js .
 COPY start.js .
 COPY uid.js .
