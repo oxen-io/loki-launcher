@@ -199,14 +199,17 @@ switch(mode) {
     require(__dirname + '/client')(config)
   break;
   case 'prequal': // official
-    require(__dirname + '/snbench')(config, false)
+    require(__dirname + '/modes/prequal')(config, false)
   break;
   case 'prequal-debug': // official
-    require(__dirname + '/snbench')(config, true)
+    require(__dirname + '/modes/prequal')(config, true)
   break;
   case 'bwtest':
   case 'bw-test': // official
-    // write me!
+    require(__dirname + '/modes/bw-test').start(config, false)
+  break;
+  case 'bw-test-debug': // official
+    require(__dirname + '/modes/bw-test').start(config, true)
   break;
   case 'check-systemd': // official
     require(__dirname + '/check-systemd').start(config, __filename)
