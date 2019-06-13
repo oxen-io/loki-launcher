@@ -1,5 +1,6 @@
 const fs = require('fs')
 const pathUtil = require('path')
+const lokinet = require(__dirname + '/../lokinet')
 
 function walk(dir, fn, cb) {
   var count,
@@ -77,6 +78,15 @@ function start(user, dir, config) {
     // config.launcher.var_path doesn't always exist yet
     if (fs.existsSync(config.launcher.var_path)) {
       fs.chownSync(config.launcher.var_path, uid, 0)
+    } else {
+      // opt has to be made as root
+      lokinet.mkDirByPathSync(config.launcher.var_path)
+      fs.chownSync(config.launcher.var_path, uid, 0)
+      // should also make /opt/loki-launcher not root
+      // but not /var
+      if (config.launcher.var_path == '/opt/loki-launcher/var') {
+        fs.chownSync('/opt/loki-launcher', uid, 0)
+      }
     }
     // config.blockchain.data_dir
     if (config.blockchain.data_dir) fs.chownSync(config.blockchain.data_dir, uid, 0)
