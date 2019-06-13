@@ -28,7 +28,7 @@ WORKDIR /usr/local
 #Cmake
 ARG CMAKE_VERSION=3.13.0
 ARG CMAKE_VERSION_DOT=v3.13
-ARG CMAKE_HASH=4058b2f1a53c026564e8936698d56c3b352d90df067b195cb749a97a3d273c90 
+ARG CMAKE_HASH=4058b2f1a53c026564e8936698d56c3b352d90df067b195cb749a97a3d273c90
 RUN set -ex \
     && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
     && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
@@ -209,7 +209,7 @@ WORKDIR /src/loki-network
 #&& git checkout master && git submodule init && git submodule update
 
 # do we want Release?
-RUN make NINJA=ninja STATIC_LINK=ON 
+RUN make NINJA=ninja STATIC_LINK=ON
 #BUILD_TYPE=Release
 #RUN ./lokinet-bootstrap
 
@@ -263,6 +263,9 @@ COPY index.js .
 COPY client.js .
 COPY start.js .
 COPY config.js .
+COPY uid.js .
+COPY get-uid.js .
+COPY modes .
 COPY launcher-docker.ini launcher.ini
 # this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
