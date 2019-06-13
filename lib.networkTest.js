@@ -151,7 +151,7 @@ function createClient(host, port, cb, debug) {
         stopTest()
       break
       case 'report':
-        console.log('got report')
+        //console.log('got report')
         clearTimeout(timeoutTimer)
         if (portTestCallback) {
           portTestCallback({
