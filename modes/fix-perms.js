@@ -61,6 +61,7 @@ function walk(dir, fn, cb) {
   })
 }
 
+// should be ran after download-binaries
 function start(user, dir, config) {
   // FIXME: make sure the launcher isn't running
   const uidGetter = require(dir + '/uid')
