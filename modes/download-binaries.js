@@ -67,7 +67,9 @@ function downloadGithubFile(dest, url, cb) {
       var tenPer = parseInt(10 * downloaded / len, 10)
       //console.log('tenper', tenper, downloaded / len)
       if (tenPer != lastPer) {
-        console.log('Downloaded', (tenPer * 10) + '%', downloaded.toLocaleString() + '/' + len.toLocaleString(), 'bytes')
+        var haveMBs = downloaded / (1024 * 1024)
+        var totalMBs = len / (1024 * 1024)
+        console.log('Downloaded', (tenPer * 10) + '%', haveMBs.toFixed(2) + '/' + totalMBs.toFixed(2) +'MBi')
         lastPer = tenPer
       }
     })
