@@ -51,7 +51,7 @@ module.exports = function(config, debug) {
   const total_size = blockchain_size + storage_size
 
   var diskspaces = {}
-  var log = []
+  var log = [] // FIXME: rename to report
   function markCheckDone(doneSubSystem) {
     if (debug) console.info(doneSubSystem, 'check complete')
     need[doneSubSystem] = true;
@@ -67,21 +67,32 @@ module.exports = function(config, debug) {
     }
     if (diskspaces.blockchain === diskspaces.storage) {
       if (diskspaces.blockchain < total_size) {
-        log.push('DiskSpace: Failed !')
-        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + total_size + 'GBi free, you have', diskspaces.blockchain.toFixed(2), 'GBi')
+        console.warn('DiskSpace: Failed !')
+        log.push('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + total_size +
+          'GBi free, you have ' + diskspaces.blockchain.toFixed(2) + 'GBi')
         snode_problems++
+      } else {
+        log.push('DiskSpace: Success !')
       }
     } else {
       // different drives...
       if (diskspaces.blockchain < blockchain_size) {
-        log.push('DiskSpace_blockchain: Failed !')
-        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + blockchain_size + 'GBi free, you have', diskspaces.blockchain.toFixed(2), 'GBi on', config.blockchain.data_dir)
+        console.warn('DiskSpace_blockchain: Failed !')
+        log.push('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + blockchain_size +
+          'GBi free, you have ' + diskspaces.blockchain.toFixed(2) + 'GBi on' +
+          config.blockchain.data_dir)
         snode_problems++
+      } else {
+        log.push('DiskSpace_blockchain: Success !')
       }
       if (diskspaces.storage < storage_size) {
-        log.push('DiskSpace_storage: Failed !')
-        console.warn('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + storage_size + 'GBi free, you have', diskspaces.storage.toFixed(2), 'GBi on', config.storage.db_location)
+        console.warn('DiskSpace_storage: Failed !')
+        log.push('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + storage_size +
+          'GBi free, you have ' + diskspaces.storage.toFixed(2) + 'GBi on ' +
+          config.storage.db_location)
         snode_problems++
+      } else {
+        log.push('DiskSpace_storage: Success !')
       }
     }
 
@@ -96,7 +107,7 @@ module.exports = function(config, debug) {
   }
 
   // diskspace check
-  if (1) {
+  function diskspaceCheck() {
     // blockchain path
     // storage server path
     // if they're the same path, combine and compare
@@ -108,13 +119,13 @@ module.exports = function(config, debug) {
     getFreeSpaceUnix(config.blockchain.data_dir, function(space) {
       if (debug) console.debug(config.blockchain.data_dir, 'space', space, 'GBi free')
       diskspaces.blockchain = space
+      need.diskspace2 = false
       markCheckDone('diskspace')
       // can't do these in parallel apparently
       if (0) {
         if (config.storage.db_location === undefined) config.storage.db_location = '.'
         console.log('Starting disk space check on storage server partition', config.blockchain.data_dir)
         if (config.storage.db_location) {
-          need.diskspace2 = false
           getFreeSpaceUnix(config.storage.db_location, function(space) {
             if (debug) console.debug(config.storage.db_location, 'space', space, 'GBi free')
             diskspaces.storage = space
@@ -129,7 +140,7 @@ module.exports = function(config, debug) {
   }
 
   // port test
-  if (1) {
+  function portTest() {
     // start a network server
     // on port config.blockchain.rpc_port
     // FIXME: make sure port isn't already taken
@@ -152,15 +163,20 @@ module.exports = function(config, debug) {
         }
         */
         if (results.result != 'good') {
-          log.push('OpenPort: Failed !')
-          console.warn('WE COULD NOT VERIFY THAT YOU HAVE PORT', config.blockchain.rpc_port+', OPEN ON YOUR FIREWALL, this is now required to run a service node')
+          console.warn('OpenPort: Failed !')
+          log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + config.blockchain.rpc_port +
+            ', OPEN ON YOUR FIREWALL, this is now required to run a service node')
           snode_problems++
+        } else {
+          console.log('OpenPort: Success !')
         }
         client.disconnect()
         tempResponder.letsClose(function() {
           markCheckDone('rpcport')
+          diskspaceCheck()
         })
       })
     }, debug)
   }
+  portTest()
 }
