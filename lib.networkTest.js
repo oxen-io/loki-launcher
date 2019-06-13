@@ -16,6 +16,10 @@ function createClient(host, port, cb, debug) {
   var testCallback = null
   var portTestCallback = null
   var shutdownOk = false
+  var testResults = 0
+
+  var downloadBytes = 0
+  var blocksSent = 0
 
   function startUploadTest(client) {
     // start test
@@ -25,15 +29,59 @@ function createClient(host, port, cb, debug) {
     uiTimer = setInterval(function() {
       count++
       if (count % 5 == 0) {
-        console.log('test has been running for', count)
+        console.log('upload test has been running for', count)
       }
       // back up, incase something goes wrong?!?
       if (count > 120) {
         stopTest()
         client.destroy() // cause a disconnect
+        // call back? or exit?
+      }
+    }, 1000)
+    /*
+    client.socket.on('drain', function() {
+      console.log('got drain')
+    })
+    */
+    // send roughly 64k per 1ms (640k per 10ms)
+    const block = 'data '+'0123456789'.repeat(100 * 64)
+    timer = setInterval(function() {
+      for(var i = 0; i < blocksPerTick; i++) {
+        client.send(block)
+        blocksSent++
+        if (!client.readyToSend) {
+          break
+        }
+      }
+
+      ticks++
+    }, slice)
+  }
+
+  function startDownloadTest(client) {
+    if (uiTimer != null) {
+      console.error("Can't start download test because another test is running")
+      return
+    }
+    // start test
+    console.log('starting download test')
+    client.send('startDownload')
+    downloadBytes = 0
+    count = 0
+    uiTimer = setInterval(function() {
+      count++
+      if (count % 5 == 0) {
+        console.log('downlaod test has been running for', count)
+      }
+      // back up, incase something goes wrong?!?
+      if (count > 120) {
+        stopTest()
+        client.destroy() // cause a disconnect
+        // call back? or exit?
       }
     }, 1000)
     // send roughly 64k per 1ms (640k per 10ms)
+    /*
     const block = 'data '+'0123456789'.repeat(100 * 64)
     timer = setInterval(function() {
       for(var i = 0; i < blocksPerTick; i++) {
@@ -42,6 +90,7 @@ function createClient(host, port, cb, debug) {
 
       ticks++
     }, slice)
+    */
   }
 
   var timeoutTimer = null
@@ -51,7 +100,9 @@ function createClient(host, port, cb, debug) {
     timeoutTimer = setTimeout(function() {
       console.warn('port test timed out')
       if (portTestCallback) {
-        portTestCallback({
+        var callMe = portTestCallback
+        portTestCallback = null
+        callMe({
           ip: '127.0.0.1',
           result: 'unknown',
           code: 'unknown'
@@ -61,8 +112,24 @@ function createClient(host, port, cb, debug) {
   }
 
   function stopTest() {
-    if (timer) clearInterval(timer)
-    if (uiTimer) clearInterval(uiTimer)
+    if (timer) {
+      if (debug) console.log('Stopping timer')
+      clearInterval(timer)
+      timer = null
+    }
+    if (uiTimer) {
+      if (debug) console.log('Stopping uiTimer')
+      clearInterval(uiTimer)
+      uiTimer = null
+    }
+    if (testCallback) {
+      var callMe = testCallback
+      testCallback = null
+      callMe({
+        ip: ip,
+        bytesPerSec: testResults,
+      })
+    }
   }
 
   netWrap.recv = function(pkt, client) {
@@ -74,17 +141,17 @@ function createClient(host, port, cb, debug) {
         if (debug) console.log('Your public IP address is', parts[1])
         ip = parts[1]
       break
+      case 'data':
+        // just count the bytes
+        downloadBytes += str.length
+      break
       case 'stop':
-        console.log('stopping request after', count, 's and', ticks, 'ticks, attempted to send', formatBytes(blocksPerTick * ticks * 65535), 'which is', formatBytes(blocksPerTick * ticks * 65535 / count)+'/s')
+        console.log('stopping request after', count, 's and', ticks, 'ticks, attempted to send', blocksSent, 'blocks which totals', formatBytes(blocksSent * 65535), 'which is', formatBytes(blocksSent * 65535 / count)+'/s')
+        testResults = parts[1]
         stopTest()
-        if (testCallback) {
-          testCallback({
-            ip: ip,
-            uploadBytesPerSec: parts[1],
-          })
-        }
       break
       case 'report':
+        console.log('got report')
         clearTimeout(timeoutTimer)
         if (portTestCallback) {
           portTestCallback({
@@ -92,6 +159,7 @@ function createClient(host, port, cb, debug) {
             result: parts[1],
             code: parts[2]
           })
+          portTestCallback = null
         }
       break
       default:
@@ -120,10 +188,26 @@ function createClient(host, port, cb, debug) {
     if (aborted) return
     cb({
       testUpload: function(cb) {
+        if (testCallback) {
+          console.log('a test is already running')
+          return
+        }
         testCallback = cb
         startUploadTest(client)
       },
+      testDownload: function(cb) {
+        if (testCallback) {
+          console.log('a test is already running')
+          return
+        }
+        testCallback = cb
+        startDownloadTest(client)
+      },
       testPort: function(port, cb) {
+        if (portTestCallback) {
+          console.log('a test is already running')
+          return
+        }
         portTestCallback = cb
         startPortTest(client, port)
       },
