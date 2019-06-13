@@ -85,6 +85,7 @@ function uidNumber(uid, cb) {
     } catch (ex) {
       return cb(ex)
     }
+    //console.dir(out)
 
     if (out.error) {
       var er = new Error(out.error)
@@ -95,7 +96,7 @@ function uidNumber(uid, cb) {
     if (isNaN(out.uid)) return cb(new Error(
       "Could not get uid: "+JSON.stringify(out)))
 
-    cb(null, uidCache[uid] = +out.uid)
+    cb(null, uidCache[uid] = +out.uid, out.homeDir)
   })
 }
 

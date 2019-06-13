@@ -1,5 +1,3 @@
-const os = require('os')
-
 // only defaults we can save to disk
 function getDefaultConfig(entrypoint) {
   const config = {
@@ -71,8 +69,10 @@ function precheckConfig(config) {
 
   // if we're not specifying the data_dir
   if (!config.blockchain.data_dir) {
+    const os = require('os')
     //console.log('using default data_dir, network', config.blockchain.network)
     config.blockchain.data_dir = os.homedir() + '/.loki'
+    config.blockchain.data_dir_is_default = true
   }
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
   // getLokiDataDir should only be called after this point

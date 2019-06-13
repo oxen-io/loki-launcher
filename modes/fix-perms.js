@@ -66,12 +66,13 @@ function start(user, dir, config) {
   // FIXME: make sure the launcher isn't running
   const uidGetter = require(dir + '/uid')
   console.log('setting permissions to', user)
-  uidGetter.uidNumber(user, function(err, uid) {
+  uidGetter.uidNumber(user, function(err, uid, homedir) {
     if (err) {
       console.error('Username lookup failed: ', err)
       return
     }
-    console.log('user', user, 'uid is', uid)
+    console.log('user', user, 'uid is', uid, 'homedir is', homedir)
+    homedir = homedir.replace(/\/$/, '')
     // binary paths
     fs.chownSync(config.blockchain.binary_path, uid, 0)
     if (config.network.binary_path) fs.chownSync(config.network.binary_path, uid, 0)
@@ -90,7 +91,16 @@ function start(user, dir, config) {
       }
     }
     // config.blockchain.data_dir
-    if (config.blockchain.data_dir) fs.chownSync(config.blockchain.data_dir, uid, 0)
+    // if this is default, then we'll be the wrong user...
+    if (config.blockchain.data_dir_is_default) {
+      const configUtil = require(__dirname + '/../config')
+      config.blockchain.data_dir = homedir + '/.loki'
+      const data_dir = configUtil.getLokiDataDir(config)
+      //console.log('default blockchain data_dir is', data_dir)
+      fs.chownSync(data_dir, uid, 0)
+    } else {
+      if (config.blockchain.data_dir) fs.chownSync(config.blockchain.data_dir, uid, 0)
+    }
     // config.network.data_dir
     if (config.network.data_dir) fs.chownSync(config.network.data_dir, uid, 0)
     // config.network.lokinet_nodedb

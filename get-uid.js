@@ -13,9 +13,10 @@ if (!isNaN(user)) user = +user
 
 console.error([user])
 
+const os = require('os')
 try {
   process.setuid(user)
-  console.log(JSON.stringify({uid:+process.getuid()}))
+  console.log(JSON.stringify({uid:+process.getuid(), homeDir: os.homedir()}))
 } catch (ex) {
   console.log(JSON.stringify({error:ex.message,errno:ex.errno}))
 }
