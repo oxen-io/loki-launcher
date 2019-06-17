@@ -92,6 +92,7 @@ config.type = config_type
 configUtil.check(config)
 
 const lib = require(__dirname + '/lib')
+
 //console.log('Launcher config:', config)
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
@@ -101,10 +102,26 @@ switch(mode) {
     require(__dirname + '/start')(args, config, __filename)
   break;
   case 'status': // official
+    const lokinet = require('./lokinet')
     var pid = lib.areWeRunning(config)
     console.log('launcher status:', pid?('running on ' + pid):'not running')
     var running = lib.getProcessState(config)
+    if (running.lokid === undefined) {
+      //console.log('no pids...')
+      var pids = lib.getPids(config)
+      if (pids.err == 'noFile'  && pid) {
+        console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
+        process.kill(pid, 'SIGHUP')
+      }
+    }
     console.log('blockchain status:', running.lokid?('running on ' + running.lokid):'offline')
+    /*
+    var pids = lib.getPids(config)
+    //console.log('runningConfig', pids.runningConfig)
+    lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
+      console.log('rpc:', pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
+    })
+    */
     if (running.lokid) {
       // read config, run it with status param...
       // spawn out and relay output...
@@ -140,7 +157,11 @@ switch(mode) {
     }
     function shutdownMonitor() {
       var running = lib.getProcessState(config)
+      var pid = lib.areWeRunning(config)
       var waiting = []
+      if (pid) {
+        waiting.push('launcher')
+      }
       if (running.lokid) {
         waiting.push('blockchain')
       }
