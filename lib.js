@@ -130,17 +130,18 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
 
 function getPids(config) {
   if (!fs.existsSync(config.launcher.var_path + '/pids.json')) {
-    return {}
+    return { err: "noFile" }
   }
   // we are already running
+  var json
   try {
-    var json = fs.readFileSync(config.launcher.var_path + '/pids.json', 'utf8')
+    json = fs.readFileSync(config.launcher.var_path + '/pids.json', 'utf8')
   } catch (e) {
     // we had one integration test say this file was deleted after the existence check
     console.warn(config.launcher.var_path + '/pids.json', 'had a problem', e)
-    return {}
+    return { err: "noRead" }
   }
-  var obj = {}
+  var obj = { err: "noParse" }
   try {
     obj = JSON.parse(json)
   } catch (e) {
