@@ -245,14 +245,14 @@ function getPublicIPv4(cb) {
   doCall(1)
 }
 
-function portIsFree(port, cb) {
+function portIsFree(ip, port, cb) {
   const server = net.createServer((socket) => {
   })
   server.on('error', (err) => {
-    console.error('portIsFree', err)
+    if (err.code != 'EADDRINUSE') console.error('portIsFree', err)
     cb(false)
   })
-  server.listen(port, () => {
+  server.listen(port, ip, () => {
     // port is free
     server.close(function() {
       cb(true)
@@ -1186,6 +1186,7 @@ function isPidRunning(pid) {
 var retries = 0
 function stop() {
   shuttingDown = true
+  // if lokinet isn't started, we get more than 3 retries
   if (lokinet && lokinet.killed) {
     console.warn('lokinet already stopped')
     retries++
@@ -1196,6 +1197,7 @@ function stop() {
     }
     return
   }
+  // output on each stop request...
   log('requesting lokinet be shutdown')
   if (lokinet && !lokinet.killed) {
     log('sending SIGINT to lokinet', lokinet.pid)
