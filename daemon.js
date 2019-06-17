@@ -65,6 +65,7 @@ function shutdown_everything() {
       if (loki_daemon) {
         if (loki_daemon.outputFlushTimer) {
           clearInterval(loki_daemon.outputFlushTimer)
+          loki_daemon.outputFlushTimer = null
         }
       }
       if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
@@ -330,8 +331,39 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
         process.exit(1)
       }
       // required so we can exit
+      var startTime = Date.now()
+      console.log('waiting on start up confirmation...')
+      function areWeRunningYet() {
+        var diff = Date.now() - startTime
+        console.log('checking start up progress')
+        // pid...
+        var pid = lib.areWeRunning(config)
+        console.log('launcher daemon running', pid)
+        var pids = lib.getPids(config)
+        console.log('lokid', pids.lokid)
+        // socket...
+        var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
+        console.log('socket', haveSocket)
+        // jsonrpc...
+        if (pids.runningConfig && pids.runningConfig.blockchain) {
+          lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
+            console.log('rpc:', pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
+            console.log('')
+          })
+        }
+        if (pid && pids.lokid && haveSocket && pids.runningConfig && pids.runningConfig.blockchain) {
+          console.log('start up successful')
+          process.exit()
+        }
+        if (diff > 60 * 1000) {
+          console.log('start up timeout, likely failed')
+          process.exit()
+        }
+        setTimeout(areWeRunningYet, 5000)
+      }
+      setTimeout(areWeRunningYet, 5000)
       child.unref()
-      process.exit()
+      return
     }
     // no one sees these
     //console.log('backgrounded')
@@ -429,6 +461,7 @@ function configureLokid(config, args) {
 
 var loki_daemon
 var server
+var savePidConfig = {}
 function launchLokid(binary_path, lokid_options, interactive, config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
@@ -454,6 +487,10 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     shutdown_everything()
   }
   loki_daemon.startTime = Date.now()
+  savePidConfig = {
+    config: config,
+    args: args,
+  }
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   if (!interactive) {
@@ -681,20 +718,24 @@ var handlersSetup = false
 function setupHandlers() {
   if (handlersSetup) return
   process.on('SIGHUP', () => {
+    if (savePidConfig.config) {
+      console.log('updating pids file', savePidConfig.config.launcher.var_path + '/pids.json')
+      lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
+    }
     console.log('shuttingDown?', shuttingDown)
     var ts = Date.now()
     var procInfo = {
       blockchain: {
-        pid: loki_daemon.pid,
-        uptime: ts - loki_daemon.startTime
+        pid: loki_daemon?loki_daemon.pid:0,
+        uptime: loki_daemon?(ts - loki_daemon.startTime):0
       },
       network: {
-        pid: lokinet.pid,
-        uptime: ts - lokinet.startTime
+        pid: lokinet?lokinet.pid:lokinet,
+        uptime: lokinet?(ts - lokinet.startTime):0
       },
       storage: {
-        pid: storageServer.pid,
-        uptime: ts - storageServer.startTime
+        pid: storageServer?storageServer.pid:0,
+        uptime: storageServer?(ts - storageServer.startTime):0
       },
     }
     console.table(procInfo)
