@@ -25,18 +25,29 @@ module.exports = function(config, debug) {
       if (debug) console.log('stdout', stdout)
       var lines = stdout.split('\n')
       if (debug) console.log('df lines', lines.length)
+      var calledBack = false
       for(var i in lines) {
         var tline = lines[i].trim()
-        var parts = tline.split(/\W+/)
-        if (debug) console.log(parts.length, parts[5])
-        if (parts.length == 8 && parts[5]) {
-          var gb = parseInt(parts[5]) / (1024 * 1024)
+        var parts = tline.split(/( |\t)+/)
+        if (debug) {
+          console.log(''+parts.length, 'segments, 6th',parts[6])
+          for(var i in parts) {
+            console.log(i, parts[i])
+          }
+        }
+        if (parts.length == 11 && parts[6]) {
+          var gb = parseInt(parts[6]) / (1024 * 1024)
           //console.log('gb', gb)
           if (gb) {
             //console.log('you have', gb, 'GBi free')
+            calledBack = true
             cb(gb)
           }
         }
+      }
+      if (!calledBack) {
+        console.error('Could not parse your df output, please create a github issue here: https://github.com/loki-project/loki-launcher/issues with the following: ', stdout)
+        //cb(undefined)
       }
     })
   }
@@ -72,7 +83,7 @@ module.exports = function(config, debug) {
           'GBi free, you have ' + diskspaces.blockchain.toFixed(2) + 'GBi')
         snode_problems++
       } else {
-        log.push('DiskSpace: Success !')
+        console.log('DiskSpace: Success !')
       }
     } else {
       // different drives...
@@ -83,7 +94,7 @@ module.exports = function(config, debug) {
           config.blockchain.data_dir)
         snode_problems++
       } else {
-        log.push('DiskSpace_blockchain: Success !')
+        console.log('DiskSpace_blockchain: Success !')
       }
       if (diskspaces.storage < storage_size) {
         console.warn('DiskSpace_storage: Failed !')
@@ -92,7 +103,7 @@ module.exports = function(config, debug) {
           config.storage.db_location)
         snode_problems++
       } else {
-        log.push('DiskSpace_storage: Success !')
+        console.log('DiskSpace_storage: Success !')
       }
     }
 
@@ -113,7 +124,7 @@ module.exports = function(config, debug) {
     // if they're the same path, combine and compare
     console.log('Starting disk space check on blockchain partition', config.blockchain.data_dir)
     if (!fs.existsSync(config.blockchain.data_dir)) {
-      // FIXME: hopefully the right user
+      // FIXME: hopefully running as the right user
       lokinet.mkDirByPathSync(config.blockchain.data_dir)
     }
     getFreeSpaceUnix(config.blockchain.data_dir, function(space) {
