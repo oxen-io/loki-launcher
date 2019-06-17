@@ -54,7 +54,7 @@ function getLokiDataDir(config) {
 }
 
 function precheckConfig(config) {
-  if (config.launcher === undefined) config.launcher = {}
+  if (config.launcher === undefined) config.launcher = { interface: false }
   // replace any trailing slash before use...
   if (config.launcher.prefix) {
     config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
@@ -103,6 +103,10 @@ function checkBlockchainConfig(config) {
       // main
       config.blockchain.rpc_port = 22023
     }
+  }
+  // actualize rpc_ip so we can pass it around to other daemons
+  if (config.blockchain.rpc_ip === undefined) {
+    config.blockchain.rpc_ip = '127.0.0.1'
   }
 }
 
