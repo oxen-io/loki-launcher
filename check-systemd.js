@@ -28,7 +28,8 @@ function rewriteServiceFile(serviceFile) {
     } else {
       console.log('updating lokid.service')
       var newBytes = nLines.join("\n")
-      fs.writeFileSync('/etc/systemd/system/lokid.service', newBytes)
+      fs.writeFileSync(serviceFile, newBytes)
+      // FIXME: `sudo systemctl daemon-reload`
     }
   }
 }
