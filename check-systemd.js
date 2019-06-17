@@ -2,7 +2,7 @@
 const fs = require('fs')
 
 
-function rewriteServiceFile(serviceFile) {
+function rewriteServiceFile(serviceFile, entrypoint) {
   console.log('detected', serviceFile)
   // read file
   const service_bytes = fs.readFileSync(serviceFile)
@@ -33,9 +33,10 @@ function rewriteServiceFile(serviceFile) {
   }
 }
 
+// we actually currently don't use config at all... but we likely will evenutally
 function start(config, entrypoint) {
   if (fs.existsSync('/etc/systemd/system/lokid.service')) {
-    rewriteServiceFile('/etc/systemd/system/lokid.service')
+    rewriteServiceFile('/etc/systemd/system/lokid.service', entrypoint)
   } else {
     console.debug('/etc/systemd/system/lokid.service does not exist.')
     console.error('You may not be running your Service Node as a system Service, please follow the full guide to reconfigure your node')
