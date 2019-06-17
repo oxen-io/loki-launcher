@@ -13,7 +13,7 @@ const { spawn } = require('child_process')
 
 var pids = {}
 
-function killStorageServer(running, pids) {
+function killStorageServer(config, running, pids) {
   if (config.storage.enabled && running.storageServer) {
     console.log('LAUNCHER: killing storage on', pids.storageServer)
     process.kill(pids.storageServer, 'SIGINT')
@@ -21,10 +21,10 @@ function killStorageServer(running, pids) {
   }
 }
 
-function killLokinetAndStorageServer(running, pids) {
+function killLokinetAndStorageServer(config, running, pids) {
   //console.log('LAUNCHER: old network', running.lokinet, pids.lokinet)
   //console.log('LAUNCHER: old storage', running.storageServer, pids.storageServer)
-  killStorageServer(running, pids)
+  killStorageServer(config, running, pids)
   // FIXME: only need to restart if the key changed
   if (config.network.enabled) {
     if (running.lokinet) {
@@ -87,45 +87,9 @@ module.exports = function(args, config, entryPoint) {
   var xmrOptions = parseXmrOptions()
   //console.log('xmrOptions', xmrOptions)
 
-  /*
-  // load config from disk
-  var disk_config = {}
-  var config = configUtil.getDefaultConfig(__filename)
-  var running_config = {}
-  if (fs.existsSync('/etc/loki-launcher/launcher.ini')) {
-    const ini_bytes = fs.readFileSync('/etc/loki-launcher/launcher.ini')
-    disk_config = ini.iniToJSON(ini_bytes.toString())
-    config = disk_config
-  }
-  // local overrides default path
-  if (fs.existsSync(__dirname + 'launcher.ini')) {
-    const ini_bytes = fs.readFileSync(__dirname + '/launcher.ini')
-    disk_config = ini.iniToJSON(ini_bytes.toString())
-    config = disk_config
-  }
-  */
   var requested_config = config
 
-  /*
-  const ini_bytes = fs.readFileSync('launcher.ini')
-  var disk_config = ini.iniToJSON(ini_bytes.toString())
-  running_config = {}
-  requested_config = disk_config
-
-  config = requested_config
-  */
-
   configUtil.check(config)
-
-  /*
-  if (config.network === undefined) config.network = {}
-  if (config.storage === undefined) config.storage = {}
-
-  // set default
-  if (config.blockchain.network === undefined) {
-    config.blockchain.network = 'main'
-  }
-  */
 
   // normalize inputs (allow for more options but clamping it down internally)
   if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
@@ -139,16 +103,6 @@ module.exports = function(args, config, entryPoint) {
       if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
         config.blockchain.network = 'staging'
       }
-  if (config.launcher === undefined) {
-    // set launcher defaults
-    config.launcher = {
-      interface: false,
-    }
-  }
-  // actualize rpc_ip so we can pass it around to other daemons
-  if (config.blockchain.rpc_ip === undefined) {
-    config.blockchain.rpc_ip = '127.0.0.1'
-  }
 
   // autoconfig
   /*
@@ -171,20 +125,6 @@ module.exports = function(args, config, entryPoint) {
       config.blockchain.zmq_port = 22024
     }
     */
-  }
-  if (config.blockchain.rpc_port == '0') {
-    if (config.blockchain.network == 'test') {
-      config.blockchain.rpc_port = 38157
-    } else
-      if (config.blockchain.network == 'demo') {
-        config.blockchain.rpc_port = 38160
-      } else
-        if (config.blockchain.network == 'staging') {
-          config.blockchain.rpc_port = 38154
-        } else {
-          // main
-          config.blockchain.rpc_port = 22023
-        }
   }
   if (config.blockchain.p2p_port == '0') {
     // only really need this one set for lokinet
@@ -547,12 +487,45 @@ module.exports = function(args, config, entryPoint) {
     // FIXME if just blockchain and storage server, should we restart the storage if lokid dies?
   }
 
+  if (!config.network.enabled && config.storage.enabled && !running.lokid) {
+    console.log('LAUNCHER: we have storage server with no lokid', pids.storageServer)
+    // no need to kill it in clearnet mode
+    /*
+    process.kill(pids.storageServer, 'SIGINT')
+    running.storageServer = 0
+    */
+  }
+
   if (config.network.enabled && !running.lokid) {
     // no lokid, kill remaining
     console.log('LAUNCHER: lokid is down, kill idlers')
-    killLokinetAndStorageServer(running, pids)
+    killLokinetAndStorageServer(config, running, pids)
   }
 
+  if (!pids.loki) {
+    // no pid on disk or it's running
+    var useConfig = config
+    if (pids.runningConfig) useConfig = runningConfig
+    lokinet.portIsFree(useConfig.blockchain.rpc_ip, useConfig.blockchain.rpc_port, function(portFree) {
+      console.log('rpc:', useConfig.blockchain.rpc_ip + ':' + useConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
+      if (!portFree) {
+        console.log('')
+        console.log('There\'s a lokid that we\'re not tracking using our configuration. You likely will want to confirm and manually stop it before start using the launcher again. Exiting...')
+        console.log('')
+        // no pids.json will exist... and not easy to fake one
+        daemon.shutdown_everything()
+      } else {
+        // port is open
+        if (isNothingRunning(running)) {
+          console.log("LAUNCHER: Starting fresh copy of Loki Suite")
+          startEverything(config, args)
+          return
+        }
+        // we can't go into recovery mode if there's no lokid
+      }
+    })
+    return
+  }
   if (isNothingRunning(running)) {
     console.log("LAUNCHER: Starting fresh copy of Loki Suite")
     startEverything(config, args)
@@ -564,17 +537,26 @@ module.exports = function(args, config, entryPoint) {
   //
 
   // ignore any configuration of current
-  config = pids.config
-  args = pids.args
+  if (pids.config) {
+    //console.log('replacing config with running config', pids.config)
+    config = pids.config
+    args = pids.args
+  }
 
   // adopt responsibility of watching the existing suite
-  function launcherRecoveryMonitor() {
+  function launcherRecoveryMonitor(config) {
+    var pids = lib.getPids(config)
+
     // concern: what if it's running but quitting
     // our timer will catch this
     // concern: what if lokinet/storage is restarted elsewhere
     // it won't because we've already ensured we're the only launcher for this
-    if (!lib.isPidRunning(pids.lokid)) {
-      console.log('LAUNCHER: lokid just died', pids.lokid)
+    if (!pids.lokid || !lib.isPidRunning(pids.lokid)) {
+      if (pids.lokid) {
+        console.log('LAUNCHER: lokid just died', pids.lokid)
+      } else {
+        // pids file was just cleared...
+      }
       // no launcher, so we may need to do someclean up
       // lokid needs no clean up
       // kill storageServer and lokinet?
@@ -583,24 +565,38 @@ module.exports = function(args, config, entryPoint) {
       // if existed previous / if we started them
       // we can't make a pids into the started style
       // so we'll have to just update from disk
-      pids = lib.getPids(config)
+      //pids = lib.getPids(config)
       running = lib.getProcessState(config)   // update locations of lokinet/storageServer
-      killLokinetAndStorageServer(running, pids) // kill them
+      killLokinetAndStorageServer(config, running, pids) // kill them
       // and restart it all?
       if (config.blockchain.restart) {
         startEverything(config, args)
+      } else {
+        // so we don't want to restart lokid but we can't find that it is running
+        // but all we really know is we stopped tracking the pid
+        // ctrl-c could have cleared it...
+        // shutdown the launcher properly
+        daemon.shutdown_everything()
       }
-    } else
-      if (!lib.isPidRunning(pids.lokinet)) {
+    } else {
+      //console.log('watching lokid, will reclaim control when it restarts')
+      if (!pids.lokinet || !lib.isPidRunning(pids.lokinet)) {
         // kill storage server
-        killStorageServer(running, pids)
+        killStorageServer(config, running, pids)
         // well assuming old lokid is still running
         daemon.startLokinet(config, shutdownIfNotStarted)
       } else
-        if (!lib.isPidRunning(pids.storageServer)) {
+        if (!pids.storageServer ||!lib.isPidRunning(pids.storageServer)) {
           daemon.startStorageServer(config, args, shutdownIfNotStarted)
         }
-    setTimeout(launcherRecoveryMonitor, 15 * 1000)
+    }
+    // as long as there's something to monitor
+    if (pids.lokid || pids.lokinet || pids.storageServer) {
+      setTimeout(function() {
+        launcherRecoveryMonitor(config)
+      }, 15 * 1000)
+    }
+    // otherwise let go of the last handle so we can exit...
   }
 
   function shutdownIfNotStarted(started) {
@@ -610,10 +606,10 @@ module.exports = function(args, config, entryPoint) {
   }
 
   // figure out how to recover state with a running lokid
-  if (!running.lokinet) {
+  if (config.network.enabled && !running.lokinet) {
     // start lokinet
     // therefore starting storageServer
-    daemon.startLokinet(config, shutdownIfNotStarted)
+    daemon.startLokinet(config, args, shutdownIfNotStarted)
   } else
     if (config.storage.enabled && !running.storageServer) {
       // start storageServer
@@ -621,7 +617,7 @@ module.exports = function(args, config, entryPoint) {
     }
 
   // we need start watching everything all over again
-  launcherRecoveryMonitor()
+  launcherRecoveryMonitor(config)
 
   // well now register ourselves as the proper guardian of the suite
   lib.setStartupLock(config)
