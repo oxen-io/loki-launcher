@@ -47,6 +47,8 @@ module.exports = function(config, debug) {
       }
       if (!calledBack) {
         console.error('Could not parse your df output, please create a github issue here: https://github.com/loki-project/loki-launcher/issues with the following: ', stdout)
+        // it exists anyways but make CI realize there's a problem
+        process.exit(1)
         //cb(undefined)
       }
     })
