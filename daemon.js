@@ -337,8 +337,13 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
         var diff = Date.now() - startTime
 
         console.log('checking start up progress')
-        lib.getLauncherStatus(config, lokinet, function(running, checklist) {
-          console.table(checklist)
+        lib.getLauncherStatus(config, lokinet, 'waiting...', function(running, checklist) {
+          var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+          if (nodeVer >= 10) {
+            console.table(checklist)
+          } else {
+            console.log(checklist)
+          }
           var pids = lib.getPids(config) // need to get the config
           if (running.launcher && running.lokid && checklist.socket &&
                 pids.runningConfig && pids.runningConfig.blockchain) {
@@ -729,7 +734,12 @@ function setupHandlers() {
         uptime: storageServer?(ts - storageServer.startTime):0
       },
     }
-    console.table(procInfo)
+    var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+    if (nodeVer >= 10) {
+      console.table(procInfo)
+    } else {
+      console.log(procInfo)
+    }
     console.log('loki_daemon status', loki_daemon)
     console.log('lokinet status', lokinet.isRunning())
     console.log('storageServer status', storageServer)
