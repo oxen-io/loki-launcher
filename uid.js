@@ -122,6 +122,8 @@ function uidNumber(uid, cb) {
 
   var getter = require.resolve(__dirname + "/get-uid.js")
 
+  // in the future: there's the ~username trick too to get the homedir of any user...
+
   if (process.platform === 'linux') {
     const passwd = fs.readFileSync('/etc/passwd', 'utf-8')
     const lines = passwd.split('\n')
