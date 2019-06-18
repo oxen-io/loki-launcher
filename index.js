@@ -125,6 +125,7 @@ switch(mode) {
     if (running.lokid) {
       // read config, run it with status param...
       // spawn out and relay output...
+      // could also use the socket to issue a print_sn_status
     }
   break;
   case 'stop': // official
