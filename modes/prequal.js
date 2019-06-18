@@ -163,6 +163,12 @@ module.exports = function(config, debug) {
       if (debug) console.debug('port verified')
       incomingConnection.send('quit ' + code + ' ' + Date.now())
     })
+    tempResponder.errorHandler = function(err) {
+      if (err.code == 'EADDRINUSE') {
+        console.error('Something seems to be running on port', config.blockchain.rpc_port + '. Make sure your lokid is stopped before running this test')
+        process.exit(1)
+      }
+    }
     networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
       if (client === false) {
         console.warn('We could not connect to our testing server, please try again later')

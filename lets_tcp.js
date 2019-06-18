@@ -442,6 +442,13 @@ module.exports={
         //console.log('now only', clients.length);
       });
     });
+    server.on('error', (err) => {
+      if (server.errorHandler) {
+        server.errorHandler(err)
+      } else {
+        console.error('SOCKET ERROR:', err)
+      }
+    })
     server.letsClose=function(cb) {
       if (module.exports.debug) console.debug('closing server', port, 'connections', clients.length);
       for(var i in server_clients) {
