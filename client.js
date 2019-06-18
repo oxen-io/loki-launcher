@@ -6,28 +6,14 @@ const lib       = require(__dirname + '/lib')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
-module.exports = function(config) {
-  const VERSION = 0.2
+const VERSION = 0.2
 
-  //
-  // are we already running
-  //
-  var pid = lib.areWeRunning(config)
-  if (pid) {
-    // if already running just connect for now
-    console.log('located launcher daemon at', pid)
-  } else {
-    // we just started it up...?
-    // FIXME: probably should wait for socket to be created
-    console.log("launcher isn't running")
-    stdin.pause()
-    return
-  }
-
+function clientConnect(config) {
   console.log('trying to connect to', config.launcher.var_path + '/launcher.socket')
   const client = net.createConnection({ path: config.launcher.var_path + '/launcher.socket' }, () => {
     // 'connect' listener
     console.log('connected to server!')
+    console.log('Remember to use ctrl-c to exit the client without shutting down the service node')
     //client.write('world!\r\n')
   })
   //client.setEncoding('utf-8')
@@ -86,4 +72,36 @@ module.exports = function(config) {
     }
     client.write(str, 'utf8')
   })
+}
+
+module.exports = function(config) {
+  //
+  // are we already running
+  //
+  var pid = lib.areWeRunning(config)
+  if (!pid) {
+    console.log("launcher isn't running")
+    // we just started it up...?
+    function socketReady(cb) {
+      // FIXME: even if the file exists, doesn't mean it works...
+      if (!fs.fileExistsSync(config.launcher.var_path + '/launcher.socket')) {
+        console.log('waiting for launcher to start, ctrl-c to stop waiting')
+        setTimeout(function() {
+          socketReady(cb);
+        }, 1000)
+        return
+      }
+      cb()
+    }
+    /*
+    socketReady(function() {
+      console.log('located launcher daemon at', pid)
+      clientConnect(config)
+    })
+    */
+    process.exit(1)
+  } else {
+    console.log('located launcher daemon at', pid)
+    clientConnect(config)
+  }
 }
