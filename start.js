@@ -200,6 +200,20 @@ module.exports = function(args, config, entryPoint) {
       // reprocess data-dir and network setings
       setupInitialBlockchainOptions()
     }
+  } else {
+    // no config-file param but is there a config file...
+    var defaultLokidConfigPath = configUtil.getLokiDataDir(config) + '/loki.conf'
+    if (fs.existSync(defaultLokidConfigPath)) {
+      const moneroDiskConfig = fs.readFileSync(defaultLokidConfigPath)
+      const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
+      console.log('parsed loki config', moneroDiskOptions.unknown)
+      for (var k in moneroDiskOptions.unknown) {
+        var v = moneroDiskOptions.unknown[k]
+        xmrOptions[k] = v
+      }
+      // reprocess data-dir and network setings
+      setupInitialBlockchainOptions()
+    }
   }
   // handle merging remaining launcher options
   if (xmrOptions['rpc-login']) {
