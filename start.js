@@ -205,7 +205,7 @@ module.exports = function(args, config, entryPoint) {
     if (!fs.existsSync(filePath)) {
       var filePath2 = configUtil.getLokiDataDir(config) + '/' + xmrOptions['config-file']
       if (!fs.existsSync(filePath2)) {
-        console.warn('Can\'t read config-file command line argument, file does not exist: ', filePath)
+        console.warn('Can\'t read config-file command line argument, files does not exist: ', [filePath, filePath2])
       } else {
         const moneroDiskConfig = fs.readFileSync(filePath2)
         const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
