@@ -208,7 +208,7 @@ function start(config) {
         setTimeout(function() {
           console.log('retrying...')
           start(config)
-        }, 30 * 1000)
+        }, 60 * 1000)
       } else {
         console.warn('failure communicating with api.github.com')
       }
