@@ -505,7 +505,7 @@ module.exports = function(args, config, entryPoint) {
   if (!pids.loki) {
     // no pid on disk or it's running
     var useConfig = config
-    if (pids.runningConfig) useConfig = runningConfig
+    if (pids.runningConfig) useConfig = pids.runningConfig
     lokinet.portIsFree(useConfig.blockchain.rpc_ip, useConfig.blockchain.rpc_port, function(portFree) {
       console.log('rpc:', useConfig.blockchain.rpc_ip + ':' + useConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
       if (!portFree) {
