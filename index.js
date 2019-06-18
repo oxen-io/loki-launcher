@@ -12,9 +12,6 @@ if (os.platform() == 'darwin') {
   // FIXME:
   // ok if you run this once as root, it may create directories as root
   // maybe we should never make dirs as root... (unless macos, ugh)
-  if (process.getuid() == 0) {
-    console.error('Its not recommended you run this as root')
-  }
 }
 
 // preprocess command line arguments
@@ -97,8 +94,17 @@ const lib = require(__dirname + '/lib')
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
 
+function warnRunAsRoot() {
+  if (os.platform() != 'darwin') {
+    if (process.getuid() == 0) {
+      console.error('Its not recommended you run this as root unless the guide otherwise says to do so')
+    }
+  }
+}
+
 switch(mode) {
   case 'start': // official
+    warnRunAsRoot()
     require(__dirname + '/start')(args, config, __filename)
   break;
   case 'status': // official
@@ -237,7 +243,8 @@ switch(mode) {
   case 'bw-test-debug': // official
     require(__dirname + '/modes/bw-test').start(config, true)
   break;
-  case 'check-systemd': // official
+  case 'check-systemd':
+  case 'upgrade-systemd': // official
     require(__dirname + '/check-systemd').start(config, __filename)
   break;
   case 'chown':
