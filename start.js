@@ -54,6 +54,10 @@ module.exports = function(args, config, entryPoint) {
             // if just setting the same thing again then nothing to do
           }
         } else
+        if (configSet[key].constructor.name == 'Boolean') {
+          // likely a key without a value
+          configSet[key] = value
+        } else
           if (configSet[key].constructor.name == 'Array') {
             // FIXME: most array options should be unique...
             configSet[key].push(value)
@@ -64,6 +68,7 @@ module.exports = function(args, config, entryPoint) {
         configSet[key] = value
       }
     }
+    var last = null
     for (var i in args) {
       var arg = args[i]
       //console.log('arg', arg)
@@ -75,17 +80,26 @@ module.exports = function(args, config, entryPoint) {
           var key = parts.shift()
           var value = parts.join('=')
           setConfig(key, value)
+          last = null
         } else {
           // --stagenet
           setConfig(removeDashes, true)
+          last = removeDashes
         }
+      } else {
+        // hack to allow equal to be optional..
+        if (last != null) {
+          console.log('should stitch together key', last, 'and value', arg, '?')
+          setConfig(last, arg)
+        }
+        last = null
       }
     }
     return configSet
   }
 
   var xmrOptions = parseXmrOptions()
-  //console.log('xmrOptions', xmrOptions)
+  console.log('Parsed command line options', xmrOptions)
 
   var requested_config = config
 
@@ -203,7 +217,7 @@ module.exports = function(args, config, entryPoint) {
   } else {
     // no config-file param but is there a config file...
     var defaultLokidConfigPath = configUtil.getLokiDataDir(config) + '/loki.conf'
-    if (fs.existSync(defaultLokidConfigPath)) {
+    if (fs.existsSync(defaultLokidConfigPath)) {
       const moneroDiskConfig = fs.readFileSync(defaultLokidConfigPath)
       const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
       console.log('parsed loki config', moneroDiskOptions.unknown)
