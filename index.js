@@ -208,7 +208,12 @@ switch(mode) {
   break;
   case 'config-view': // official
     console.log('loki-launcher is in', __dirname)
-    console.log('Launcher config:', config)
+    // FIXME: prettyPrint
+    console.log('Launcher stored-config:', config)
+    var pids = lib.getPids(config)
+    if (pids && pids.runningConfig) {
+      console.log('Launcher running-config:', pids.runningConfig)
+    }
   break;
   case 'config-edit': // official
     // xdg-open / open ?
