@@ -200,9 +200,23 @@ module.exports = function(args, config, entryPoint) {
   // data dir has to be set but should be before everything else
   if (xmrOptions['config-file']) {
     // read file in lokidata dir
-    var filePath = configUtil.getLokiDataDir(config) + '/' + xmrOptions['config-file']
+    // FIXME: is it relative or absolute
+    var filePath = xmrOptions['config-file']
     if (!fs.existsSync(filePath)) {
-      console.warn('Can\'t read config-file command line argument, file does not exist: ', filePath)
+      var filePath2 = configUtil.getLokiDataDir(config) + '/' + xmrOptions['config-file']
+      if (!fs.existsSync(filePath2)) {
+        console.warn('Can\'t read config-file command line argument, file does not exist: ', filePath)
+      } else {
+        const moneroDiskConfig = fs.readFileSync(filePath2)
+        const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
+        console.log('parsed loki config', moneroDiskOptions.unknown)
+        for (var k in moneroDiskOptions.unknown) {
+          var v = moneroDiskOptions.unknown[k]
+          xmrOptions[k] = v
+        }
+        // reprocess data-dir and network setings
+        setupInitialBlockchainOptions()
+      }
     } else {
       const moneroDiskConfig = fs.readFileSync(filePath)
       const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
