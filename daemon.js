@@ -373,7 +373,22 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
 // compile config into CLI arguments
 // only needs to be ran when config changes
 function configureLokid(config, args) {
-  var lokid_options = ['--service-node']
+  // set storage port default
+  if (!config.storage.port) {
+    config.storage.port = 8080
+  }
+  if (!config.network.publicIPv4) {
+    config.network.publicIPv4 = "0.0.0.0"
+  }
+
+  // FIXME: launcher.ini blockchain option to disable restricted-rpc-listen
+  var lokid_options = [
+    '--service-node',
+    '--storage-server-port',
+    config.storage.port,
+    '--sn-public-ip',
+    config.network.publicIPv4
+  ]
 
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
@@ -389,7 +404,7 @@ function configureLokid(config, args) {
   } else
   if (config.blockchain.network == "demo") {
     lokid_options.push('--testnet')
-    lokid_options.push('--add-priority-node=116.203.126.14')
+    lokid_options.push('--add-priority-node=3.104.19.14')
   } else
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')

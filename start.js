@@ -109,9 +109,7 @@ module.exports = function(args, config, entryPoint) {
   if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
     config.blockchain.network = 'test'
   } else
-    if (config.blockchain.network.toLowerCase() == "consensusnet" || config.blockchain.network.toLowerCase() == "consensus" || config.blockchain.network.toLowerCase() == "demo") {
-      // it's called demo in the launcher because I feel strong this is the best label
-      // we can reuse this for future demos as an isolated network
+    if (config.blockchain.network.toLowerCase() == "demo") {
       config.blockchain.network = 'demo'
     } else
       if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
@@ -500,13 +498,16 @@ module.exports = function(args, config, entryPoint) {
     //daemon(args, __filename, lokinet, config, getLokiDataDir)
     var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
     //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
-    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
-      // start the lokinet prep
-      daemon.startLokinet(config, args, function(started) {
-        //console.log('StorageServer now running', started)
-        if (!started) {
-          daemon.shutdown_everything()
-        }
+    lokinet.getPublicIPv4(publicIPv4 => {
+      config.network.publicIPv4 = publicIPv4
+      daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
+        // start the lokinet prep
+        daemon.startLokinet(config, args, function(started) {
+          //console.log('StorageServer now running', started)
+          if (!started) {
+            daemon.shutdown_everything()
+          }
+        })
       })
       daemon.startLokid(config, args)
     })

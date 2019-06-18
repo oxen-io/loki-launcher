@@ -576,6 +576,7 @@ function generateINI(config, need, markDone, cb) {
     //params.lokinet_bootstrap_path = ''
     markDone('bootstrap', params)
   }
+  params.publicIP = config.network.publicIPv4
   readResolv(config.dns_ip, function (servers) {
     upstreamDNS_servers = servers
     params.upstreamDNS_servers = servers
@@ -633,11 +634,6 @@ function generateINI(config, need, markDone, cb) {
       log('binding DNS port 53 to', free53Ip)
       markDone('dnsBind', params)
     })
-  })
-  getPublicIPv4(function (ip) {
-    //log('generateINI - ip', ip)
-    params.publicIP = ip
-    markDone('publicIP', params)
   })
 }
 
@@ -740,10 +736,6 @@ function generateSerivceNodeINI(config, cb) {
     rpcCheck: false,
     dnsBind: false,
     netIf: false,
-    publicIP: false,
-  }
-  if (config.publicIP) {
-    done.publicIP = undefined
   }
   genSnCallbackFired = false
   function markDone(completeProcess, params) {
