@@ -1,3 +1,5 @@
+const fs = require('fs')
+
 // only defaults we can save to disk
 function getDefaultConfig(entrypoint) {
   const config = {
@@ -55,6 +57,7 @@ function getLokiDataDir(config) {
 
 function precheckConfig(config) {
   if (config.launcher === undefined) config.launcher = { interface: false }
+  if (config.blockchain === undefined) config.blockchain = {}
   // replace any trailing slash before use...
   if (config.launcher.prefix) {
     config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
@@ -80,7 +83,6 @@ function precheckConfig(config) {
 }
 
 function checkBlockchainConfig(config) {
-  if (config.blockchain === undefined) config.blockchain = {}
   // set default
   // set network so we can run toLowerCase on it
   if (config.blockchain.network === undefined) {
@@ -125,6 +127,44 @@ function postcheckConfig(config) {
   }
 }
 
+function ensureDirectoriesExist(config, uid) {
+  // from start... (also potentially fix-perms...)
+  if (!fs.existsSync(config.launcher.var_path)) {
+    // just make sure this directory exists
+    // FIXME: maybe skip if root...
+    console.log('making', config.launcher.var_path)
+    lokinet.mkDirByPathSync(config.launcher.var_path)
+    fs.chownSync(config.launcher.var_path, uid, 0)
+  }
+  // from daemon...
+  if (config.storage.db_location !== undefined) {
+    if (!fs.existsSync(config.storage.db_location)) {
+      lokinet.mkDirByPathSync(config.storage.db_location)
+      fs.chownSync(config.launcher.var_path, uid, 0)
+    }
+  }
+  // from prequal.js
+  // FIXME: but the desired user matters
+  if (!fs.existsSync(config.blockchain.data_dir)) {
+    // FIXME: hopefully running as the right user
+    lokinet.mkDirByPathSync(config.blockchain.data_dir)
+    fs.chownSync(config.launcher.var_path, uid, 0)
+  }
+  // from lokinet.js
+  /*
+  if (config.network.data_dir && !fs.existsSync(config.network.data_dir)) {
+    consoel.log('making', config.data_dir)
+    mkDirByPathSync(config.data_dir)
+    fs.chownSync(config.launcher.var_path, uid, 0)
+  }
+  if (config.network.lokinet_nodedb && !fs.existsSync(config.network.lokinet_nodedb)) {
+    console.log('making', config.network.lokinet_nodedb)
+    mkDirByPathSync(config.network.lokinet_nodedb)
+    fs.chownSync(config.launcher.var_path, uid, 0)
+  }
+  */
+}
+
 function checkConfig(config) {
   precheckConfig(config)
   checkBlockchainConfig(config)
@@ -142,4 +182,5 @@ module.exports = {
   checkStorageConfig: checkStorageConfig,
   postcheckConfig: postcheckConfig,
   getLokiDataDir: getLokiDataDir,
+  ensureDirectoriesExist: ensureDirectoriesExist,
 }
