@@ -119,7 +119,8 @@ switch(mode) {
         process.kill(pid, 'SIGHUP')
       }
     }
-    lib.getLauncherStatus(config, lokinet, function(running, checklist) {
+    // "not running" but too easy to confuse with "running"
+    lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
       var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
       //console.log('nodeVer', nodeVer)
       if (nodeVer >= 10) {
