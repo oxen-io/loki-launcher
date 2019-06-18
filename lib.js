@@ -180,24 +180,24 @@ function getProcessState(config) {
   return running
 }
 
-function getLauncherStatus(config, lokinet, cb) {
+function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   var checklist = {}
   var running = getProcessState(config)
   // pid...
-  checklist.launcher = running.launcher ? ('running as ' + running.launcher) : 'waiting...'
-  checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : 'waiting...'
+  checklist.launcher = running.launcher ? ('running as ' + running.launcher) : offlineMessage
+  checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : offlineMessage
   if (config.network.enabled) {
-    checklist.network = running.lokinet ? ('running as ' + running.lokinet) : 'waiting...'
+    checklist.network = running.lokinet ? ('running as ' + running.lokinet) : offlineMessage
     // lokinet rpc check?
   }
   if (config.storage.enabled) {
-    checklist.storageServer = running.storageServer ? ('running as ' + running.storageServer) : 'waiting...'
+    checklist.storageServer = running.storageServer ? ('running as ' + running.storageServer) : offlineMessage
   }
 
   // socket...
   var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
-  //checklist.push('socket', pids.lokid?'running':'waiting...')
-  checklist.socket = haveSocket ? ('running in ' + config.launcher.var_path) : 'waiting...'
+  //checklist.push('socket', pids.lokid?'running':offlineMessage)
+  checklist.socket = haveSocket ? ('running in ' + config.launcher.var_path) : offlineMessage
 
   var pids = getPids(config) // need to get the config
   var need = {
@@ -217,7 +217,7 @@ function getLauncherStatus(config, lokinet, cb) {
     lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
       //console.log('rpc:', pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
       //console.log('')
-      checklist.blockchain_rpc = portFree?'waitng...':('running on ' + pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port)
+      checklist.blockchain_rpc = portFree ? offlineMessage :('running on ' + pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port)
       checkDone('blockchain_rpc')
     })
   }
