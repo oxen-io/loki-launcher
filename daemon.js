@@ -335,31 +335,22 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
       console.log('waiting on start up confirmation...')
       function areWeRunningYet() {
         var diff = Date.now() - startTime
+
         console.log('checking start up progress')
-        // pid...
-        var pid = lib.areWeRunning(config)
-        console.log('launcher daemon running', pid)
-        var pids = lib.getPids(config)
-        console.log('lokid', pids.lokid)
-        // socket...
-        var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
-        console.log('socket', haveSocket)
-        // jsonrpc...
-        if (pids.runningConfig && pids.runningConfig.blockchain) {
-          lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
-            console.log('rpc:', pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
-            console.log('')
-          })
-        }
-        if (pid && pids.lokid && haveSocket && pids.runningConfig && pids.runningConfig.blockchain) {
-          console.log('start up successful')
-          process.exit()
-        }
-        if (diff > 60 * 1000) {
-          console.log('start up timeout, likely failed')
-          process.exit()
-        }
-        setTimeout(areWeRunningYet, 5000)
+        lib.getLauncherStatus(config, lokinet, function(running, checklist) {
+          console.table(checklist)
+          var pids = lib.getPids(config) // need to get the config
+          if (running.launcher && running.lokid && checklist.socket &&
+                pids.runningConfig && pids.runningConfig.blockchain) {
+            console.log('start up successful')
+            process.exit()
+          }
+          if (diff > 60 * 1000) {
+            console.log('start up timeout, likely failed')
+            process.exit()
+          }
+          setTimeout(areWeRunningYet, 5000)
+        })
       }
       setTimeout(areWeRunningYet, 5000)
       child.unref()

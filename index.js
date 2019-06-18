@@ -109,34 +109,22 @@ switch(mode) {
   break;
   case 'status': // official
     const lokinet = require('./lokinet')
-    var pid = lib.areWeRunning(config)
-    console.log('launcher status:', pid?('running on ' + pid):'not running')
     var running = lib.getProcessState(config)
     if (running.lokid === undefined) {
       //console.log('no pids...')
+      var pid = lib.areWeRunning(config)
       var pids = lib.getPids(config)
       if (pids.err == 'noFile'  && pid) {
         console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
         process.kill(pid, 'SIGHUP')
       }
     }
-    console.log('blockchain status:', running.lokid?('running on ' + running.lokid):'offline')
-    /*
-    var pids = lib.getPids(config)
-    //console.log('runningConfig', pids.runningConfig)
-    lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
-      console.log('rpc:', pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
+    lib.getLauncherStatus(config, lokinet, function(running, checklist) {
+      console.table(checklist)
     })
-    */
     if (running.lokid) {
       // read config, run it with status param...
       // spawn out and relay output...
-    }
-    if (running.lokinet) {
-      console.log('network status:', running.lokinet?('running on ' + running.lokinet):'offline')
-    }
-    if (running.storageServer) {
-      console.log('storage status:', running.storageServer?('running on ' + running.storageServer):'offline')
     }
   break;
   case 'stop': // official

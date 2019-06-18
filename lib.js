@@ -150,12 +150,17 @@ function getPids(config) {
   return obj
 }
 
+// is this the stupidest function or what?
 function getProcessState(config) {
   // what happens if we get different options than what we had before
   // maybe prompt to confirm restart
   // if already running just connect for now
-  var pids = getPids(config)
   var running = {}
+  var pid = areWeRunning(config)
+  if (pid) {
+    running.launcher = pid
+  }
+  var pids = getPids(config)
   if (pids.lokid && isPidRunning(pids.lokid)) {
     //console.log("LAUNCHER: old lokid is still running", pids.lokid)
     running.lokid = pids.lokid
@@ -173,6 +178,55 @@ function getProcessState(config) {
     }
   }
   return running
+}
+
+function getLauncherStatus(config, lokinet, cb) {
+  var checklist = {}
+  var running = getProcessState(config)
+  // pid...
+  checklist.launcher = running.launcher ? ('running as ' + running.launcher) : 'waiting...'
+  checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : 'waiting...'
+  if (config.network.enabled) {
+    checklist.network = running.lokinet ? ('running as ' + running.lokinet) : 'waiting...'
+    // lokinet rpc check?
+  }
+  if (config.storage.enabled) {
+    checklist.storageServer = running.storageServer ? ('running as ' + running.storageServer) : 'waiting...'
+  }
+
+  // socket...
+  var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
+  //checklist.push('socket', pids.lokid?'running':'waiting...')
+  checklist.socket = haveSocket ? ('running in ' + config.launcher.var_path) : 'waiting...'
+
+  var pids = getPids(config) // need to get the config
+  var need = {
+  }
+  function checkDone(task) {
+    //console.log('checking done', task, need)
+    need[task] = true
+    for(var i in need) {
+      if (need[i] === false) return
+    }
+    // all tasks complete
+    cb(running, checklist)
+  }
+
+  if (pids.runningConfig && pids.runningConfig.blockchain) {
+    need.blockchain_rpc = false
+    lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
+      //console.log('rpc:', pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
+      //console.log('')
+      checklist.blockchain_rpc = portFree?'waitng...':('running on ' + pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port)
+      checkDone('blockchain_rpc')
+    })
+  }
+  if (config.network.enabled) {
+    // if lokinet rpc is enabled...
+    //need.network_rpc = true
+    // checkDone('network_rpc')
+  }
+  checkDone('')
 }
 
 function stopLauncher(config) {
@@ -196,4 +250,5 @@ module.exports = {
 
   falsish: falsish,
   getProcessState: getProcessState,
+  getLauncherStatus: getLauncherStatus,
 }
