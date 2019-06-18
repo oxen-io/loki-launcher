@@ -434,8 +434,8 @@ function configureLokid(config, args) {
       for(var j in lokid_options) {
         var option = lokid_options[j]
         if (option.match(/=/)) {
-          var parts2 = args.split(/=/)
-          var option_key = parts.shift()
+          var parts2 = option.split(/=/)
+          var option_key = parts2.shift()
           if (option_key == key) {
             console.log('BLOCKCHAIN: removing previous established option', option)
             lokid_options.splice(j, 1)
