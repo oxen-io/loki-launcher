@@ -136,14 +136,12 @@ function uidNumber(uid, cb) {
     }
     cb('404')
   } else {
-    child_process.execFile( process.execPath
-                          , ['/us/bin/id', '-P', uid]
-                          , function (code, out, stderr) {
+    child_process.execFile( '/usr/bin/id', ['-P', uid], function (code, out, stderr) {
       if (code) {
         cb(stderr)
         return
       }
-      consle.log('out', out)
+      //console.log('out', out)
       const user = extractDarwin(out.trim())
       cb(null, user.userIdentifier, user.homeDirectory)
     })
