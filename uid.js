@@ -1,5 +1,8 @@
-// This module calls into get-uid-gid.js, which sets the
-// uid and gid to the supplied argument, in order to find out their
+// no npm!
+const fs = require('fs')
+
+// This module calls into get-uid.js, which sets the
+// uid to the supplied argument, in order to find out their
 // numeric value.  This can't be done in the main node process,
 // because otherwise node would be running as that user from this
 // point on.
@@ -56,6 +59,55 @@ function uidGidNumber(uid, gid, cb) {
   })
 }
 
+function extractDarwin(line) {
+  const columns = line.split(':');
+
+  // Darwin passwd(5)
+  // 0 name      User's login name.
+  // 1 password  User's encrypted password.
+  // 2 uid       User's id.
+  // 3 gid       User's login group id.
+  // 4 class     User's general classification (unused).
+  // 5 change    Password change time.
+  // 6 expire    Account expiration time.
+  // 7 gecos     User's full name.
+  // 8 home_dir  User's home directory.
+  // 9 shell     User's login shell.
+
+  return {
+    username: columns[0],
+    password: columns[1],
+    userIdentifier: Number(columns[2]),
+    groupIdentifier: Number(columns[3]),
+    fullName: columns[7],
+    homeDirectory: columns[8],
+    shell: columns[9]
+  };
+}
+
+function extractLinux(line) {
+  const columns = line.split(':');
+
+  // Linux passwd(5):
+  // 0 login name
+  // 1 optional encrypted password
+  // 2 numerical user ID
+  // 3 numerical group ID
+  // 4 user name or comment field
+  // 5 user home directory
+  // 6 optional user command interpreter
+
+  return {
+    username: columns[0],
+    password: columns[1],
+    userIdentifier: Number(columns[2]),
+    groupIdentifier: Number(columns[3]),
+    fullName: columns[4] && columns[4].split(',')[0],
+    homeDirectory: columns[5],
+    shell: columns[6]
+  };
+}
+
 function uidNumber(uid, cb) {
   if (!uidSupport) return cb()
   if (typeof cb !== "function") cb = uid, uid = null
@@ -70,6 +122,34 @@ function uidNumber(uid, cb) {
 
   var getter = require.resolve(__dirname + "/get-uid.js")
 
+  if (process.platform === 'linux') {
+    const passwd = fs.readFileSync('/etc/passwd', 'utf-8')
+    const lines = passwd.split('\n')
+    for(var i in lines) {
+      var tLine = lines[i].trim()
+      const user = extractLinux(tLine)
+      if (user.username == uid) {
+        uidCache[uid] = +user.userIdentifier
+        cb(null, user.userIdentifier, user.homeDirectory)
+        break
+      }
+    }
+    cb('404')
+  } else {
+    child_process.execFile( process.execPath
+                          , ['/us/bin/id', '-P', uid]
+                          , function (code, out, stderr) {
+      if (code) {
+        cb(stderr)
+        return
+      }
+      consle.log('out', out)
+      const user = extractDarwin(out.trim())
+      cb(null, user.userIdentifier, user.homeDirectory)
+    })
+  }
+
+  /*
   child_process.execFile( process.execPath
                         , [getter, uid]
                         , function (code, out, stderr) {
@@ -98,6 +178,7 @@ function uidNumber(uid, cb) {
 
     cb(null, uidCache[uid] = +out.uid, out.homeDir)
   })
+  */
 }
 
 module.exports = {
