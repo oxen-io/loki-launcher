@@ -96,6 +96,10 @@ function start(user, dir, config) {
       const configUtil = require(__dirname + '/../config')
       config.blockchain.data_dir = homedir + '/.loki'
       const data_dir = configUtil.getLokiDataDir(config)
+      // create it if needed
+      if (fs.existsSync(data_dir)) {
+        lokinet.mkDirByPathSync(data_dir)
+      }
       //console.log('default blockchain data_dir is', data_dir)
       fs.chownSync(data_dir, uid, 0)
     } else {
@@ -118,6 +122,7 @@ function start(user, dir, config) {
     if (fs.existsSync(config.launcher.var_path + '/launcher.socket')) {
       fs.chownSync(config.launcher.var_path + '/launcher.socket', uid, 0)
     }
+    // this is the only place download binaries downloads too
     fs.chownSync('/opt/loki-launcher/bin', uid, 0)
     if (config.blockchain.data_dir) {
       walk(config.blockchain.data_dir, function(path, cb) {
