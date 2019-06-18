@@ -120,7 +120,13 @@ switch(mode) {
       }
     }
     lib.getLauncherStatus(config, lokinet, function(running, checklist) {
-      console.table(checklist)
+      var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+      //console.log('nodeVer', nodeVer)
+      if (nodeVer >= 10) {
+        console.table(checklist)
+      } else {
+        console.log(checklist)
+      }
     })
     if (running.lokid) {
       // read config, run it with status param...
