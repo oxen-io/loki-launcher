@@ -26,6 +26,10 @@ function iniToJSON(data) {
       if (value === 'false') value = false
       //console.log('key/pair ['+section+']', key, '=', value)
       if (config[section] === undefined) config[section] = {}
+      if ((value[0] == '"' && value[value.length - 1] == '"') ||
+          (value[0] == "'" && value[value.length - 1] == "'")) {
+        value = value.slice(1, -1)
+      }
       config[section][key] = value
       continue
     }
