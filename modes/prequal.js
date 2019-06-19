@@ -59,9 +59,8 @@ module.exports = function(config, debug) {
     diskspace: false,
     rpcport: false,
   }
-  const blockchain_size = 15 //gb
-  const storage_size = 3.5 //gb
-  const total_size = blockchain_size + storage_size
+  var blockchain_size = 15 //gb
+  var storage_size = 3.5 //gb
 
   var diskspaces = {}
   var log = [] // FIXME: rename to report
@@ -78,10 +77,22 @@ module.exports = function(config, debug) {
     if (diskspaces.storage === null) {
       diskspaces.storage = diskspaces.blockchain
     }
+    var lmdbPath = config.blockchain.data_dir + '/lmdb/data.mdb'
+    if (fs.existsSync(lmdbPath)) {
+      const lmdbFileSize = fs.statSync(lmdbPath).size
+      //console.log('lmdbFileSize', lmdbFileSize.toLocaleString())
+      const lmdbFileSizeInGBi = parseInt(lmdbFileSize) / (1024 * 1024 * 1024)
+      if (debug) console.log('lmdbFileSizeInGBi', lmdbFileSizeInGBi)
+      // don't count their current lmdbSize against them
+      blockchain_size -= lmdbFileSizeInGBi
+    }
+    const total_size = blockchain_size + storage_size
+    // FIXME: compare by device name not exact size (or maybe both?)
     if (diskspaces.blockchain === diskspaces.storage) {
-      if (diskspaces.blockchain < total_size) {
+      var requiredAmount = total_size
+      if (diskspaces.blockchain < requiredAmount) {
         console.warn('DiskSpace: Failed !')
-        log.push('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + total_size +
+        log.push('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + requiredAmount.toFixed(2) +
           'GBi free, you have ' + diskspaces.blockchain.toFixed(2) + 'GBi')
         snode_problems++
       } else {
