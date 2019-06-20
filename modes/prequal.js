@@ -113,7 +113,7 @@ module.exports = function(config, debug) {
         console.warn('DiskSpace_storage: Failed !')
         log.push('YOU DO NOT HAVE ENOUGH DISK SPACE FREE, you need ' + storage_size +
           'GBi free, you have ' + diskspaces.storage.toFixed(2) + 'GBi on ' +
-          config.storage.db_location)
+          config.storage.data_dir)
         snode_problems++
       } else {
         console.log('DiskSpace_storage: Success !')
@@ -147,11 +147,11 @@ module.exports = function(config, debug) {
       markCheckDone('diskspace')
       // can't do these in parallel apparently
       if (0) {
-        if (config.storage.db_location === undefined) config.storage.db_location = '.'
-        console.log('Starting disk space check on storage server partition', config.blockchain.data_dir)
-        if (config.storage.db_location) {
-          getFreeSpaceUnix(config.storage.db_location, function(space) {
-            if (debug) console.debug(config.storage.db_location, 'space', space, 'GBi free')
+        if (config.storage.data_dir === undefined) config.storage.data_dir = '.'
+        console.log('Starting disk space check on storage server partition', config.storage.data_dir)
+        if (config.storage.data_dir) {
+          getFreeSpaceUnix(config.storage.data_dir, function(space) {
+            if (debug) console.debug(config.storage.data_dir, 'space', space, 'GBi free')
             diskspaces.storage = space
             markCheckDone('diskspace2')
           })

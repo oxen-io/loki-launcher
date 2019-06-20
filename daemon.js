@@ -155,12 +155,8 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.log_level) {
     optionals.push('--log-level', config.storage.log_level)
   }
-  // FIXME: make launcher handle all logging
-  if (config.storage.output_log) {
-    optionals.push('--output-log', config.storage.output_log)
-  }
-  if (config.storage.db_location) {
-    optionals.push('--db-location', config.storage.db_location)
+  if (config.storage.data_dir) {
+    optionals.push('--data-dir', config.storage.data_dir)
   }
   if (config.storage.lokid_rpc_port) {
     optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
@@ -258,9 +254,9 @@ function startStorageServer(config, args, cb) {
       if (ip) {
         console.log('DAEMON: starting storageServer on', ip)
         config.storage.ip = ip
-        if (config.storage.db_location !== undefined) {
-          if (!fs.existsSync(config.storage.db_location)) {
-            lokinet.mkDirByPathSync(config.storage.db_location)
+        if (config.storage.data_dir !== undefined) {
+          if (!fs.existsSync(config.storage.data_dir)) {
+            lokinet.mkDirByPathSync(config.storage.data_dir)
           }
         }
         launcherStorageServer(config, args, cb)
@@ -275,9 +271,9 @@ function startStorageServer(config, args, cb) {
       console.log('DAEMON: starting storageServer on', localIP)
       // we can only ever bind to the local IP
       config.storage.ip = localIP
-      if (config.storage.db_location !== undefined) {
-        if (!fs.existsSync(config.storage.db_location)) {
-          lokinet.mkDirByPathSync(config.storage.db_location)
+      if (config.storage.data_dir !== undefined) {
+        if (!fs.existsSync(config.storage.data_dir)) {
+          lokinet.mkDirByPathSync(config.storage.data_dir)
         }
       }
       launcherStorageServer(config, args, cb)

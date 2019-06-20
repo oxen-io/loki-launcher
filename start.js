@@ -439,10 +439,10 @@ module.exports = function(args, config, entryPoint) {
       process.exit(1)
     }
 
-    if (config.storage.db_location !== undefined) {
-      if (fs.existsSync(config.storage.db_location)) {
-        if (!fs.lstatSync(config.storage.db_location).isDirectory()) {
-          console.error('storage server db_location is not a directory', config.storage.db_location)
+    if (config.storage.data_dir !== undefined) {
+      if (fs.existsSync(config.storage.data_dir)) {
+        if (!fs.lstatSync(config.storage.data_dir).isDirectory()) {
+          console.error('storage server data_dir is not a directory', config.storage.data_dir)
           process.exit(1)
         } // else perfect
       } // else we'll make
