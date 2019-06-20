@@ -97,7 +97,7 @@ function start(user, dir, config) {
       config.blockchain.data_dir = homedir + '/.loki'
       const data_dir = configUtil.getLokiDataDir(config)
       // create it if needed
-      if (fs.existsSync(data_dir)) {
+      if (!fs.existsSync(data_dir)) {
         lokinet.mkDirByPathSync(data_dir)
       }
       //console.log('default blockchain data_dir is', data_dir)
@@ -105,12 +105,24 @@ function start(user, dir, config) {
     } else {
       if (config.blockchain.data_dir) fs.chownSync(config.blockchain.data_dir, uid, 0)
     }
+    // config.storage.data_dir
+    // if this is default, then we'll be the wrong user...
+    if (config.storage.data_dir_is_default) {
+      config.storage.data_dir = homedir + '/.loki/storage'
+      // create it if needed
+      if (!fs.existsSync(config.storage.data_dir)) {
+        lokinet.mkDirByPathSync(config.storage.data_dir)
+      }
+      fs.chownSync(config.storage.data_dir, uid, 0)
+    } else {
+      if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
+    }
     // config.network.data_dir
     if (config.network.data_dir) fs.chownSync(config.network.data_dir, uid, 0)
     // config.network.lokinet_nodedb
     if (config.network.lokinet_nodedb) fs.chownSync(config.network.lokinet_nodedb, uid, 0)
-    // config.storage.db_location
-    if (config.storage.db_location) fs.chownSync(config.storage.db_location, uid, 0)
+    // config.storage.data_dir
+    if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
     // apt will all be owned as root...
     // /opt/loki-launcher/bin
     if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {

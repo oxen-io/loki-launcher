@@ -118,6 +118,11 @@ function checkNetworkConfig(config) {
 
 function checkStorageConfig(config) {
   if (config.storage === undefined) config.storage = {}
+  if (config.storage.data_dir === undefined) {
+    const os = require('os')
+    config.storage.data_dir = os.homedir() + '/.loki/storage'
+    config.storage.data_dir_is_default = true
+  }
 }
 
 function postcheckConfig(config) {
@@ -137,9 +142,9 @@ function ensureDirectoriesExist(config, uid) {
     fs.chownSync(config.launcher.var_path, uid, 0)
   }
   // from daemon...
-  if (config.storage.db_location !== undefined) {
-    if (!fs.existsSync(config.storage.db_location)) {
-      lokinet.mkDirByPathSync(config.storage.db_location)
+  if (config.storage.data_dir !== undefined) {
+    if (!fs.existsSync(config.storage.data_dir)) {
+      lokinet.mkDirByPathSync(config.storage.data_dir)
       fs.chownSync(config.launcher.var_path, uid, 0)
     }
   }
