@@ -172,77 +172,55 @@ function getPublicIPv6(cb) {
 }
 
 var getPublicIPv4_retries = 0
-function getPublicIPv4(cb) {
+const getPublicIPv4 = async (cb) => {
   // trust more than one source
   // randomly find 2 matching sources
 
   // dns is faster than http
   // dig +short myip.opendns.com @resolver1.opendns.com
   // httpGet doesn't support https yet...
-  var publicIpServices = [
-    { url: 'https://api.ipify.org' },
-    { url: 'https://ipinfo.io/ip' },
-    { url: 'https://ipecho.net/plain' },
-    //{ url: 'http://api.ipify.org' },
-    //{ url: 'http://ipinfo.io/ip' },
-    //{ url: 'http://ipecho.net/plain' },
-    { url: 'http://ifconfig.me' },
-    { url: 'http://ipv4.icanhazip.com' },
-    { url: 'http://v4.ident.me' },
-    { url: 'http://checkip.amazonaws.com' },
-    //{ url: 'https://checkip.dyndns.org', handler: dynDNSHandler },
+  const publicIpServices = [
+    'https://api.ipify.org',
+    'https://ipinfo.io/ip',
+    'https://ipecho.net/plain',
+    'http://ifconfig.me',
+    'http://ipv4.icanhazip.com',
+    'http://v4.ident.me',
+    'http://checkip.amazonaws.com',
   ]
-  var service = []
-  service[0] = Math.floor(Math.random() * publicIpServices.length)
-  service[1] = service[0]
-  while (service[1] == service[0]) {
-    service[1] = Math.floor(Math.random() * publicIpServices.length)
-  }
-  var done = [false, false]
-  function markDone(idx, value) {
-    if (value === undefined) value = ''
-    done[idx] = value.trim()
-    let ready = true
-    //log('done', done)
-    for (var i in done) {
-      if (done[i] === false) {
-        ready = false
-        log('getPublicIPv4', i, 'is not ready')
-        break
-      }
-    }
-    if (!ready) return
-    log('getPublicIPv4 look ups are done', done)
-    if (done[0] != done[1]) {
-      // try 2 random services again
-      getPublicIPv4_retries++
-      if (getPublicIPv4_retries > 10) {
-        console.error('NAT detection: Can\'t determine public IP address')
-        process.exit()
-      }
-      getPublicIPv4(cb)
-    } else {
-      // return
-      //log("found public IP", done[0])
-      cb(done[0])
-    }
-  }
 
-  function doCall(number) {
-    httpGet(publicIpServices[service[number]].url, function (ip) {
-      if (ip === false) {
-        service[number] = (Math.random() * publicIpServices.length)
-        // retry
-        console.warn(publicIpServices[service[number]].url, 'failed, retrying')
-        doCall(number)
-        return
+  const getIP = () => {
+    // Promise wrapper around httpGet callback
+    return new Promise((resolve) => {
+      if (publicIpServices.length === 0) {
+        resolve(false)
       }
-      console.log(number, publicIpServices[service[number]].url, ip)
-      markDone(number, ip)
+      const service = publicIpServices.splice(Math.floor(Math.random() * publicIpServices.length), 1)[0]
+      httpGet(service, (ip) => {
+        if (!ip) {
+          // retry
+          console.warn(`${service} failed, retrying`)
+          resolve(getIP())
+        }
+        resolve(ip.trim())
+      })
     })
   }
-  doCall(0)
-  doCall(1)
+
+  // Wait for 2 IP results or any number of failures
+  const results = await Promise.all([getIP(), getIP()])
+  if (results[0] !== results[1]) {
+    // try 2 random services again
+    getPublicIPv4_retries++
+    if (getPublicIPv4_retries > 10) {
+      console.error('NAT detection: Can\'t determine public IP address')
+      process.exit()
+    }
+    getPublicIPv4(cb)
+  } else {
+    log('getPublicIPv4 look ups are done', results)
+    cb(results[0])
+  }
 }
 
 function portIsFree(ip, port, cb) {
