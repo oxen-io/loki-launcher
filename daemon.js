@@ -373,8 +373,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
 // compile config into CLI arguments
 // only needs to be ran when config changes
 function configureLokid(config, args) {
-  // FIXME: launcher.ini blockchain option to disable restricted-rpc-listen
-  var lokid_options = ['--service-node', '--restricted-rpc']
+  var lokid_options = ['--service-node']
 
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
