@@ -499,16 +499,23 @@ module.exports = function(args, config, entryPoint) {
     // sudo __daemon=1 node index.js
     //daemon(args, __filename, lokinet, config, getLokiDataDir)
     var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
-    //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
-    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
-      // start the lokinet prep
-      daemon.startLokinet(config, args, function(started) {
-        //console.log('StorageServer now running', started)
-        if (!started) {
-          daemon.shutdown_everything()
-        }
+    // FIXME: Don't recalculate publicIPv4 when starting lokinet
+    lokinet.getPublicIPv4((publicIPv4) => {
+      config.launcher.publicIPv4 = publicIPv4
+      // set storage port default
+      if (!config.storage.port) {
+        config.storage.port = 8080
+      }
+      daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
+        // start the lokinet prep
+        daemon.startLokinet(config, args, function(started) {
+          //console.log('StorageServer now running', started)
+          if (!started) {
+            daemon.shutdown_everything()
+          }
+        })
+        daemon.startLokid(config, args)
       })
-      daemon.startLokid(config, args)
     })
   }
 

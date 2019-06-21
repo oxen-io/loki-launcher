@@ -146,10 +146,6 @@ function launcherStorageServer(config, args, cb) {
     if (cb) cb(false)
     return
   }
-  // set storage port default
-  if (!config.storage.port) {
-    config.storage.port = 8080
-  }
   // configure command line parameters
   let optionals = ['--lokid-key', config.storage.lokid_key]
   if (config.storage.log_level) {
@@ -369,7 +365,13 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
 // compile config into CLI arguments
 // only needs to be ran when config changes
 function configureLokid(config, args) {
-  var lokid_options = ['--service-node']
+  var lokid_options = [
+    '--service-node',
+    '--storage-server-port',
+    config.storage.port,
+    '--sn-public-ip',
+    config.launcher.publicIPv4,
+  ]
 
   // if ip is not localhost, pass it to lokid
   if (config.blockchain.rpc_ip && config.blockchain.rpc_ip != '127.0.0.1') {
