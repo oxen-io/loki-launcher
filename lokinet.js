@@ -209,7 +209,8 @@ const getPublicIPv4 = async (cb) => {
 
   // Wait for 2 IP results or any number of failures
   const results = await Promise.all([getIP(), getIP()])
-  if (results[0] !== results[1]) {
+  // Try again if the results are different or if they are false
+  if (results[0] !== results[1] || !results[0]) {
     // try 2 random services again
     getPublicIPv4_retries++
     if (getPublicIPv4_retries > 10) {
