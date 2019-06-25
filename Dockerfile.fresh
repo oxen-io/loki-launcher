@@ -12,7 +12,6 @@ RUN curl -sL https://deb.nodesource.com/setup_${node_ver}.x | bash - && apt-get 
 # install local dev version
 WORKDIR /usr/src/app
 #ADD *.js .
-COPY check-systemd.js .
 COPY config.js .
 COPY daemon.js .
 COPY get-uid.js .
@@ -21,6 +20,7 @@ COPY ini.js .
 COPY lets_tcp.js .
 COPY lib.js .
 COPY lib.networkTest.js .
+COPY modes/check-systemd.js modes/
 COPY modes/client.js modes/
 COPY modes/bw-test.js modes/
 COPY modes/download-binaries.js modes/
