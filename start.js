@@ -500,16 +500,35 @@ module.exports = function(args, config, entryPoint) {
     //daemon(args, __filename, lokinet, config, getLokiDataDir)
     var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
     //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
-    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
-      // start the lokinet prep
-      daemon.startLokinet(config, args, function(started) {
-        //console.log('StorageServer now running', started)
-        if (!started) {
-          daemon.shutdown_everything()
-        }
+
+    function start(config, foregroundIt, entryPoint, args) {
+      daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
+        // start the lokinet prep
+        daemon.startLokinet(config, args, function(started) {
+          //console.log('StorageServer now running', started)
+          if (!started) {
+            daemon.shutdown_everything()
+          }
+        })
+        daemon.startLokid(config, args)
       })
-      daemon.startLokid(config, args)
-    })
+    }
+
+    if (config.launcher.publicIPv4) {
+      // manually configured
+      start(config, foregroundIt, entryPoint, args)
+    } else {
+      // auto configure value
+      // FIXME: should this be here? or earlier...
+      lokinet.getPublicIPv4(function(publicIPv4) {
+        if (!publicIPv4) {
+          console.error('LAUNCHER: could not determine a IPv4 public address for this host')
+          process.exit()
+        }
+        config.launcher.publicIPv4 = publicIPv4
+        start(config, foregroundIt, entryPoint, args)
+      })
+    }
   }
 
   //
