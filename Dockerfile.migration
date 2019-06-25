@@ -37,7 +37,6 @@ WantedBy=multi-user.target\n\' > /etc/systemd/system/lokid.service
 WORKDIR /usr/src/app
 
 #ADD *.js .
-COPY check-systemd.js .
 COPY config.js .
 COPY daemon.js .
 COPY get-uid.js .
@@ -46,6 +45,7 @@ COPY ini.js .
 COPY lets_tcp.js .
 COPY lib.js .
 COPY lib.networkTest.js .
+COPY modes/check-systemd.js modes/
 COPY modes/bw-test.js modes/
 COPY modes/client.js modes/
 COPY modes/download-binaries.js modes/
