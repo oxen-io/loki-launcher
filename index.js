@@ -224,7 +224,7 @@ switch(mode) {
   case 'console': // official
     // enable all 3
   case 'blockchain':
-    require(__dirname + '/client')(config)
+    require(__dirname + '/modes/client')(config)
   break;
   case 'prequal': // official
     require(__dirname + '/modes/prequal')(config, false)
