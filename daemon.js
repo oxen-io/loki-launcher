@@ -379,17 +379,6 @@ function configureLokid(config, args) {
   if (config.blockchain.rpc_pass) {
     lokid_options.push('--rpc-login='+config.blockchain.rpc_user+':'+config.blockchain.rpc_pass)
   }
-  // net selection
-  if (config.blockchain.network == "test") {
-    lokid_options.push('--testnet')
-  } else
-  if (config.blockchain.network == "demo") {
-    lokid_options.push('--testnet')
-    lokid_options.push('--add-priority-node=116.203.126.14')
-  } else
-  if (config.blockchain.network == "staging") {
-    lokid_options.push('--stagenet')
-  }
   if (!config.launcher.interactive) {
     // we handle the detach, we don't need to detach lokid from us
     // we need this now to keep a console open
@@ -443,6 +432,27 @@ function configureLokid(config, args) {
       }
     }
     lokid_options.push(args[i])
+  }
+
+  // net selection at the very end because we may need to override a lot of things
+  if (config.blockchain.network == "test") {
+    lokid_options.push('--testnet')
+    // 4.0 not requires these
+    lokid_options.push('--storage-server-port', config.storage.port)
+    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+  } else
+  if (config.blockchain.network == "demo") {
+    lokid_options.push('--testnet')
+    lokid_options.push('--add-priority-node=116.203.126.14')
+    // 4.0 not requires these
+    lokid_options.push('--storage-server-port', config.storage.port)
+    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+  } else
+  if (config.blockchain.network == "staging") {
+    lokid_options.push('--stagenet')
+    // 4.0 not requires these
+    lokid_options.push('--storage-server-port', config.storage.port)
+    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
   }
 
   return {
@@ -610,8 +620,12 @@ function handleInput(line) {
   return false
 }
 
+// startLokid should generate a current config for launcherLokid
+// but the launcherLokid config should be locked in and not changeable
+// so startLokid is the last opportunity to update it
+// and we'll recall this function if we need to update the config too...
+// also implies we'd need a reload other than HUP, USR1?
 function startLokid(config, args) {
-
   var parameters = configureLokid(config, args)
   var lokid_options = parameters.lokid_options
   //console.log('configured ', config.blockchain.binary_path, lokid_options.join(' '))
