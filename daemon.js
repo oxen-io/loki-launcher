@@ -247,6 +247,14 @@ function launcherStorageServer(config, args, cb) {
 
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
+  // does this belong here?
+  if (config.storage.enabled) {
+    if (config.storage.data_dir !== undefined) {
+      if (!fs.existsSync(config.storage.data_dir)) {
+        lokinet.mkDirByPathSync(config.storage.data_dir)
+      }
+    }
+  }
   if (config.network.enabled) {
     lokinet.getLokiNetIP(function (ip) {
       // lokinet has started, save config and various process pid
@@ -254,11 +262,6 @@ function startStorageServer(config, args, cb) {
       if (ip) {
         console.log('DAEMON: starting storageServer on', ip)
         config.storage.ip = ip
-        if (config.storage.data_dir !== undefined) {
-          if (!fs.existsSync(config.storage.data_dir)) {
-            lokinet.mkDirByPathSync(config.storage.data_dir)
-          }
-        }
         launcherStorageServer(config, args, cb)
       } else {
         console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
@@ -271,11 +274,6 @@ function startStorageServer(config, args, cb) {
       console.log('DAEMON: starting storageServer on', localIP)
       // we can only ever bind to the local IP
       config.storage.ip = localIP
-      if (config.storage.data_dir !== undefined) {
-        if (!fs.existsSync(config.storage.data_dir)) {
-          lokinet.mkDirByPathSync(config.storage.data_dir)
-        }
-      }
       launcherStorageServer(config, args, cb)
     })
   } else {
