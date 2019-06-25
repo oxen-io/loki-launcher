@@ -23,28 +23,6 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - Linux (though macos does works and Windows kind of works)
 - xz (xz-utils apt package) to be able to download and extract updated Linux binaries
 
-# How to upgrade to the launcher from running a lokid 3.0.6 service node (set up with systemd)
-
-1. Install nodejs (and npm) and then install the launcher as root:
-
-`sudo npm install -g loki-launcher`
-
-2. Stop your existing service node:
-
-`sudo systemctl stop lokid.service`
-
-3. Run the check-systemd to make systemd now launch the launcher instead of lokid:
-
-`sudo loki-launcher check-systemd`
-
-4. Make sure the service is up to date:
-
-`sudo systemctl daemon-reload`
-
-5. Start lokid.service:
-
-`sudo systemctl start lokid.service`
-
 # How to do a fresh service node install
 
 This will use npm to install the launcher
@@ -96,6 +74,10 @@ And be sure to make sure you restart your service node (if it's staked) by
 
 `loki-launcher start`
 
+## Other
+
+[upgrading from lokid 3.0.6 with systemd to use the launcher](upgrading.md)
+
 # Popular linux distribution instructions to install NodeJS
 
 Ubuntu NodeJS installation:
@@ -120,6 +102,6 @@ You can download the loki binaries (faster) from each above page's release secti
 
 or
 
-You can build from source, you can use the [init.sh](init.sh) script to pull the latest source.
+You can build from source. Make sure you select the correct repos/branches/versions as not all versions will work with each other.
 
 And if you don't have the dependencies to build from source check out [contrib/dependency_helper/](contrib/dependency_helper/getDepsUnix.sh)
