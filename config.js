@@ -1,6 +1,7 @@
 const fs = require('fs')
 
 // only defaults we can save to disk
+// disk config is loaded over this...
 function getDefaultConfig(entrypoint) {
   const config = {
     launcher: {
@@ -55,6 +56,9 @@ function getLokiDataDir(config) {
   return dir
 }
 
+// some auto config is slow and needs to be done only if we're ready to activate that sub system
+// so maybe a lazyLoad config function for each subsystem to keep it organized
+
 function precheckConfig(config) {
   if (config.launcher === undefined) config.launcher = { interface: false }
   if (config.blockchain === undefined) config.blockchain = {}
@@ -80,6 +84,17 @@ function precheckConfig(config) {
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
   // getLokiDataDir should only be called after this point
   dataDirReady = true
+}
+
+function checkLauncherConfig(config) {
+}
+
+// do we call this once per launcher start
+// or on every daemon restart (not really applicable for launcher more for the other daemons...)
+// i.e. storage/lokinet restarts, we need to know the current ip if in auto-config mode
+// and then what about populating configs when we don't need too...
+function setupLauncherConfig(config) {
+//
 }
 
 function checkBlockchainConfig(config) {
@@ -122,6 +137,10 @@ function checkStorageConfig(config) {
     const os = require('os')
     config.storage.data_dir = os.homedir() + '/.loki/storage'
     config.storage.data_dir_is_default = true
+  }
+  // set default port
+  if (!config.storage.port) {
+    config.storage.port = 8080
   }
 }
 
@@ -172,6 +191,7 @@ function ensureDirectoriesExist(config, uid) {
 
 function checkConfig(config) {
   precheckConfig(config)
+  checkLauncherConfig(config)
   checkBlockchainConfig(config)
   checkNetworkConfig(config)
   checkStorageConfig(config)
@@ -182,6 +202,7 @@ module.exports = {
   check: checkConfig,
   getDefaultConfig: getDefaultConfig,
   precheckConfig: precheckConfig,
+  checkLauncherConfig: checkLauncherConfig,
   checkBlockchainConfig: checkBlockchainConfig,
   checkNetworkConfig: checkNetworkConfig,
   checkStorageConfig: checkStorageConfig,
