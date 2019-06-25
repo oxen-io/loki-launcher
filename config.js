@@ -59,6 +59,8 @@ function getLokiDataDir(config) {
 // some auto config is slow and needs to be done only if we're ready to activate that sub system
 // so maybe a lazyLoad config function for each subsystem to keep it organized
 
+// normalization is done here...?
+// and how much when...
 function precheckConfig(config) {
   if (config.launcher === undefined) config.launcher = { interface: false }
   if (config.blockchain === undefined) config.blockchain = {}

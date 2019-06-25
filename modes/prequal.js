@@ -88,6 +88,7 @@ module.exports = function(config, debug) {
     }
     const total_size = blockchain_size + storage_size
     // FIXME: compare by device name not exact size (or maybe both?)
+    // FIXME: move out since we're doing it in serial now...
     if (diskspaces.blockchain === diskspaces.storage) {
       var requiredAmount = total_size
       if (diskspaces.blockchain < requiredAmount) {
