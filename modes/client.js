@@ -2,7 +2,7 @@
 const fs        = require('fs')
 const os        = require('os')
 const net       = require('net')
-const lib       = require(__dirname + '/lib')
+const lib       = require(__dirname + '/../lib')
 const { spawn } = require('child_process')
 const stdin     = process.openStdin()
 
@@ -14,7 +14,6 @@ function clientConnect(config) {
     // 'connect' listener
     console.log('connected to server!')
     console.log('Remember to use ctrl-c to exit the client without shutting down the service node')
-    //client.write('world!\r\n')
   })
   //client.setEncoding('utf-8')
   client.on('error', (err) => {
@@ -48,7 +47,6 @@ function clientConnect(config) {
       */
     console.log('FROM SOCKET:', stripped)
     //}
-    //client.end()
   })
   client.on('end', () => {
     console.log('disconnected from server')
