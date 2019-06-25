@@ -241,7 +241,7 @@ switch(mode) {
   break;
   case 'check-systemd':
   case 'upgrade-systemd': // official
-    require(__dirname + '/check-systemd').start(config, __filename)
+    require(__dirname + '/modes/check-systemd').start(config, __filename)
   break;
   case 'chown':
   case 'fixperms':
