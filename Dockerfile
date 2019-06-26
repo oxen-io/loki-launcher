@@ -264,7 +264,12 @@ COPY start.js .
 COPY config.js .
 COPY uid.js .
 COPY get-uid.js .
-COPY modes .
+COPY modes/check-systemd.js modes/
+COPY modes/client.js modes/
+COPY modes/bw-test.js modes/
+COPY modes/download-binaries.js modes/
+COPY modes/fix-perms.js modes/
+COPY modes/prequal.js modes/
 COPY launcher-docker.ini launcher.ini
 # this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
