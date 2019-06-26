@@ -260,7 +260,6 @@ COPY ini.js .
 COPY lib.js .
 COPY lokinet.js .
 COPY index.js .
-COPY client.js .
 COPY start.js .
 COPY config.js .
 COPY uid.js .
