@@ -198,7 +198,7 @@ FROM ubuntu:latest as network
 
 #RUN apk update && \
 #    apk add build-base cmake git libcap-dev curl ninja bash binutils-gold
-RUN apt update && apt install -y cmake git libpcap-dev curl ninja bash binutils-gold
+RUN apt update && apt install -y build-essential cmake git libcap-dev bsdmainutils curl git ca-certificates ccache ninja-build
 
 WORKDIR /src
 #COPY src/loki-network /src/
@@ -209,7 +209,7 @@ WORKDIR /src/loki-network
 #&& git checkout master && git submodule init && git submodule update
 
 # do we want Release?
-RUN make NINJA=ninja STATIC_LINK=ON
+RUN make NINJA=ninja
 #BUILD_TYPE=Release
 #RUN ./lokinet-bootstrap
 
@@ -225,8 +225,8 @@ COPY src/loki-storage-server/install-deps-linux.sh install-deps-linux.sh
 RUN ./install-deps-linux.sh
 #COPY src/loki-storage-server .
 
-ADD https://api.github.com/repos/loki-project/loki-storage-server/git/refs/heads/master version.json
-RUN git clone https://github.com/loki-project/loki-storage-server.git && cd loki-storage-server && git checkout master
+ADD https://api.github.com/repos/loki-project/loki-storage-server/git/refs/heads/dev version.json
+RUN git clone https://github.com/loki-project/loki-storage-server.git && cd loki-storage-server && git checkout dev
 #&& git submodule init && git submodule update
 
 WORKDIR /src/loki-storage-server
@@ -260,12 +260,16 @@ COPY ini.js .
 COPY lib.js .
 COPY lokinet.js .
 COPY index.js .
-COPY client.js .
 COPY start.js .
 COPY config.js .
 COPY uid.js .
 COPY get-uid.js .
-COPY modes .
+COPY modes/check-systemd.js modes/
+COPY modes/client.js modes/
+COPY modes/bw-test.js modes/
+COPY modes/download-binaries.js modes/
+COPY modes/fix-perms.js modes/
+COPY modes/prequal.js modes/
 COPY launcher-docker.ini launcher.ini
 # this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
@@ -275,5 +279,5 @@ RUN mkdir -p /root/lokinet
 #RUN echo "nameserver 127.0.0.1" > /etc/resolv.conf
 #RUN echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
-EXPOSE 22022 22023 22024 1090/udp 1190 38154 38155 38157 38158 38159 38161
-CMD ["node", "index.js"]
+EXPOSE 22022 22023 22024 1090/udp 1190 38154 38155 38157 38158 38159 38161 8080
+CMD ["./index.js", "daemon-start"]
