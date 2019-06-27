@@ -640,16 +640,25 @@ module.exports = function(args, config, entryPoint) {
         daemon.shutdown_everything()
       }
     } else {
-      //console.log('watching lokid, will reclaim control when it restarts')
-      if (!pids.lokinet || !lib.isPidRunning(pids.lokinet)) {
-        // kill storage server
-        killStorageServer(config, running, pids)
-        // well assuming old lokid is still running
-        daemon.startLokinet(config, shutdownIfNotStarted)
-      } else
-        if (!pids.storageServer ||!lib.isPidRunning(pids.storageServer)) {
-          daemon.startStorageServer(config, args, shutdownIfNotStarted)
+      console.log('RECOVERY: waiting for loki key at', config.storage.lokid_key)
+      waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
+        if (!haveKey) {
+          console.error('DAEMON: timeout waiting for loki key')
+          // FIXME: what do?
+          return
         }
+        console.log('RECOVERY: got loki key!')
+        //console.log('watching lokid, will reclaim control when it restarts')
+        if (!pids.lokinet || !lib.isPidRunning(pids.lokinet)) {
+          // kill storage server
+          killStorageServer(config, running, pids)
+          // well assuming old lokid is still running
+          daemon.startLokinet(config, shutdownIfNotStarted)
+        } else
+          if (!pids.storageServer ||!lib.isPidRunning(pids.storageServer)) {
+            daemon.startStorageServer(config, args, shutdownIfNotStarted)
+          }
+      })
     }
     // as long as there's something to monitor
     if (pids.lokid || pids.lokinet || pids.storageServer) {
@@ -666,17 +675,27 @@ module.exports = function(args, config, entryPoint) {
     }
   }
 
-  // figure out how to recover state with a running lokid
-  if (config.network.enabled && !running.lokinet) {
-    // start lokinet
-    // therefore starting storageServer
-    daemon.startLokinet(config, args, shutdownIfNotStarted)
-  } else
-    if (config.storage.enabled && !running.storageServer) {
-      // start storageServer
-      daemon.startStorageServer(config, args, shutdownIfNotStarted)
+  console.log('RECOVERY: waiting for loki key at', config.storage.lokid_key)
+  waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
+    if (!haveKey) {
+      console.error('DAEMON: timeout waiting for loki key')
+      // FIXME: what do?
+      return
     }
+    console.log('RECOVERY: got loki key!')
 
+    // figure out how to recover state with a running lokid
+    if (config.network.enabled && !running.lokinet) {
+      // start lokinet
+      // therefore starting storageServer
+      daemon.startLokinet(config, args, shutdownIfNotStarted)
+    } else
+      if (config.storage.enabled && !running.storageServer) {
+        // start storageServer
+        daemon.startStorageServer(config, args, shutdownIfNotStarted)
+      }
+
+  })
   // we need start watching everything all over again
   launcherRecoveryMonitor(config)
 
