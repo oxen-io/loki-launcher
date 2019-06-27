@@ -440,20 +440,20 @@ function configureLokid(config, args) {
     lokid_options.push('--testnet')
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   } else
   if (config.blockchain.network == "demo") {
     lokid_options.push('--testnet')
     lokid_options.push('--add-priority-node=116.203.126.14')
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   } else
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   }
 
   return {
