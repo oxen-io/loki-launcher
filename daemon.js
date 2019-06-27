@@ -161,6 +161,9 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.lokid_rpc_port) {
     optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
   }
+  if (config.storage.force_start) {
+    optionals.push('--force-start')
+  }
   console.log('STORAGE: launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
   // ip and port must be first
   storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
@@ -463,20 +466,20 @@ function configureLokid(config, args) {
     lokid_options.push('--testnet')
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   } else
   if (config.blockchain.network == "demo") {
     lokid_options.push('--testnet')
     lokid_options.push('--add-priority-node=116.203.126.14')
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   } else
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--sn-public-ip', config.launcher.publicIPv4)
+    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   }
 
   return {
