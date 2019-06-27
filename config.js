@@ -21,7 +21,7 @@ function getDefaultConfig(entrypoint) {
     // apt install
     delete config.launcher.prefix // remove prefix
     config.blockchain.binary_path = '/usr/sbin/lokid'
-    config.launcher.run_path = '/var/lib/loki-launcher'
+    config.launcher.var_path = '/var/lib/loki-launcher'
   }
   return config
 }
@@ -29,9 +29,9 @@ function getDefaultConfig(entrypoint) {
 // FIXME: convert getLokiDataDir to internal config value
 // something like estimated/calculated loki_data_dir
 // also this will change behavior if we actually set the CLI option to lokid
-var dataDirReady = false
+var blockchainDataDirReady = false
 function getLokiDataDir(config) {
-  if (!dataDirReady) {
+  if (!blockchainDataDirReady) {
     console.log('getLokiDataDir is not ready for use!')
     process.exit(1)
   }
@@ -54,6 +54,65 @@ function getLokiDataDir(config) {
       }
   //}
   return dir
+}
+
+var storageDataDirReady = false
+function getStorageServerDataDir(config) {
+  if (!storageDataDirReady) {
+    console.log('getLokiDataDir is not ready for use!')
+    process.exit(1)
+  }
+  // has no trailing slash
+  var dir = config.storage.data_dir
+  // enforce: no trailing slash
+  if (dir[dir.length - 1] == '/') {
+    dir = dir.slice(0, -1)
+  }
+  // I think Jason was wrong about this
+  //if (blockchain_useDefaultDataDir) {
+  if (config.blockchain.network == 'staging') {
+    dir += '/stagenet'
+  } else
+    if (config.blockchain.network == 'demo') {
+      dir += '/testnet'
+    } else
+      if (config.blockchain.network == 'test') {
+        dir += '/testnet'
+      }
+  //}
+  return dir
+}
+
+function normalizeNetworkString(configAsk) {
+  var net = 'main'
+  // normalize inputs (allow for more options but clamping it down internally)
+  var lConfigAsk = configAsk.toLowerCase()
+  if (lConfigAsk == "test" || lConfigAsk == "testnet" || lConfigAsk == "test-net") {
+    net = 'test'
+  } else
+    if (lConfigAsk == "consensusnet" || lConfigAsk == "consensus" || lConfigAsk == "demo") {
+      // it's called demo in the launcher because I feel strong this is the best label
+      // we can reuse this for future demos as an isolated network
+      net = 'demo'
+    } else
+      if (lConfigAsk == "staging" || lConfigAsk == "stage") {
+        net = 'staging'
+      }
+  return net
+}
+
+function configureNetworks(config) {
+  if (config.launcher.network) {
+    config.launcher.network = normalizeNetworkString(config.launcher.network)
+    if (config.blockchain.network === undefined) {
+      // FIXME: what about xmr options?
+      config.blockchain.network = config.launcher.network
+    }
+  } else if (config.blockchain.network) {
+    // launcher network is not set
+    config.blockchain.network = normalizeNetworkString(config.blockchain.network)
+    config.launcher.network = config.blockchain.network
+  }
 }
 
 // some auto config is slow and needs to be done only if we're ready to activate that sub system
@@ -85,7 +144,8 @@ function precheckConfig(config) {
   }
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
   // getLokiDataDir should only be called after this point
-  dataDirReady = true
+  blockchainDataDirReady = true
+  storageDataDirReady = true
 }
 
 function checkLauncherConfig(config) {
