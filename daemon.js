@@ -245,6 +245,22 @@ function launcherStorageServer(config, args, cb) {
   if (cb) cb(true)
 }
 
+function waitForLokiKey(config, timeout, start, cb) {
+  if (start === undefined) start = Date.now()
+  console.log('DAEMON: checking on', config.storage.lokid_key)
+  if (!fs.existsSync(config.storage.lokid_key)) {
+    if (timeout && (Date.now - start > timeout)) {
+      cb(false)
+      return
+    }
+    setTimeout(function() {
+      waitForLokiKey(config, timeout, start, cb)
+    }, 1000)
+    return
+  }
+  cb(true)
+}
+
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
   // does this belong here?
@@ -282,15 +298,25 @@ function startStorageServer(config, args, cb) {
 }
 
 function startLokinet(config, args, cb) {
-  if (config.network.enabled) {
-    lokinet.startServiceNode(config.network, function () {
-      startStorageServer(config, args, cb)
-    })
-  } else {
-    if (config.storage.enabled) {
-      startStorageServer(config, args, cb)
+  // waitForLokiKey(config, timeout, start, cb)
+  console.log('DAEMON: waiting for loki key at', config.storage.lokid_key)
+  waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
+    if (!haveKey) {
+      console.error('DAEMON: timeout waiting for loki key')
+      // FIXME: what do?
+      return
     }
-  }
+    console.log('DAEMON: got loki key!')
+    if (config.network.enabled) {
+      lokinet.startServiceNode(config.network, function () {
+        startStorageServer(config, args, cb)
+      })
+    } else {
+      if (config.storage.enabled) {
+        startStorageServer(config, args, cb)
+      }
+    }
+  })
 }
 
 function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
@@ -769,6 +795,7 @@ module.exports = {
   startLokinet: startLokinet,
   startStorageServer: startStorageServer,
   startLokid: startLokid,
+  waitForLokiKey: waitForLokiKey,
   setupHandlers: setupHandlers,
   shutdown_everything: shutdown_everything,
   config: {}
