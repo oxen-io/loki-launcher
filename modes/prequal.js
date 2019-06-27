@@ -147,7 +147,7 @@ module.exports = function(config, debug) {
       need.diskspace2 = false
       markCheckDone('diskspace')
       // can't do these in parallel apparently
-      if (0) {
+      if (config.storage.enabled) {
         if (config.storage.data_dir === undefined) config.storage.data_dir = '.'
         console.log('Starting disk space check on storage server partition', config.storage.data_dir)
         if (config.storage.data_dir) {
