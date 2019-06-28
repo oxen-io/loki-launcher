@@ -90,66 +90,13 @@ function downloadGithubFile(dest, url, cb) {
   })
 }
 
-// MacOS
-function downloadZip(url, config) {
-  const baseZipDir = pathUtil.basename(url, '.zip')
-  console.log('Downloading Loki binaries from', url)
+function downloadArchive(url, config, options) {
+  var ext = options.ext
+  const baseArchDir = pathUtil.basename(url, ext)
+  var filename = options.filename
+  console.log('Downloading', filename, 'binaries from', url)
   console.log('')
-  var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.zip'
-  //console.log('downloading to tmp file', tmpPath)
-  downloadGithubFile(tmpPath, url, function(result) {
-    if (result !== undefined) {
-      console.log('something went wrong with download, try again later or check with us')
-      process.exit(1)
-    }
-    console.log('')
-    //console.log('result is', result)
-    if (url.match(/\.zip/i)) {
-      const { exec } = require('child_process');
-
-      // FIXME: refactor out
-      function waitForLokidToBeDeadAndExtract() {
-        running = lib.getProcessState(config)
-        if (running.lokid) {
-          console.log('waiting 5s for lokid to quit...')
-          setTimeout(waitForLokidToBeDeadAndExtract, 5000)
-          return
-        }
-        // we could do this check earlier
-        // but maybe we'll add support in the future
-        if (os.platform() == 'darwin') {
-          console.log('Unzipping')
-          exec('tar xvf '+tmpPath+' --strip-components=1 -C /opt/loki-launcher/bin '+baseZipDir+'/lokid', (err, stdout, stderr) => {
-            // delete tmp file
-            if (1) {
-              //console.debug('cleaning up', tmpPath)
-              fs.unlinkSync(tmpPath)
-            }
-            if (err) {
-              console.error('file extract error', err)
-              return
-            }
-            console.log('Unzip Success')
-            //console.log('stdout', stdout)
-            //console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
-          })
-        } else {
-          // how to extract a zip on linux?
-          console.error('Do not know how to extract zips on linux')
-          process.exit(1)
-        }
-      }
-      waitForLokidToBeDeadAndExtract()
-    }
-  })
-}
-
-// Linux
-function downloadTarXz(url, config) {
-  const baseArchDir = pathUtil.basename(url, '.tar.xz')
-  console.log('Downloading Loki binaries from', url)
-  console.log('')
-  var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + '.tar.xz'
+  var tmpPath = '/tmp/loki-launcher_binaryDownload-' + lokinet.randomString(8) + ext
   //console.log('downloading to tmp file', tmpPath)
   downloadGithubFile(tmpPath, url, function(result) {
     if (result !== undefined) {
@@ -157,18 +104,33 @@ function downloadTarXz(url, config) {
       process.exit(1)
     }
     //console.log('result is', result)
-    if (url.match(/\.tar.xz/i)) {
+    var searchRE = new RegExp(ext, 'i')
+    if (url.match(searchRE)) {
       const { exec } = require('child_process');
 
-      function waitForLokidToBeDeadAndExtract() {
+      function waitForBinaryToBeDeadAndExtract() {
         running = lib.getProcessState(config)
-        if (running.lokid) {
-          console.log('waiting 5s for lokid to quit...')
-          setTimeout(waitForLokidToBeDeadAndExtract, 5000)
-          return
+        function waitAndRetry() {
+          console.log('waiting 5s for ' + filename + ' to quit...')
+          setTimeout(waitForBinaryToBeDeadAndExtract, 5000)
         }
+        if (filename == 'lokid') {
+          if (running.lokid) {
+            return waitAndRetry()
+          }
+        } else if (filename == 'loki-storage') {
+          if (running.storageServer) {
+            return waitAndRetry()
+          }
+        }
+        var extractPath = '--strip-components=1 ' + baseArchDir + '/' + filename
+        if (options.useDir === false) {
+          extractPath = filename
+        }
+        var commandLine = 'tar xvf '+tmpPath+' -C /opt/loki-launcher/bin '+extractPath
         console.log('Untarring')
-        exec('tar xvf '+tmpPath+' --strip-components=1 -C /opt/loki-launcher/bin '+baseArchDir+'/lokid', (err, stdout, stderr) => {
+        // FIXME: linux can't extract zips like this (but macos can)
+        exec(commandLine, (err, stdout, stderr) => {
           // delete tmp file
           if (1) {
             //console.debug('cleaning up', tmpPath)
@@ -178,29 +140,33 @@ function downloadTarXz(url, config) {
             console.error('file extract error', err)
             return
           }
-          console.log('Untar Success')
           //console.log('stdout', stdout)
+          //console.log('stderr', stderr)
+          console.log('Untar Success')
+          console.log('Version check')
+          var option = '-version'
+          if (filename == 'loki-storage') {
+            option = 'v'
+          }
+          exec('/opt/loki-launcher/bin/' + filename + ' -' + option, (err, stdout, stderr) => {
+            console.log(filename, stdout)
+            if (options.cb) {
+              options.cb(true)
+            }
+          })
           //console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
         })
       }
-      waitForLokidToBeDeadAndExtract()
+      waitForBinaryToBeDeadAndExtract()
+    } else {
+      console.log('URL', url, 'does not contain .tar.xz')
     }
   })
 }
 
-var start_retries = 0
-function start(config) {
-  var running = lib.getProcessState(config)
-  if (running.lokid) {
-    var pids = lib.getPids(config)
-    console.log('lokid is running, request shutdown')
-    process.kill(pids.lokid, 'SIGINT')
-    // should be down by the time the file downloads...
-  }
-  // deb support? nope, you use apt to update...
-  lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
-  const github_url = 'https://api.github.com/repos/loki-project/loki/releases/latest'
+function downloadRepo(github_url, options, config, cb) {
   lokinet.httpGet(github_url, function(json) {
+    //console.log('got', github_url, 'result', json)
     if (json === undefined) {
       // possibly a 403
       start_retries++
@@ -221,6 +187,13 @@ function start(config) {
       console.error('error with', github_url, e)
       process.exit(1)
     }
+
+    if (data.length) {
+      console.log('got a list of', data.length, 'releases, narrowing it down')
+      data = data[0]
+      console.log('selecting', data.name)
+    }
+
     // FIXME: compare against version we have downloaded...
     // FIXME: how can we get the version of a binary?
     var search = 'UNKNOWN'
@@ -231,20 +204,57 @@ function start(config) {
       console.error('Sorry, platform', os.platform(), 'is not currently supported, please let us know you would like us to support this platform by opening an issue on github: https://github.com/loki-project/loki-launcher/issues')
       process.exit(1)
     }
-    var searchRE = new RegExp(search, 'i');
+    var searchRE = new RegExp(search, 'i')
+    var found = false // we only need one archive for our platform and we'll figure it out
+    options.cb = cb
     for(var i in data.assets) {
       var asset = data.assets[i]
       //console.log(i, 'asset', asset.browser_download_url)
       if (search == 'linux' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
         // linux
-        downloadTarXz(asset.browser_download_url, config)
+        options.ext = '.tar.xz'
+        downloadArchive(asset.browser_download_url, config, options)
       }
+      // storage server support
+      if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
+        // MacOS
+        if (!found) {
+          options.ext = '.tar.xz'
+          downloadArchive(asset.browser_download_url, config, options)
+          found = true
+        }
+      } else
       if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.zip/i)) {
         // MacOS
-        downloadZip(asset.browser_download_url, config)
+        if (!found) {
+          options.ext = '.zip'
+          downloadArchive(asset.browser_download_url, config, options)
+          found = true
+        }
       }
     }
   })
+}
+
+var start_retries = 0
+function start(config) {
+  var running = lib.getProcessState(config)
+  if (running.lokid) {
+    var pids = lib.getPids(config)
+    console.log('lokid is running, request shutdown')
+    process.kill(pids.lokid, 'SIGINT')
+    // should be down by the time the file downloads...
+  }
+  // deb support? nope, you use apt to update...
+  lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
+
+  if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
+    downloadRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false }, config, function() {
+      downloadRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true }, config)
+    })
+  } else {
+    downloadRepo('https://api.github.com/repos/loki-project/loki/releases/latest', { filename: 'lokid', useDir: true }, config)
+  }
 }
 
 module.exports = {
