@@ -42,81 +42,13 @@ module.exports = function(args, config, entryPoint) {
   console.log('loki SN launcher version', VERSION, 'registered')
   const lokinet = require(__dirname + '/lokinet') // needed for checkConfig
 
-  // preprocess command line arguments
-  function parseXmrOptions() {
-    var configSet = {}
-    function setConfig(key, value) {
-      if (configSet[key] !== undefined) {
-        if (configSet[key].constructor.name == 'String') {
-          if (configSet[key] != value) {
-            configSet[key] = [configSet[key], value]
-            //} else {
-            // if just setting the same thing again then nothing to do
-          }
-        } else
-        if (configSet[key].constructor.name == 'Boolean') {
-          // likely a key without a value
-          configSet[key] = value
-        } else
-          if (configSet[key].constructor.name == 'Array') {
-            // FIXME: most array options should be unique...
-            configSet[key].push(value)
-          } else {
-            console.warn('parseXmrOptions::setConfig - Unknown type', configSet[key].constructor.name)
-          }
-      } else {
-        configSet[key] = value
-      }
-    }
-    var last = null
-    for (var i in args) {
-      var arg = args[i]
-      //console.log('arg', arg)
-      if (arg.match(/^--/)) {
-        var removeDashes = arg.replace(/^--/, '')
-        if (arg.match(/=/)) {
-          // key/value pairs
-          var parts = removeDashes.split(/=/)
-          var key = parts.shift()
-          var value = parts.join('=')
-          setConfig(key, value)
-          last = null
-        } else {
-          // --stagenet
-          setConfig(removeDashes, true)
-          last = removeDashes
-        }
-      } else {
-        // hack to allow equal to be optional..
-        if (last != null) {
-          console.log('should stitch together key', last, 'and value', arg, '?')
-          setConfig(last, arg)
-        }
-        last = null
-      }
-    }
-    return configSet
-  }
 
-  var xmrOptions = parseXmrOptions()
+  var xmrOptions = configUtil.parseXmrOptions(args)
   console.log('Parsed command line options', xmrOptions)
 
   var requested_config = config
 
   configUtil.check(config)
-
-  // normalize inputs (allow for more options but clamping it down internally)
-  if (config.blockchain.network.toLowerCase() == "test" || config.blockchain.network.toLowerCase() == "testnet" || config.blockchain.network.toLowerCase() == "test-net") {
-    config.blockchain.network = 'test'
-  } else
-    if (config.blockchain.network.toLowerCase() == "consensusnet" || config.blockchain.network.toLowerCase() == "consensus" || config.blockchain.network.toLowerCase() == "demo") {
-      // it's called demo in the launcher because I feel strong this is the best label
-      // we can reuse this for future demos as an isolated network
-      config.blockchain.network = 'demo'
-    } else
-      if (config.blockchain.network.toLowerCase() == "staging" || config.blockchain.network.toLowerCase() == "stage") {
-        config.blockchain.network = 'staging'
-      }
 
   // autoconfig
   /*
@@ -158,34 +90,7 @@ module.exports = function(args, config, entryPoint) {
   //
   // Disk Config needs to be locked by this point
   //
-
-  // make sure data_dir has no trailing slash
-  var blockchain_useDefaultDataDir = false
-
-  function setupInitialBlockchainOptions() {
-    // Merge in command line options
-    if (xmrOptions['data-dir']) {
-      if (blockchain_useDefaultDataDir) {
-        // was default to load config and now it's set
-        blockchain_useDefaultDataDir = false
-      }
-      var dir = xmrOptions['data-dir']
-      config.blockchain.data_dir = dir
-      // does this directory exist?
-      if (!fs.existsSync(dir)) {
-        console.warn('Configured data-dir [' + dir + '] does not exist, lokid will create it')
-      }
-    }
-    // need these to set default directory
-    if (xmrOptions['stagenet']) {
-      config.blockchain.network = 'staging'
-    } else
-      if (xmrOptions['testnet']) {
-        config.blockchain.network = 'test'
-      }
-  }
-
-  setupInitialBlockchainOptions()
+  configUtil.setupInitialBlockchainOptions(xmrOptions, config)
 
   // FIXME: convert getLokiDataDir to internal config value
   // something like estimated/calculated loki_data_dir
@@ -193,56 +98,10 @@ module.exports = function(args, config, entryPoint) {
   if (!config.blockchain.data_dir) {
     console.log('using default data_dir, network', config.blockchain.network)
     config.blockchain.data_dir = os.homedir() + '/.loki'
-    blockchain_useDefaultDataDir = true
   }
+  // make sure data_dir has no trailing slash
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
 
-  // data dir has to be set but should be before everything else
-  if (xmrOptions['config-file']) {
-    // read file in lokidata dir
-    // FIXME: is it relative or absolute
-    var filePath = xmrOptions['config-file']
-    if (!fs.existsSync(filePath)) {
-      var filePath2 = configUtil.getLokiDataDir(config) + '/' + xmrOptions['config-file']
-      if (!fs.existsSync(filePath2)) {
-        console.warn('Can\'t read config-file command line argument, files does not exist: ', [filePath, filePath2])
-      } else {
-        const moneroDiskConfig = fs.readFileSync(filePath2)
-        const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
-        console.log('parsed loki config', moneroDiskOptions.unknown)
-        for (var k in moneroDiskOptions.unknown) {
-          var v = moneroDiskOptions.unknown[k]
-          xmrOptions[k] = v
-        }
-        // reprocess data-dir and network setings
-        setupInitialBlockchainOptions()
-      }
-    } else {
-      const moneroDiskConfig = fs.readFileSync(filePath)
-      const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
-      console.log('parsed loki config', moneroDiskOptions.unknown)
-      for (var k in moneroDiskOptions.unknown) {
-        var v = moneroDiskOptions.unknown[k]
-        xmrOptions[k] = v
-      }
-      // reprocess data-dir and network setings
-      setupInitialBlockchainOptions()
-    }
-  } else {
-    // no config-file param but is there a config file...
-    var defaultLokidConfigPath = configUtil.getLokiDataDir(config) + '/loki.conf'
-    if (fs.existsSync(defaultLokidConfigPath)) {
-      const moneroDiskConfig = fs.readFileSync(defaultLokidConfigPath)
-      const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
-      console.log('parsed loki config', moneroDiskOptions.unknown)
-      for (var k in moneroDiskOptions.unknown) {
-        var v = moneroDiskOptions.unknown[k]
-        xmrOptions[k] = v
-      }
-      // reprocess data-dir and network setings
-      setupInitialBlockchainOptions()
-    }
-  }
   // handle merging remaining launcher options
   if (xmrOptions['rpc-login']) {
     if (xmrOptions['rpc-login'].match(/:/)) {
@@ -275,27 +134,10 @@ module.exports = function(args, config, entryPoint) {
   setPort('rpc-bind-port', 'rpc_port')
   setPort('p2p-bind-port', 'p2p_port')
 
-  // launcher defaults
-  // only thing you can't turn off is blockchain (lokid)
-  // if you have storage without lokinet, it will use the public IP to serve on
-  // we will internally change these defaults over time
-  // users are not encourage (currently) to put these in their INI (only loki devs)
-  if (config.network.enabled === undefined) {
-    config.network.enabled = false
-  }
-  if (config.storage.enabled === undefined) {
-    config.storage.enabled = false
-  }
+  // launcher defaults were here...
+  // lokinet defaults were here...
+  // now in config.js
 
-  // lokinet defaults
-  if (config.network.testnet === undefined) {
-    config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
-  }
-  if (config.network.testnet && config.network.netid === undefined) {
-    if (config.blockchain.network == "demo") {
-      config.network.netid = "demonet"
-    }
-  }
   // FIXME: maybe this should be inside the lokinet library...
   if (config.network.data_dir) {
     // lokid
@@ -308,7 +150,7 @@ module.exports = function(args, config, entryPoint) {
     config.network.ident_privkey = config.network.data_dir + '/identity.private'
     config.network.contact_file = config.network.data_dir + '/self.signed'
   }
-  lokinet.checkConfig(config.network) // can auto-configure network.binary_path
+  lokinet.checkConfig(config.network) // can auto-configure network.binary_path. how?
   // storage server auto config
   if (config.storage.lokid_key === undefined) {
     config.storage.lokid_key = configUtil.getLokiDataDir(config) + '/key'
