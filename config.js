@@ -32,7 +32,7 @@ function getDefaultConfig(entrypoint) {
 var blockchainDataDirReady = false
 function getLokiDataDir(config) {
   if (!blockchainDataDirReady) {
-    console.log('getLokiDataDir is not ready for use!')
+    console.trace('getLokiDataDir is not ready for use!')
     process.exit(1)
   }
   // has no trailing slash
@@ -59,7 +59,7 @@ function getLokiDataDir(config) {
 var storageDataDirReady = false
 function getStorageServerDataDir(config) {
   if (!storageDataDirReady) {
-    console.log('getLokiDataDir is not ready for use!')
+    console.log('getStorageServerDataDir is not ready for use!')
     process.exit(1)
   }
   // has no trailing slash
@@ -115,12 +115,66 @@ function configureNetworks(config) {
   }
 }
 
+// has to be done after cli params
+// and after data_dir slash is stripped
+// needs blockchainDataDirReady to be ready too
+// FIXME: merge with parseXmrOptions, so it's already finalize the xmrOptions variable
+// might need setupInitialBlockchainOptions?
+function loadBlockchainConfigFile(xmrOptions, config) {
+  // data dir has to be set but should be before everything else
+  if (xmrOptions['config-file']) {
+    // read file in lokidata dir
+    // FIXME: is it relative or absolute
+    var filePath = xmrOptions['config-file']
+    if (!fs.existsSync(filePath)) {
+      var filePath2 = getLokiDataDir(config) + '/' + xmrOptions['config-file']
+      if (!fs.existsSync(filePath2)) {
+        console.warn('Can\'t read config-file command line argument, files does not exist: ', [filePath, filePath2])
+      } else {
+        const moneroDiskConfig = fs.readFileSync(filePath2)
+        const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
+        console.log('parsed loki config', moneroDiskOptions.unknown)
+        for (var k in moneroDiskOptions.unknown) {
+          var v = moneroDiskOptions.unknown[k]
+          xmrOptions[k] = v
+        }
+        // reprocess data-dir and network setings
+        setupInitialBlockchainOptions(xmrOptions, config)
+      }
+    } else {
+      const moneroDiskConfig = fs.readFileSync(filePath)
+      const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
+      console.log('parsed loki config', moneroDiskOptions.unknown)
+      for (var k in moneroDiskOptions.unknown) {
+        var v = moneroDiskOptions.unknown[k]
+        xmrOptions[k] = v
+      }
+      // reprocess data-dir and network setings
+      setupInitialBlockchainOptions(xmrOptions, config)
+    }
+  } else {
+    // no config-file param but is there a config file...
+    var defaultLokidConfigPath = getLokiDataDir(config) + '/loki.conf'
+    if (fs.existsSync(defaultLokidConfigPath)) {
+      const moneroDiskConfig = fs.readFileSync(defaultLokidConfigPath)
+      const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
+      console.log('parsed loki config', moneroDiskOptions.unknown)
+      for (var k in moneroDiskOptions.unknown) {
+        var v = moneroDiskOptions.unknown[k]
+        xmrOptions[k] = v
+      }
+      // reprocess data-dir and network setings
+      setupInitialBlockchainOptions(xmrOptions, config)
+    }
+  }
+}
+
 // some auto config is slow and needs to be done only if we're ready to activate that sub system
 // so maybe a lazyLoad config function for each subsystem to keep it organized
 
 // normalization is done here...?
 // and how much when...
-function precheckConfig(config) {
+function precheckConfig(config, args) {
   if (config.launcher === undefined) config.launcher = { interface: false }
   if (config.blockchain === undefined) config.blockchain = {}
   // replace any trailing slash before use...
@@ -129,12 +183,11 @@ function precheckConfig(config) {
     if (config.launcher.var_path === undefined) config.launcher.var_path = config.launcher.prefix + '/var'
     if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = config.launcher.prefix + '/bin/lokid'
   }
-  // in case they have a config file with no launcher section but had a blockchain section with this missing
-  if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = '/opt/loki-launcher/bin/lokid'
 
   // we do need a var_path set for the all the PID stuff
   if (config.launcher.var_path === undefined) config.launcher.var_path = '/opt/loki-launcher/var'
 
+  // we need data_dir and testnet
   // if we're not specifying the data_dir
   if (!config.blockchain.data_dir) {
     const os = require('os')
@@ -142,13 +195,50 @@ function precheckConfig(config) {
     config.blockchain.data_dir = os.homedir() + '/.loki'
     config.blockchain.data_dir_is_default = true
   }
+  // testnet we need diskConfig, xmrOptions
+  var xmrOptions = parseXmrOptions(args)
+  setupInitialBlockchainOptions(xmrOptions, config)
+
+  // now that data_dir is potentially overrid
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
+
   // getLokiDataDir should only be called after this point
   blockchainDataDirReady = true
+  // loadBlockchainConfigFile needs blockchainDataDirReady to be ready
+
+  // and ofc the lokid.conf can override it all
+  loadBlockchainConfigFile(xmrOptions, config)
+
+  // restrip data_dir as it's potentially overrid again
+  config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
+
+  // now normalize network
+  configureNetworks(config)
+
   storageDataDirReady = true
 }
 
 function checkLauncherConfig(config) {
+  if (config.network === undefined) config.network = {}
+  if (config.storage === undefined) config.storage = {}
+  // launcher defaults
+
+  // only thing you can't turn off is blockchain (lokid)
+  // if you have storage without lokinet, it will use the public IP to serve on
+  // we will internally change these defaults over time
+  // users are not encourage (currently) to put these in their INI (only loki devs)
+  if (config.network.enabled === undefined) {
+    config.network.enabled = false
+  }
+  if (config.storage.enabled === undefined) {
+    // only auto-enable for testnet for now
+    console.log('network', config.blockchain.network)
+    if (config.blockchain.network == 'test') {
+      config.storage.enabled = true
+    } else {
+      config.storage.enabled = false
+    }
+  }
 }
 
 // do we call this once per launcher start
@@ -159,8 +249,91 @@ function setupLauncherConfig(config) {
 //
 }
 
+// preprocess command line arguments
+function parseXmrOptions(args) {
+  var configSet = {}
+  function setConfig(key, value) {
+    if (configSet[key] !== undefined) {
+      if (configSet[key].constructor.name == 'String') {
+        if (configSet[key] != value) {
+          configSet[key] = [configSet[key], value]
+          //} else {
+          // if just setting the same thing again then nothing to do
+        }
+      } else
+      if (configSet[key].constructor.name == 'Boolean') {
+        // likely a key without a value
+        configSet[key] = value
+      } else
+        if (configSet[key].constructor.name == 'Array') {
+          // FIXME: most array options should be unique...
+          configSet[key].push(value)
+        } else {
+          console.warn('parseXmrOptions::setConfig - Unknown type', configSet[key].constructor.name)
+        }
+    } else {
+      configSet[key] = value
+    }
+  }
+  var last = null
+  for (var i in args) {
+    var arg = args[i]
+    //console.log('arg', arg)
+    if (arg.match(/^--/)) {
+      var removeDashes = arg.replace(/^--/, '')
+      if (arg.match(/=/)) {
+        // key/value pairs
+        var parts = removeDashes.split(/=/)
+        var key = parts.shift()
+        var value = parts.join('=')
+        setConfig(key, value)
+        last = null
+      } else {
+        // --stagenet
+        setConfig(removeDashes, true)
+        last = removeDashes
+      }
+    } else {
+      // hack to allow equal to be optional..
+      if (last != null) {
+        console.log('should stitch together key', last, 'and value', arg, '?')
+        setConfig(last, arg)
+      }
+      last = null
+    }
+  }
+  return configSet
+}
+
+// pre reqs:
+// we need the disk config loaded by this point
+// we need the CLI options loaded
+// output/needs to figure out:
+// data-dir and
+// network
+function setupInitialBlockchainOptions(xmrOptions, config) {
+  // Merge in command line options
+  if (xmrOptions['data-dir']) {
+    var dir = xmrOptions['data-dir']
+    config.blockchain.data_dir = dir
+    // does this directory exist?
+    if (!fs.existsSync(dir)) {
+      console.warn('Configured data-dir [' + dir + '] does not exist, lokid will create it')
+    }
+  }
+  // need these to set default directory
+  if (xmrOptions['stagenet']) {
+    config.blockchain.network = 'staging'
+  } else
+    if (xmrOptions['testnet']) {
+      config.blockchain.network = 'test'
+    }
+}
+
 function checkBlockchainConfig(config) {
   // set default
+  // in case they have a config file with no launcher section but had a blockchain section with this missing
+  if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = '/opt/loki-launcher/bin/lokid'
   // set network so we can run toLowerCase on it
   if (config.blockchain.network === undefined) {
     config.blockchain.network = 'main'
@@ -190,11 +363,18 @@ function checkBlockchainConfig(config) {
 }
 
 function checkNetworkConfig(config) {
-  if (config.network === undefined) config.network = {}
+  if (config.network.testnet === undefined) {
+    config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
+  }
+  if (config.network.testnet && config.network.netid === undefined) {
+    if (config.blockchain.network == "demo") {
+      config.network.netid = "demonet"
+    }
+  }
 }
 
 function checkStorageConfig(config) {
-  if (config.storage === undefined) config.storage = {}
+  if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/httpserver'
   if (config.storage.data_dir === undefined) {
     const os = require('os')
     config.storage.data_dir = os.homedir() + '/.loki/storage'
@@ -251,8 +431,8 @@ function ensureDirectoriesExist(config, uid) {
   */
 }
 
-function checkConfig(config) {
-  precheckConfig(config)
+function checkConfig(config, args) {
+  precheckConfig(config, args)
   checkLauncherConfig(config)
   checkBlockchainConfig(config)
   checkNetworkConfig(config)
@@ -265,10 +445,12 @@ module.exports = {
   getDefaultConfig: getDefaultConfig,
   precheckConfig: precheckConfig,
   checkLauncherConfig: checkLauncherConfig,
+  parseXmrOptions: parseXmrOptions,
   checkBlockchainConfig: checkBlockchainConfig,
   checkNetworkConfig: checkNetworkConfig,
   checkStorageConfig: checkStorageConfig,
   postcheckConfig: postcheckConfig,
   getLokiDataDir: getLokiDataDir,
+  setupInitialBlockchainOptions: setupInitialBlockchainOptions,
   ensureDirectoriesExist: ensureDirectoriesExist,
 }
