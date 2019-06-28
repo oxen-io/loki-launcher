@@ -86,7 +86,7 @@ if (fs.existsSync(__dirname + '/launcher.ini')) {
   config_type = __dirname
 }
 config.type = config_type
-configUtil.check(config)
+configUtil.check(config, args)
 
 const lib = require(__dirname + '/lib')
 
@@ -150,6 +150,7 @@ switch(mode) {
       if (running.lokid) {
         process.kill(pids.lokid, 'SIGINT')
       }
+      // FIXME: but I don't think these are even set up by here yet...
       if (config.storage.enabled && running.storageServer) {
         process.kill(pids.storageServer, 'SIGINT')
       }
