@@ -376,7 +376,7 @@ function checkNetworkConfig(config) {
 
 function checkStorageConfig(config) {
   if (!config.storage.enabled) return
-  if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/httpserver'
+  if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/loki-storage'
   if (config.storage.data_dir === undefined) {
     const os = require('os')
     config.storage.data_dir = os.homedir() + '/.loki/storage'
