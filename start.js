@@ -491,15 +491,28 @@ module.exports = function(args, config, entryPoint) {
         }
         console.log('RECOVERY: got loki key!')
         //console.log('watching lokid, will reclaim control when it restarts')
-        if (!pids.lokinet || !lib.isPidRunning(pids.lokinet)) {
-          // kill storage server
-          killStorageServer(config, running, pids)
-          // well assuming old lokid is still running
-          daemon.startLokinet(config, shutdownIfNotStarted)
-        } else
+        if (config.network.enabled && config.storage.enabled) {
+          if (!pids.lokinet || !lib.isPidRunning(pids.lokinet)) {
+            // kill storage server
+            killStorageServer(config, running, pids)
+            // well assuming old lokid is still running
+            daemon.startLokinet(config, shutdownIfNotStarted)
+          } else
+            if (!pids.storageServer ||!lib.isPidRunning(pids.storageServer)) {
+              daemon.startStorageServer(config, args, shutdownIfNotStarted)
+            }
+        } else if (config.storage.enabled) {
           if (!pids.storageServer ||!lib.isPidRunning(pids.storageServer)) {
             daemon.startStorageServer(config, args, shutdownIfNotStarted)
           }
+        } else if (config.network.enabled) {
+          if (!pids.lokinet || !lib.isPidRunning(pids.lokinet)) {
+            // kill storage server
+            killStorageServer(config, running, pids)
+            // well assuming old lokid is still running
+            daemon.startLokinet(config, shutdownIfNotStarted)
+          }
+        }
       })
     }
     // as long as there's something to monitor
