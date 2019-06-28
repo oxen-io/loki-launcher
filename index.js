@@ -118,7 +118,13 @@ switch(mode) {
         console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
         process.kill(pid, 'SIGHUP')
       }
+      // update config from pids.json
+      if (pids && !pids.err) {
+        //console.log('disk config', config, 'replacing with running config')
+        config = pids.runningConfig
+      }
     }
+
     // "not running" but too easy to confuse with "running"
     lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
       var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
