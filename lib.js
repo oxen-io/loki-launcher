@@ -201,6 +201,8 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
 
   // socket...
   var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
+  // FIXME: test to see if it's stale
+  // don't want to say everything is stopped but this is running if it's stale
   //checklist.push('socket', pids.lokid?'running':offlineMessage)
   checklist.socket = haveSocket ? ('running at ' + config.launcher.var_path) : offlineMessage
 
