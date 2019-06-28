@@ -232,7 +232,7 @@ function checkLauncherConfig(config) {
   }
   if (config.storage.enabled === undefined) {
     // only auto-enable for testnet for now
-    console.log('network', config.blockchain.network)
+    //console.log('network', config.blockchain.network)
     if (config.blockchain.network == 'test') {
       config.storage.enabled = true
     } else {
@@ -363,6 +363,7 @@ function checkBlockchainConfig(config) {
 }
 
 function checkNetworkConfig(config) {
+  if (!config.network.enabled) return
   if (config.network.testnet === undefined) {
     config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
   }
@@ -374,6 +375,7 @@ function checkNetworkConfig(config) {
 }
 
 function checkStorageConfig(config) {
+  if (!config.storage.enabled) return
   if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/httpserver'
   if (config.storage.data_dir === undefined) {
     const os = require('os')
