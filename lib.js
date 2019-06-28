@@ -186,6 +186,11 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   // pid...
   checklist.launcher = running.launcher ? ('running as ' + running.launcher) : offlineMessage
   checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : offlineMessage
+
+  if (config.network.enabled || config.storage.enabled) {
+    checklist.lokiKey = fs.existsSync(config.storage.lokid_key) ? ('found at ' + config.storage.lokid_key) : offlineMessage
+  }
+
   if (config.network.enabled) {
     checklist.network = running.lokinet ? ('running as ' + running.lokinet) : offlineMessage
     // lokinet rpc check?
@@ -197,7 +202,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   // socket...
   var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
   //checklist.push('socket', pids.lokid?'running':offlineMessage)
-  checklist.socket = haveSocket ? ('running in ' + config.launcher.var_path) : offlineMessage
+  checklist.socket = haveSocket ? ('running at ' + config.launcher.var_path) : offlineMessage
 
   var pids = getPids(config) // need to get the config
   var need = {
