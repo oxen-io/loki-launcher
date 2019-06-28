@@ -362,6 +362,7 @@ module.exports = function(args, config, entryPoint) {
     } else {
       // auto configure value
       // FIXME: should this be here? or earlier...
+      // should be later right after it daemonizes because it's bleeding output to the start mode
       lokinet.getPublicIPv4(function(publicIPv4) {
         if (!publicIPv4) {
           console.error('LAUNCHER: could not determine a IPv4 public address for this host')
@@ -391,12 +392,9 @@ module.exports = function(args, config, entryPoint) {
   }
 
   if (!config.network.enabled && config.storage.enabled && !running.lokid) {
-    console.log('LAUNCHER: we have storage server with no lokid', pids.storageServer)
-    // no need to kill it in clearnet mode
-    /*
-    process.kill(pids.storageServer, 'SIGINT')
-    running.storageServer = 0
-    */
+    // clearnet mode (blockchain and storage)
+    // no need to kill storage server
+    // Maxim confirmed
   }
 
   if (config.network.enabled && !running.lokid) {
