@@ -1,4 +1,5 @@
 const fs = require('fs')
+const ini = require(__dirname + '/ini')
 
 // only defaults we can save to disk
 // disk config is loaded over this...
@@ -101,6 +102,7 @@ function normalizeNetworkString(configAsk) {
   return net
 }
 
+//
 function configureNetworks(config) {
   if (config.launcher.network) {
     config.launcher.network = normalizeNetworkString(config.launcher.network)
