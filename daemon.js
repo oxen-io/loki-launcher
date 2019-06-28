@@ -464,10 +464,7 @@ function configureLokid(config, args) {
       var parts = arg.split(/=/)
       var key = parts.shift()
       for(var j in lokid_options) {
-        var option = lokid_options[j]
-        if (!option.match) {
-          console.log('no match', typeof(option), option)
-        }
+        var option = lokid_options[j] + '' // have to convert to string because number become numbers
         if (option.match && option.match(/=/)) {
           var parts2 = option.split(/=/)
           var option_key = parts2.shift()
@@ -520,6 +517,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   if (!loki_daemon) {
     console.error('BLOCKCHAIN: failed to start lokied, exiting...')
     shutdown_everything()
+    return
   }
   loki_daemon.startTime = Date.now()
   savePidConfig = {
