@@ -248,6 +248,7 @@ function launcherStorageServer(config, args, cb) {
   if (cb) cb(true)
 }
 
+var waitForLokiKeyTimer = null
 function waitForLokiKey(config, timeout, start, cb) {
   if (start === undefined) start = Date.now()
   console.log('DAEMON: checking on', config.storage.lokid_key)
@@ -256,11 +257,12 @@ function waitForLokiKey(config, timeout, start, cb) {
       cb(false)
       return
     }
-    setTimeout(function() {
+    waitForLokiKeyTimer = setTimeout(function() {
       waitForLokiKey(config, timeout, start, cb)
     }, 1000)
     return
   }
+  waitForLokiKeyTimer = null
   cb(true)
 }
 
@@ -428,40 +430,9 @@ function configureLokid(config, args) {
   if (config.blockchain.data_dir) {
     lokid_options.push('--data-dir=' + config.blockchain.data_dir)
   }
-  // copy CLI options to lokid
-  for (var i in args) {
-    // should we prevent --non-interactive?
-    // probably not, if they want to run it that way, why not support it?
-    // FIXME: we just need to adjust internal config
-    var arg = args[i]
-    if (arg.match(/=/)) {
-      // assignment
-      var parts = arg.split(/=/)
-      var key = parts.shift()
-      for(var j in lokid_options) {
-        var option = lokid_options[j]
-        if (option.match(/=/)) {
-          var parts2 = option.split(/=/)
-          var option_key = parts2.shift()
-          if (option_key == key) {
-            console.log('BLOCKCHAIN: removing previous established option', option)
-            lokid_options.splice(j, 1)
-          }
-        }
-      }
-    } else {
-      for(var j in lokid_options) {
-        var option = lokid_options[j]
-        if (arg == option) {
-          console.log('BLOCKCHAIN: removing previous established option', option)
-          lokid_options.splice(j, 1)
-        }
-      }
-    }
-    lokid_options.push(args[i])
-  }
 
   // net selection at the very end because we may need to override a lot of things
+  // but not before the dedupe
   if (config.blockchain.network == "test") {
     lokid_options.push('--testnet')
     // 4.0 not requires these
@@ -480,6 +451,42 @@ function configureLokid(config, args) {
     // 4.0 not requires these
     lokid_options.push('--storage-server-port', config.storage.port)
     lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
+  }
+
+  // copy CLI options to lokid
+  for (var i in args) {
+    // should we prevent --non-interactive?
+    // probably not, if they want to run it that way, why not support it?
+    // FIXME: we just need to adjust internal config
+    var arg = args[i]
+    if (arg.match(/=/)) {
+      // assignment
+      var parts = arg.split(/=/)
+      var key = parts.shift()
+      for(var j in lokid_options) {
+        var option = lokid_options[j]
+        if (!option.match) {
+          console.log('no match', typeof(option), option)
+        }
+        if (option.match && option.match(/=/)) {
+          var parts2 = option.split(/=/)
+          var option_key = parts2.shift()
+          if (option_key == key) {
+            console.log('BLOCKCHAIN: removing previous established option', option)
+            lokid_options.splice(j, 1)
+          }
+        }
+      }
+    } else {
+      for(var j in lokid_options) {
+        var option = lokid_options[j]
+        if (arg == option) {
+          console.log('BLOCKCHAIN: removing previous established option', option)
+          lokid_options.splice(j, 1)
+        }
+      }
+    }
+    lokid_options.push(args[i])
   }
 
   return {
@@ -580,6 +587,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
           launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
         }, 30 * 1000)
       } else {
+        if (waitForLokiKeyTimer !== null) clearTimeout(waitForLokiKeyTimer)
         shutdown_everything()
       }
     }
