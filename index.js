@@ -206,6 +206,7 @@ switch(mode) {
     process.env.__daemon = true
     require(__dirname + '/start')(args, config, __filename)
   break;
+  case 'non-interactive':
   case 'systemd-start': // official
     // stay in foreground mode...
     // force docker mode...
