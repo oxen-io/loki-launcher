@@ -9,14 +9,25 @@ const stdin     = process.openStdin()
 const VERSION = 0.2
 
 function clientConnect(config) {
-  console.log('trying to connect to', config.launcher.var_path + '/launcher.socket')
-  const client = net.createConnection({ path: config.launcher.var_path + '/launcher.socket' }, () => {
+  var socketPath = config.launcher.var_path + '/launcher.socket'
+  console.log('trying to connect to', socketPath)
+  const client = net.createConnection({ path: socketPath }, () => {
     // 'connect' listener
     console.log('connected to server!')
     console.log('Remember to use ctrl-c to exit the client without shutting down the service node')
   })
   //client.setEncoding('utf-8')
   client.on('error', (err) => {
+    if (err.code == 'ECONNREFUSED') {
+      console.error('socket is stale, launcher socket server is not running')
+      fs.unlinkSync(socketPath)
+      server.listen(socketPath)
+      process.exit(1)
+    } else
+    if (err.code == 'EPERM') {
+      console.error('It seems user', process.getuid(), 'does not have the required permissions')
+      process.exit(1)
+    }
     console.error('error', err)
   })
   var lastcommand = ''
