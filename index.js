@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // no npm!
 const os = require('os')
-const VERSION = 0.8
+const packageData = require('./package.json')
+
+const VERSION = packageData.version
 
 if (os.platform() == 'darwin') {
   if (process.getuid() != 0) {
@@ -117,10 +119,12 @@ switch(mode) {
       if (pids.err == 'noFile'  && pid) {
         console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
         process.kill(pid, 'SIGHUP')
+      } else if (pids.err && pids.err != 'noFile') {
+        console.error('error reading file', config.launcher.var_path + '/pids.json', pids.err)
       }
       // update config from pids.json
       if (pids && !pids.err) {
-        //console.log('disk config', config, 'replacing with running config')
+        console.log('disk config', config, 'replacing with running config')
         config = pids.runningConfig
       }
     }
@@ -207,6 +211,7 @@ switch(mode) {
     // force docker mode...
     // somehow I don't like this hack...
     // what we if reload config from disk...
+    // treat it like an CLI arg
     config.launcher.docker = true
     process.env.__daemon = true
     require(__dirname + '/start')(args, config, __filename)
@@ -263,6 +268,9 @@ switch(mode) {
   case 'download-binaries': // official
     require(__dirname + '/modes/download-binaries').start(config)
   break;
+  case 'version':
+    //
+  break
   case 'help': // official
   case 'hlep':
   case 'hepl':
