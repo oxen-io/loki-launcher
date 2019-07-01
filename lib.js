@@ -1,5 +1,6 @@
 // no npm!
 const fs = require('fs')
+const { execSync } = require('child_process')
 
 //
 // common functions for client and daemon
@@ -81,13 +82,65 @@ function clearStartupLock(config) {
   }
 }
 
+const TO_MB = 1024 * 1024
+
 function areWeRunning(config) {
   var pid = 0 // default is not running
   if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {
     // we are already running
     pid = fs.readFileSync(config.launcher.var_path + '/launcher.pid', 'utf8')
     if (isPidRunning(pid)) {
-      // pid is correct
+      // pid is correct, syslog could take this spot, verify the name
+      //console.log('our process name', process.title)
+      var stdout = execSync('ps -p ' + pid + ' -ww -o pid,ppid,uid,gid,args', {
+        maxBuffer: 2 * TO_MB,
+        windowsHide: true
+      })
+      //console.log('stdout', typeof(stdout), stdout)
+      var lines = stdout.toString().split(/\n/)
+      var labels = lines.shift().trim().split(/( |\t)+/)
+      //console.log(0, labels)
+      // 0PID, 2PPID, 4UID, 6GID, 8ARGS
+      var verifiedPid = false
+      var foundPid = false
+      for(var i in lines) {
+        var tLine = lines[i].trim().split(/( |\t)+/)
+        //console.log(i, tLine)
+        var firsts = tLine.splice(0, 8)
+        var thisPid = firsts[0]
+        var cmd = tLine.join(' ')
+        if (thisPid == pid) {
+          foundPid = true
+          // /usr/local/bin/node   /Users/admin/Sites/loki-daemon-launcher/index.js ...
+          //console.log(thisPid, 'cmd', cmd)
+          if (cmd.match(/node/) || cmd.match(/index\.js/) || cmd.match(/loki-launcher/)) {
+            verifiedPid = true
+          }
+        }
+      }
+      // detect incorrectly parsed ps
+      if (!foundPid) {
+        console.warn('Could not read your process-list to determine if pid', pid, 'is really launcher or not', stdout)
+      } else
+      if (!verifiedPid) {
+        // what's worse?
+        // 1. running a 2nd copy of launcher
+        // 2. or not starting at all...
+        // how would one clean up this mess?
+        // check the socket...
+        // well clear the pid file
+        // is it just the launcher running?
+        console.warn('Could not verify that pid', pid, 'is actually the launcher by process title')
+        var pids = getPids(config)
+        var blockchainIsRunning = pids.lokid && isPidRunning(pids.lokid)
+        var networkIsRunning = config.network.enabled && pids.lokinet && isPidRunning(pids.lokinet)
+        var storageIsRunning = config.storage.enabled && pids.storageServer && isPidRunning(pids.storageServer)
+        if (!blockchainIsRunning && !networkIsRunning && !storageIsRunning) {
+          console.log('Subprocess are not found, will request fresh start')
+          //clearStartupLock(config)
+          pid = 0
+        }
+      }
     } else {
       console.log('stale ' + config.launcher.var_path + '/launcher.pid')
       pid = 0
