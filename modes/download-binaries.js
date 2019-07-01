@@ -106,7 +106,7 @@ function downloadArchive(url, config, options) {
     //console.log('result is', result)
     var searchRE = new RegExp(ext, 'i')
     if (url.match(searchRE)) {
-      const { exec } = require('child_process');
+      const { exec } = require('child_process')
 
       function waitForBinaryToBeDeadAndExtract() {
         running = lib.getProcessState(config)
@@ -142,8 +142,9 @@ function downloadArchive(url, config, options) {
           }
           //console.log('stdout', stdout)
           //console.log('stderr', stderr)
-          console.log('Untar Success')
-          console.log('Version check')
+          //console.log('Untar Success')
+          console.log(filename, 'successfully extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
+          console.log('Running version check')
           var option = '-version'
           if (filename == 'loki-storage') {
             option = 'v'
@@ -154,7 +155,6 @@ function downloadArchive(url, config, options) {
               options.cb(true)
             }
           })
-          //console.log('lokid extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
         })
       }
       waitForBinaryToBeDeadAndExtract()
@@ -164,7 +164,7 @@ function downloadArchive(url, config, options) {
   })
 }
 
-function downloadRepo(github_url, options, config, cb) {
+function downloadGithubRepo(github_url, options, config, cb) {
   lokinet.httpGet(github_url, function(json) {
     //console.log('got', github_url, 'result', json)
     if (json === undefined) {
@@ -249,11 +249,11 @@ function start(config) {
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
-    downloadRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false }, config, function() {
-      downloadRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true }, config)
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false }, config, function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true }, config)
     })
   } else {
-    downloadRepo('https://api.github.com/repos/loki-project/loki/releases/latest', { filename: 'lokid', useDir: true }, config)
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/latest', { filename: 'lokid', useDir: true }, config)
   }
 }
 
