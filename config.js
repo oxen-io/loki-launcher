@@ -364,6 +364,7 @@ function checkBlockchainConfig(config) {
   }
 }
 
+// should require blockchain to be configured
 function checkNetworkConfig(config) {
   if (!config.network.enabled) return
   if (config.network.testnet === undefined) {
@@ -376,6 +377,8 @@ function checkNetworkConfig(config) {
   }
 }
 
+// requires blockchain to be configured
+// we need lokid_key configured for status mode
 function checkStorageConfig(config) {
   if (!config.storage.enabled) return
   if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/loki-storage'
@@ -388,6 +391,11 @@ function checkStorageConfig(config) {
   if (!config.storage.port) {
     config.storage.port = 8080
   }
+  // storage server auto config
+  if (config.storage.lokid_key === undefined) {
+    config.storage.lokid_key = getLokiDataDir(config) + '/key'
+  }
+  config.storage.lokid_rpc_port = config.blockchain.rpc_port
 }
 
 function postcheckConfig(config) {

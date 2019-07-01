@@ -151,11 +151,6 @@ module.exports = function(args, config, entryPoint) {
     config.network.contact_file = config.network.data_dir + '/self.signed'
   }
   lokinet.checkConfig(config.network) // can auto-configure network.binary_path. how?
-  // storage server auto config
-  if (config.storage.lokid_key === undefined) {
-    config.storage.lokid_key = configUtil.getLokiDataDir(config) + '/key'
-  }
-  config.storage.lokid_rpc_port = config.blockchain.rpc_port
 
   // lokid config and most other configs should be locked into stone by this point
   // (except for lokinet, since we need to copy lokid over to it)
