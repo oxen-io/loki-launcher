@@ -148,7 +148,12 @@ module.exports = function(config, debug) {
       markCheckDone('diskspace')
       // can't do these in parallel apparently
       if (config.storage.enabled) {
-        if (config.storage.data_dir === undefined) config.storage.data_dir = '.'
+        //if (config.storage.data_dir === undefined) config.storage.data_dir = '.'
+        if (!fs.existsSync(config.storage.data_dir)) {
+          console.log('Creating', config.storage.data_dir)
+          // FIXME: permissions
+          lokinet.mkDirByPathSync(config.storage.data_dir)
+        }
         console.log('Starting disk space check on storage server partition', config.storage.data_dir)
         if (config.storage.data_dir) {
           getFreeSpaceUnix(config.storage.data_dir, function(space) {
