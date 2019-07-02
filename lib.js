@@ -88,7 +88,12 @@ function areWeRunning(config) {
   var pid = 0 // default is not running
   if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {
     // we are already running
-    pid = fs.readFileSync(config.launcher.var_path + '/launcher.pid', 'utf8')
+    // can be deleted between these two points...
+    try {
+      pid = fs.readFileSync(config.launcher.var_path + '/launcher.pid', 'utf8')
+    } catch(e) {
+      return 0
+    }
     if (isPidRunning(pid)) {
       // pid is correct, syslog could take this spot, verify the name
       //console.log('our process name', process.title)
