@@ -143,7 +143,7 @@ function downloadArchive(url, config, options) {
           //console.log('stdout', stdout)
           //console.log('stderr', stderr)
           //console.log('Untar Success')
-          console.log(filename, 'successfully extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/lokid'), 'bytes extracted')
+          console.log(filename, 'successfully extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/' + filename), 'bytes extracted')
           console.log('Running version check')
           var option = '-version'
           if (filename == 'loki-storage') {
