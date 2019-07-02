@@ -1,5 +1,7 @@
 const fs = require('fs')
+const os = require('os')
 const ini = require(__dirname + '/ini')
+const lib = require(__dirname + '/lib')
 
 // only defaults we can save to disk
 // disk config is loaded over this...
@@ -102,7 +104,7 @@ function normalizeNetworkString(configAsk) {
   return net
 }
 
-//
+// XMR options have to be loaded before this
 function configureNetworks(config) {
   if (config.launcher.network) {
     config.launcher.network = normalizeNetworkString(config.launcher.network)
@@ -176,6 +178,8 @@ function loadBlockchainConfigFile(xmrOptions, config) {
 
 // normalization is done here...?
 // and how much when...
+
+// ran after disk config is loaded
 function precheckConfig(config, args) {
   if (config.launcher === undefined) config.launcher = { interface: false }
   if (config.blockchain === undefined) config.blockchain = {}
@@ -194,6 +198,7 @@ function precheckConfig(config, args) {
   if (!config.blockchain.data_dir) {
     const os = require('os')
     //console.log('using default data_dir, network', config.blockchain.network)
+    // FIXME: really should be left alone and we should have a getter
     config.blockchain.data_dir = os.homedir() + '/.loki'
     config.blockchain.data_dir_is_default = true
   }
@@ -214,7 +219,7 @@ function precheckConfig(config, args) {
   // restrip data_dir as it's potentially overrid again
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
 
-  // now normalize network
+  // now normalize network (has to be after xmr options loaded)
   configureNetworks(config)
 
   storageDataDirReady = true
@@ -249,6 +254,11 @@ function checkLauncherConfig(config) {
 // and then what about populating configs when we don't need too...
 function setupLauncherConfig(config) {
 //
+}
+
+// load enough config to be able to stop the launcher
+function enoughToStop() {
+  // ??
 }
 
 // preprocess command line arguments
@@ -384,6 +394,7 @@ function checkStorageConfig(config) {
   if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/loki-storage'
   if (config.storage.data_dir === undefined) {
     const os = require('os')
+    // FIXME: really should be left alone and we should have a getter
     config.storage.data_dir = os.homedir() + '/.loki/storage'
     config.storage.data_dir_is_default = true
   }
@@ -443,6 +454,7 @@ function ensureDirectoriesExist(config, uid) {
   */
 }
 
+// ran after disk config is loaded
 function checkConfig(config, args) {
   precheckConfig(config, args)
   checkLauncherConfig(config)
@@ -450,6 +462,32 @@ function checkConfig(config, args) {
   checkNetworkConfig(config)
   checkStorageConfig(config)
   postcheckConfig(config)
+}
+
+// should only be used to advise non-advanced users
+function isSystemdInUse(config) {
+  // use lib to figure out if running is
+  var pids = lib.getPids(config)
+  if (pids && pids.runningConfig) {
+    if (pids.runningConfig.launcher && pids.runningConfig.launcher.docker) {
+      // 75% sure this is systemd
+      // but the remaining 25% are advanced users
+      return true
+    } else {
+      return false
+    }
+  }
+
+  // check for service file
+  if (fs.existsSync('/etc/systemd/system/lokid.service')) {
+    // even if there's a service doesn't mean it's what they use...
+    if (process.getuid() == 0) {
+      // we should run some commands to check...
+    }
+    // going to need a config option
+    return 'unsure'
+  }
+  return false
 }
 
 module.exports = {
