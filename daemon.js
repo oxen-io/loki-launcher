@@ -24,6 +24,12 @@ function disconnectAllClients() {
   connections = [] // clear them
 }
 
+// lower permissions and run cb
+// don't use this for lokinet on MacOS
+function lowerPermissions(user, cb) {
+  process.setuid(user)
+}
+
 var shuttingDown = false
 var shutDownTimer = null
 function shutdown_everything() {
