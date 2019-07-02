@@ -124,7 +124,7 @@ switch(mode) {
       }
       // update config from pids.json
       if (pids && !pids.err) {
-        console.log('disk config', config, 'replacing with running config')
+        console.log('replacing disk config with running config')
         config = pids.runningConfig
       }
     }
@@ -146,28 +146,8 @@ switch(mode) {
     }
   break;
   case 'stop': // official
-    console.log('Getting launcher state')
-    var pid = lib.areWeRunning(config)
-    if (pid) {
-      // request launcher stop
-      console.log('requesting launcher stop')
-      process.kill(pid, 'SIGINT')
-      // we quit too fast
-      //require(__dirname + '/client')(config)
-    } else {
-      var running = lib.getProcessState(config)
-      var pids = lib.getPids(config)
-      if (running.lokid) {
-        process.kill(pids.lokid, 'SIGINT')
-      }
-      // FIXME: but I don't think these are even set up by here yet...
-      if (config.storage.enabled && running.storageServer) {
-        process.kill(pids.storageServer, 'SIGINT')
-      }
-      if (config.network.enabled && running.lokinet) {
-        process.kill(pids.lokinet, 'SIGINT')
-      }
-    }
+    //console.log('Getting launcher state')
+    lib.stopLauncher(config)
     function shutdownMonitor() {
       var running = lib.getProcessState(config)
       var pid = lib.areWeRunning(config)
