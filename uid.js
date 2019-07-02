@@ -132,22 +132,22 @@ function uidNumber(uid, cb) {
       const user = extractLinux(tLine)
       if (user.username == uid) {
         uidCache[uid] = +user.userIdentifier
-        cb(null, user.userIdentifier, user.homeDirectory)
-        break
+        return cb(null, user.userIdentifier, user.homeDirectory)
+
       }
     }
-    cb('404')
-  } else {
-    child_process.execFile( '/usr/bin/id', ['-P', uid], function (code, out, stderr) {
-      if (code) {
-        cb(stderr)
-        return
-      }
-      //console.log('out', out)
-      const user = extractDarwin(out.trim())
-      cb(null, user.userIdentifier, user.homeDirectory)
-    })
+    return cb('404')
   }
+  // not linux...
+  child_process.execFile( '/usr/bin/id', ['-P', uid], function (code, out, stderr) {
+    if (code) {
+      cb(stderr)
+      return
+    }
+    //console.log('out', out)
+    const user = extractDarwin(out.trim())
+    cb(null, user.userIdentifier, user.homeDirectory)
+  })
 
   /*
   child_process.execFile( process.execPath
