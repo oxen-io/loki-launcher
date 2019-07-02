@@ -289,10 +289,53 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   checkDone('')
 }
 
+// only stop lokid, which should stop any launcher
+// FIXME: put into stopLauncher
+function stopLokid(config) {
+  var running = getProcessState(config)
+  if (running.lokid) {
+    var pids = getPids(config)
+    console.log('blockchain is running, requesting shutdown')
+    process.kill(pids.lokid, 'SIGINT')
+  }
+}
+
 function stopLauncher(config) {
   // locate launcher pid
-  var pids = getPids(config)
+  var pid = areWeRunning(config)
   // request launcher shutdown...
+  if (pid) {
+    // request launcher stop
+    console.log('requesting launcher stop')
+    process.kill(pid, 'SIGINT')
+    // we quit too fast
+    //require(__dirname + '/client')(config)
+  } else {
+    var running = getProcessState(config)
+    var pids = getPids(config)
+    stopLokid(config)
+    if (config.storage.enabled && running.storageServer) {
+      console.log('storage is running, requesting shutdown')
+      process.kill(pids.storageServer, 'SIGINT')
+    }
+    if (config.network.enabled && running.lokinet) {
+      console.log('network is running, requesting shutdown')
+      process.kill(pids.lokinet, 'SIGINT')
+    }
+  }
+}
+
+function waitForLauncherStop(config, cb) {
+  var running = getProcessState(config)
+  if (running.lokid || running.lokinet || running.storageServer) {
+    var wait = 500
+    if (running.lokid) wait += 4500
+    setTimeout(function() {
+      waitForLauncherStop(config, cb)
+    }, wait)
+    return
+  }
+  cb()
 }
 
 module.exports = {
@@ -311,4 +354,7 @@ module.exports = {
   falsish: falsish,
   getProcessState: getProcessState,
   getLauncherStatus: getLauncherStatus,
+
+  stopLauncher: stopLauncher,
+  waitForLauncherStop: waitForLauncherStop,
 }
