@@ -246,7 +246,9 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : offlineMessage
 
   if (config.network.enabled || config.storage.enabled) {
-    checklist.lokiKey = fs.existsSync(config.storage.lokid_key) ? ('found at ' + config.storage.lokid_key) : offlineMessage
+    if (running.lokid) {
+      checklist.lokiKey = fs.existsSync(config.storage.lokid_key) ? ('found at ' + config.storage.lokid_key) : offlineMessage
+    }
   }
 
   if (config.network.enabled) {
