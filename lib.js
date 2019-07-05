@@ -310,6 +310,7 @@ function stopLokid(config) {
 function stopLauncher(config) {
   // locate launcher pid
   var pid = areWeRunning(config)
+  // FIXME: add try/catch in case of EPERM
   // request launcher shutdown...
   if (pid) {
     // request launcher stop
