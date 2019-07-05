@@ -190,7 +190,18 @@ function downloadGithubRepo(github_url, options, config, cb) {
 
     if (data.length) {
       console.log('got a list of', data.length, 'releases, narrowing it down')
-      data = data[0]
+      var selectedVersion
+      while(1) {
+        selectedVersion = data.shift()
+        if (options.prereleaseOnly) {
+          if (selectedVersion.prerelease) {
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+      data = selectedVersion
       console.log('selecting', data.name)
     }
 
@@ -251,7 +262,7 @@ function start(config) {
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false }, config, function() {
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true }, config)
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, prereleaseOnly: true }, config)
     })
   } else {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/latest', { filename: 'lokid', useDir: true }, config)
