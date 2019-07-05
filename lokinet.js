@@ -12,7 +12,7 @@ const { spawn, exec } = require('child_process')
 
 // FIXME: disable rpc if desired
 const VERSION = 0.8
-console.log('lokinet launcher version', VERSION, 'registered')
+//console.log('lokinet launcher version', VERSION, 'registered')
 
 var lokinet_version = 'notStartedYet'
 
