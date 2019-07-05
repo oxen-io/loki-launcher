@@ -108,6 +108,7 @@ function downloadArchive(url, config, options) {
     if (url.match(searchRE)) {
       const { exec } = require('child_process')
 
+      /*
       function waitForBinaryToBeDeadAndExtract() {
         running = lib.getProcessState(config)
         function waitAndRetry() {
@@ -123,6 +124,11 @@ function downloadArchive(url, config, options) {
             return waitAndRetry()
           }
         }
+      }
+      */
+
+      lib.waitForLauncherStop(config, function() {
+        //waitForBinaryToBeDeadAndExtract()
         var extractPath = '--strip-components=1 ' + baseArchDir + '/' + filename
         if (options.useDir === false) {
           extractPath = filename
@@ -156,8 +162,9 @@ function downloadArchive(url, config, options) {
             }
           })
         })
-      }
-      waitForBinaryToBeDeadAndExtract()
+
+
+      })
     } else {
       console.log('URL', url, 'does not contain .tar.xz')
     }
@@ -249,6 +256,9 @@ function downloadGithubRepo(github_url, options, config, cb) {
 
 var start_retries = 0
 function start(config) {
+  // quick request so should be down by the time the file downloads...
+  lib.stopLauncher(config)
+  /*
   var running = lib.getProcessState(config)
   if (running.lokid) {
     var pids = lib.getPids(config)
@@ -256,6 +266,7 @@ function start(config) {
     process.kill(pids.lokid, 'SIGINT')
     // should be down by the time the file downloads...
   }
+  */
   // deb support? nope, you use apt to update...
   // FIXME: this force sudo support...
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
