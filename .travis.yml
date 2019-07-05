@@ -12,10 +12,13 @@ env:
   matrix:
     - DOCKERFILE=Dockerfile.fresh node_ver=8
     - DOCKERFILE=Dockerfile.fresh node_ver=10
+    - DOCKERFILE=Dockerfile.fresh node_ver=12
     - DOCKERFILE=Dockerfile.migration node_ver=8
     - DOCKERFILE=Dockerfile.migration node_ver=10
+    - DOCKERFILE=Dockerfile.migration node_ver=12
     - DOCKERFILE=Dockerfile.outdated node_ver=8
     - DOCKERFILE=Dockerfile.outdated node_ver=10
+    - DOCKERFILE=Dockerfile.outdated node_ver=12
 
 #before_script:
 #  - version="$(awk '$2 == "LOKI_LAUNCHER_VERSION" { print $3; exit }' Dockerfile)"
