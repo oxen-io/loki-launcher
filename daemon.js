@@ -255,8 +255,17 @@ function launcherStorageServer(config, args, cb) {
 }
 
 var waitForLokiKeyTimer = null
+// FIXME: lokinet key check...
 function waitForLokiKey(config, timeout, start, cb) {
   if (start === undefined) start = Date.now()
+  if (config.storage.lokid_key === undefined) {
+    if (config.storage.enabled) {
+      console.error('storage lokid_key is not configured')
+      process.exit(1)
+    }
+    cb(true)
+    return
+  }
   console.log('DAEMON: checking on', config.storage.lokid_key)
   if (!fs.existsSync(config.storage.lokid_key)) {
     if (timeout && (Date.now - start > timeout)) {
@@ -310,6 +319,21 @@ function startStorageServer(config, args, cb) {
 
 function startLokinet(config, args, cb) {
   // waitForLokiKey(config, timeout, start, cb)
+  if (config.storage.lokid_key === undefined) {
+    if (config.storage.enabled) {
+      console.error('storage server enabled but no key location given')
+      process.exit(1)
+    }
+    if (config.network.enabled) {
+      lokinet.startServiceNode(config.network, function () {
+        startStorageServer(config, args, cb)
+      })
+    } else {
+      //console.log('no storage key configured')
+      if (cb) cb(true)
+    }
+    return
+  }
   console.log('DAEMON: waiting for loki key at', config.storage.lokid_key)
   waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
     if (!haveKey) {
@@ -325,6 +349,8 @@ function startLokinet(config, args, cb) {
     } else {
       if (config.storage.enabled) {
         startStorageServer(config, args, cb)
+      } else {
+        if (cb) cb(true)
       }
     }
   })
