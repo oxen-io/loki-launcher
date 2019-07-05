@@ -496,6 +496,7 @@ module.exports = {
   precheckConfig: precheckConfig,
   checkLauncherConfig: checkLauncherConfig,
   parseXmrOptions: parseXmrOptions,
+  loadBlockchainConfigFile: loadBlockchainConfigFile,
   checkBlockchainConfig: checkBlockchainConfig,
   checkNetworkConfig: checkNetworkConfig,
   checkStorageConfig: checkStorageConfig,
