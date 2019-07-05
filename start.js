@@ -39,16 +39,16 @@ module.exports = function(args, config, entryPoint) {
   const VERSION = 0.7
 
   //var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
-  console.log('loki SN launcher version', VERSION, 'registered')
+  //console.log('loki SN launcher version', VERSION, 'registered')
   const lokinet = require(__dirname + '/lokinet') // needed for checkConfig
 
+  var requested_config = config
+  configUtil.check(config)
 
+  // cli and config override ini
   var xmrOptions = configUtil.parseXmrOptions(args)
   console.log('Parsed command line options', xmrOptions)
-
-  var requested_config = config
-
-  configUtil.check(config)
+  configUtil.loadBlockchainConfigFile(xmrOptions, config) // override any params with any config files
 
   // autoconfig
   /*
@@ -121,6 +121,7 @@ module.exports = function(args, config, entryPoint) {
   }
   function setPort(cliKey, configKey, subsystem) {
     if (subsystem === undefined) subsystem = 'blockchain'
+    //console.log('xmrOptions', xmrOptions, 'checking for', cliKey, 'setting', subsystem, configKey)
     if (xmrOptions[cliKey]) {
       var test = parseInt(xmrOptions[cliKey])
       if (test) {
