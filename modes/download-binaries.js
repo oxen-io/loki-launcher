@@ -180,12 +180,12 @@ function downloadGithubRepo(github_url, options, config, cb) {
       if (start_retries < 10) {
         setTimeout(function() {
           console.log('retrying...')
-          start(config)
+          downloadGithubRepo(github_url, options, config, cb)
         }, 60 * 1000)
       } else {
         console.warn('failure communicating with api.github.com')
       }
-      return;
+      return
     }
     try {
       var data = JSON.parse(json)
