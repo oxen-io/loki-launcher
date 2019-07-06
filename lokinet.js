@@ -186,7 +186,7 @@ function getPublicIPv4(cb) {
     //{ url: 'http://api.ipify.org' },
     //{ url: 'http://ipinfo.io/ip' },
     //{ url: 'http://ipecho.net/plain' },
-    { url: 'http://ifconfig.me' },
+    { url: 'http://ifconfig.me/ip' },
     { url: 'http://ipv4.icanhazip.com' },
     { url: 'http://v4.ident.me' },
     { url: 'http://checkip.amazonaws.com' },
