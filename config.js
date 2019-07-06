@@ -124,7 +124,7 @@ function configureNetworks(config) {
 // needs blockchainDataDirReady to be ready too
 // FIXME: merge with parseXmrOptions, so it's already finalize the xmrOptions variable
 // might need setupInitialBlockchainOptions?
-function loadBlockchainConfigFile(xmrOptions, config) {
+function loadBlockchainConfigFile(xmrOptions, config, output) {
   // data dir has to be set but should be before everything else
   if (xmrOptions['config-file']) {
     // read file in lokidata dir
@@ -137,7 +137,7 @@ function loadBlockchainConfigFile(xmrOptions, config) {
       } else {
         const moneroDiskConfig = fs.readFileSync(filePath2)
         const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
-        console.log('parsed loki config', moneroDiskOptions.unknown)
+        if (output) console.log('parsed loki config', moneroDiskOptions.unknown, 'from', filePath2)
         for (var k in moneroDiskOptions.unknown) {
           var v = moneroDiskOptions.unknown[k]
           xmrOptions[k] = v
@@ -148,7 +148,7 @@ function loadBlockchainConfigFile(xmrOptions, config) {
     } else {
       const moneroDiskConfig = fs.readFileSync(filePath)
       const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
-      console.log('parsed loki config', moneroDiskOptions.unknown)
+      if (output) console.log('parsed loki config', moneroDiskOptions.unknown, 'from', filePath)
       for (var k in moneroDiskOptions.unknown) {
         var v = moneroDiskOptions.unknown[k]
         xmrOptions[k] = v
@@ -162,7 +162,7 @@ function loadBlockchainConfigFile(xmrOptions, config) {
     if (fs.existsSync(defaultLokidConfigPath)) {
       const moneroDiskConfig = fs.readFileSync(defaultLokidConfigPath)
       const moneroDiskOptions = ini.iniToJSON(moneroDiskConfig.toString())
-      console.log('parsed loki config', moneroDiskOptions.unknown)
+      if (output) console.log('parsed loki config', moneroDiskOptions.unknown, 'from', defaultLokidConfigPath)
       for (var k in moneroDiskOptions.unknown) {
         var v = moneroDiskOptions.unknown[k]
         xmrOptions[k] = v
@@ -179,8 +179,22 @@ function loadBlockchainConfigFile(xmrOptions, config) {
 // normalization is done here...?
 // and how much when...
 
+// PUBLIC
+// we are assuming data_dir is set up
+// and blockchainDataDirReady is true
+function getOldBlockchainOptions(args, config, output) {
+  // testnet we need diskConfig, xmrOptions
+  var xmrOptions = parseXmrOptions(args)
+  setupInitialBlockchainOptions(xmrOptions, config)
+  // loadBlockchainConfigFile needs blockchainDataDirReady to be ready
+  // and ofc the lokid.conf can override it all
+  loadBlockchainConfigFile(xmrOptions, config, output)
+  // what do we need to renormalize?
+  return xmrOptions
+}
+
 // ran after disk config is loaded
-function precheckConfig(config, args) {
+function precheckConfig(config, args, debug) {
   if (config.launcher === undefined) config.launcher = { interface: false }
   if (config.blockchain === undefined) config.blockchain = {}
   // replace any trailing slash before use...
@@ -202,19 +216,15 @@ function precheckConfig(config, args) {
     config.blockchain.data_dir = os.homedir() + '/.loki'
     config.blockchain.data_dir_is_default = true
   }
-  // testnet we need diskConfig, xmrOptions
-  var xmrOptions = parseXmrOptions(args)
-  setupInitialBlockchainOptions(xmrOptions, config)
 
   // now that data_dir is potentially overrid
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
 
   // getLokiDataDir should only be called after this point
   blockchainDataDirReady = true
-  // loadBlockchainConfigFile needs blockchainDataDirReady to be ready
 
-  // and ofc the lokid.conf can override it all
-  loadBlockchainConfigFile(xmrOptions, config)
+  // testnet we need diskConfig, xmrOptions
+  getOldBlockchainOptions(args, config, debug)
 
   // restrip data_dir as it's potentially overrid again
   config.blockchain.data_dir = config.blockchain.data_dir.replace(/\/$/, '')
@@ -455,8 +465,8 @@ function ensureDirectoriesExist(config, uid) {
 }
 
 // ran after disk config is loaded
-function checkConfig(config, args) {
-  precheckConfig(config, args)
+function checkConfig(config, args, debug) {
+  precheckConfig(config, args, debug)
   checkLauncherConfig(config)
   checkBlockchainConfig(config)
   checkNetworkConfig(config)
@@ -495,8 +505,7 @@ module.exports = {
   getDefaultConfig: getDefaultConfig,
   precheckConfig: precheckConfig,
   checkLauncherConfig: checkLauncherConfig,
-  parseXmrOptions: parseXmrOptions,
-  loadBlockchainConfigFile: loadBlockchainConfigFile,
+  getOldBlockchainOptions: getOldBlockchainOptions,
   checkBlockchainConfig: checkBlockchainConfig,
   checkNetworkConfig: checkNetworkConfig,
   checkStorageConfig: checkStorageConfig,
