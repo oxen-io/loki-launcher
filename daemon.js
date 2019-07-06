@@ -387,6 +387,10 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
         console.error('Could not spawn detached process')
         process.exit(1)
       }
+      function crashHandler(code) {
+        console.log('background launcher died with', code)
+      }
+      child.on('close', crashHandler)
       // required so we can exit
       var startTime = Date.now()
       console.log('waiting on start up confirmation...')
@@ -405,6 +409,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
           if (running.launcher && running.lokid && checklist.socket &&
                 pids.runningConfig && pids.runningConfig.blockchain) {
             console.log('start up successful')
+            child.removeListener('close', crashHandler)
             process.exit()
           }
           if (diff > 60 * 1000) {
