@@ -88,13 +88,15 @@ if (fs.existsSync(__dirname + '/launcher.ini')) {
   config_type = __dirname
 }
 config.type = config_type
-configUtil.check(config, args)
-
 const lib = require(__dirname + '/lib')
 
 //console.log('Launcher config:', config)
 var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
 console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+
+var debugMode = mode.match(/debug/i)
+//if (debugMode) console.debug('enabling debug')
+configUtil.check(config, args, debugMode)
 
 function warnRunAsRoot() {
   if (os.platform() != 'darwin') {
@@ -179,6 +181,13 @@ switch(mode) {
       setTimeout(shutdownMonitor, wait)
     }
   break;
+  case 'start-debug':
+  case 'interactive':
+    // debug mode basically (but also used internally now)
+    process.env.__daemon = true
+    config.launcher.interactive = true
+    require(__dirname + '/start')(args, config, __filename)
+  break;
   case 'daemon-start': // official
     // debug mode basically (but also used internally now)
     // how this different from systemd-start?
@@ -238,6 +247,8 @@ switch(mode) {
   break;
   case 'chown':
   case 'fixperms':
+  case 'setperms':
+  case 'set-perms':
   case 'fix-perms': // official
     var user = findFirstArgWithoutDash()
     require(__dirname + '/modes/fix-perms').start(user, __dirname, config)
