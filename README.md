@@ -114,6 +114,8 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 # Changelog
 
+For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+
 - 0.0.12 - (work in progress) fixes loki.conf file parsing
 - 0.0.11 - removes lokid key search requirement for non-testnet
 - 0.0.10* - fixes 3.0.7 release breaking testnet
