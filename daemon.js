@@ -9,7 +9,7 @@ const { spawn } = require('child_process')
 const stdin = process.openStdin()
 
 const VERSION = 0.2
-console.log('loki daemon library version', VERSION, 'registered')
+//console.log('loki daemon library version', VERSION, 'registered')
 
 var connections = []
 function disconnectAllClients() {
@@ -409,7 +409,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
           }
           if (diff > 60 * 1000) {
             console.log('start up timeout, likely failed')
-            process.exit()
+            process.exit(1)
           }
           setTimeout(areWeRunningYet, 5000)
         })
@@ -713,7 +713,7 @@ function startLokid(config, args) {
         shutdown_everything()
         return
       }
-      if (handleInput(line)) return
+      if (handleInput(key)) return
       if (!shuttingDown) {
         // local echo, write the key to stdout all normal like
         // on ssh we don't need this
