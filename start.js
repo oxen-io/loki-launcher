@@ -43,12 +43,18 @@ module.exports = function(args, config, entryPoint) {
   const lokinet = require(__dirname + '/lokinet') // needed for checkConfig
 
   var requested_config = config
-  configUtil.check(config)
+  // index.js does this already...
+  //configUtil.check(config)
 
   // cli and config override ini
+  /*
   var xmrOptions = configUtil.parseXmrOptions(args)
   console.log('Parsed command line options', xmrOptions)
   configUtil.loadBlockchainConfigFile(xmrOptions, config) // override any params with any config files
+  */
+  // combined parseXmrOptions && loadBlockchainConfigFile
+  // needs data_dir configured first...
+  var xmrOptions = configUtil.getOldBlockchainOptions(args, config)
 
   // autoconfig
   /*
@@ -339,8 +345,25 @@ module.exports = function(args, config, entryPoint) {
     var foregroundIt = config.launcher.interactive || !lib.falsish(config.launcher.docker)
     //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
 
-    function start(config, foregroundIt, entryPoint, args) {
-      daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
+    //function start(config, foregroundIt, entryPoint, args) {
+    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
+      // should be in the daemon at this point...
+      if (config.launcher.publicIPv4) {
+        // manually configured
+        start(config, foregroundIt, entryPoint, args)
+      } else {
+        // auto configure value
+        lokinet.getPublicIPv4(function(publicIPv4) {
+          if (!publicIPv4) {
+            console.error('LAUNCHER: could not determine a IPv4 public address for this host')
+            process.exit()
+          }
+          config.launcher.publicIPv4 = publicIPv4
+          start(config, foregroundIt, entryPoint, args)
+        })
+      }
+
+      function start(config, args) {
         // start the lokinet prep
         daemon.startLokinet(config, args, function(started) {
           //console.log('StorageServer now running', started)
@@ -349,25 +372,8 @@ module.exports = function(args, config, entryPoint) {
           }
         })
         daemon.startLokid(config, args)
-      })
-    }
-
-    if (config.launcher.publicIPv4) {
-      // manually configured
-      start(config, foregroundIt, entryPoint, args)
-    } else {
-      // auto configure value
-      // FIXME: should this be here? or earlier...
-      // should be later right after it daemonizes because it's bleeding output to the start mode
-      lokinet.getPublicIPv4(function(publicIPv4) {
-        if (!publicIPv4) {
-          console.error('LAUNCHER: could not determine a IPv4 public address for this host')
-          process.exit()
-        }
-        config.launcher.publicIPv4 = publicIPv4
-        start(config, foregroundIt, entryPoint, args)
-      })
-    }
+      }
+    })
   }
 
   //
