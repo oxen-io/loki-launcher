@@ -474,6 +474,26 @@ function checkConfig(config, args, debug) {
   postcheckConfig(config)
 }
 
+// need blockchain.p2pport
+function prequal(config) {
+  if (config.blockchain.p2p_port === undefined) {
+    // configure based on network
+    // only do this here
+    // p2p_port if deafult should be left for undefined...
+    if (config.blockchain.network == 'test') {
+      config.blockchain.p2p_port = 38156
+    } else
+    if (config.blockchain.network == 'demo') {
+      config.blockchain.p2p_port = 38159
+    } else
+    if (config.blockchain.network == 'staging') {
+      config.blockchain.p2p_port = 38153
+    } else {
+      config.blockchain.p2p_port = 22022
+    }
+  }
+}
+
 // should only be used to advise non-advanced users
 function isSystemdInUse(config) {
   // use lib to figure out if running is
@@ -511,6 +531,7 @@ module.exports = {
   checkStorageConfig: checkStorageConfig,
   postcheckConfig: postcheckConfig,
   getLokiDataDir: getLokiDataDir,
+  prequal: prequal,
   setupInitialBlockchainOptions: setupInitialBlockchainOptions,
   ensureDirectoriesExist: ensureDirectoriesExist,
 }
