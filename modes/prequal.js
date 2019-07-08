@@ -132,7 +132,13 @@ module.exports = function(config, debug) {
       console.log('')
       console.log(log.join("\n"))
     } else {
-      console.info('Your node successfully passed all tests')
+      if (snode_warnings) {
+        console.info('Your node successfully passed all required tests. However we did find some warnings:')
+        console.log('')
+        console.log(log.join("\n"))
+      } else {
+        console.info('Your node successfully passed all tests')
+      }
     }
   }
 
@@ -209,7 +215,7 @@ module.exports = function(config, debug) {
       client.disconnect()
       */
       tempResponder.letsClose(function() {
-        cb(results.results, port)
+        cb(results.result, port)
       })
     })
   }
@@ -226,22 +232,22 @@ module.exports = function(config, debug) {
     }
     portTest('p2p port', config.blockchain.p2p_port, client, function(results, port) {
       if (results != 'good') {
-        console.warn('OpenPort: Failed !')
+        console.warn('OpenP2pPort: Failed !')
         log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
           ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
         snode_warnings++
       } else {
-        console.log('OpenPortP2P: Success !')
+        console.log('OpenP2pPort: Success !')
       }
       if (config.storage.enabled) {
         portTest('storage server port', config.storage.port, client, function(results, port) {
           if (results != 'good') {
-            console.warn('OpenPort: Failed !')
+            console.warn('OpenStoragePort: Failed !')
             log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
               ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
             snode_problems++
           } else {
-            console.log('OpenPortStorage: Success !')
+            console.log('OpenStoragePort: Success !')
           }
           done()
         })
