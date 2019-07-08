@@ -2,6 +2,7 @@
 const fs = require('fs')
 const ini = require(__dirname + '/../ini')
 const lib = require(__dirname + '/../lib')
+const configUtil = require(__dirname + '/../config')
 const lokinet = require(__dirname + '/../lokinet') // expects 0.8 used for randomString
 const netWrap = require(__dirname + '/../lets_tcp')
 const networkTest = require(__dirname + '/../lib.networkTest')
@@ -17,6 +18,9 @@ const child_process = require('child_process')
 module.exports = function(config, debug) {
   //var logo = lib.getLogo('S N B E N C H   v e r s i o n   v version')
   //console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+
+  // set up config for prequal
+  configUtil.prequal(config)
 
   // diskspace check
   function getFreeSpaceUnix(path, cb) {
@@ -55,6 +59,7 @@ module.exports = function(config, debug) {
   }
 
   var snode_problems = 0
+  var snode_warnings = 0
   var need = {
     diskspace: false,
     rpcport: false,
@@ -170,49 +175,79 @@ module.exports = function(config, debug) {
   }
 
   // port test
-  function portTest() {
-    // start a network server
-    // on port config.blockchain.rpc_port
+  function portTest(lbl, port, client, cb) {
+    // start a network server on specified port
     // FIXME: make sure port isn't already taken
     var code = lokinet.randomString(96)
-    console.log('Starting open port check on configured RPC port:', config.blockchain.rpc_port)
-    var tempResponder = netWrap.serveTCP(config.blockchain.rpc_port, function(incomingConnection) {
+    console.log('Starting open port check on configured', lbl, ':', port)
+    var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
       if (debug) console.debug('port verified')
       incomingConnection.send('quit ' + code + ' ' + Date.now())
     })
     tempResponder.errorHandler = function(err) {
       if (err.code == 'EADDRINUSE') {
-        console.error('Something seems to be running on port', config.blockchain.rpc_port + '. Make sure your lokid is stopped before running this test')
+        console.error('Something seems to be running on port', port + '. Make sure your lokid is stopped before running this test')
         process.exit(1)
       }
     }
-    networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
-      if (client === false) {
-        console.warn('We could not connect to our testing server, please try again later')
-        process.exit()
+    client.testPort(port, function(results) {
+      if (debug) console.debug('port test complete', results)
+      /*
+      if (results.code != code) {
+        console.warn('weird codes do not match but probably fine for now')
       }
-      client.testPort(config.blockchain.rpc_port, function(results) {
-        if (debug) console.debug('port test complete', results)
-        /*
-        if (results.code != code) {
-          console.warn('weird codes do not match but probably fine for now')
-        }
-        */
-        if (results.result != 'good') {
-          console.warn('OpenPort: Failed !')
-          log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + config.blockchain.rpc_port +
-            ', OPEN ON YOUR FIREWALL, this is now required to run a service node')
-          snode_problems++
-        } else {
-          console.log('OpenPort: Success !')
-        }
-        client.disconnect()
-        tempResponder.letsClose(function() {
-          markCheckDone('rpcport')
-          diskspaceCheck()
-        })
+      */
+      /*
+      if (results.result != 'good') {
+        console.warn('OpenPort: Failed !')
+        log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+          ', OPEN ON YOUR FIREWALL, this is now required to run a service node')
+        snode_problems++
+      } else {
+        console.log('OpenPort: Success !')
+      }
+      client.disconnect()
+      */
+      tempResponder.letsClose(function() {
+        cb(results.results, port)
       })
-    }, debug)
+    })
   }
-  portTest()
+
+  networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
+    if (client === false) {
+      console.warn('We could not connect to our testing server, please try again later')
+      process.exit()
+    }
+    function done() {
+      markCheckDone('rpcport')
+      diskspaceCheck()
+      client.disconnect()
+    }
+    portTest('p2p port', config.blockchain.p2p_port, client, function(results, port) {
+      if (results != 'good') {
+        console.warn('OpenPort: Failed !')
+        log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+          ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
+        snode_warnings++
+      } else {
+        console.log('OpenPortP2P: Success !')
+      }
+      if (config.storage.enabled) {
+        portTest('storage server port', config.storage.port, client, function(results, port) {
+          if (results != 'good') {
+            console.warn('OpenPort: Failed !')
+            log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+            snode_problems++
+          } else {
+            console.log('OpenPortStorage: Success !')
+          }
+          done()
+        })
+      } else {
+        done()
+      }
+    })
+  }, debug)
 }
