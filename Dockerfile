@@ -255,22 +255,8 @@ COPY --from=blockchain /src/loki/build/release/bin/lokid bin/lokid
 COPY --from=network /src/loki-network/build/lokinet bin/lokinet
 #COPY --from=network /root/.lokinet/bootstrap.signed /root/.lokinet/
 COPY --from=storage /src/loki-storage-server/build/httpserver/httpserver bin/httpserver
-COPY package.json .
-COPY daemon.js .
-COPY ini.js .
-COPY lib.js .
-COPY lokinet.js .
-COPY index.js .
-COPY start.js .
-COPY config.js .
-COPY uid.js .
-COPY get-uid.js .
-COPY modes/check-systemd.js modes/
-COPY modes/client.js modes/
-COPY modes/bw-test.js modes/
-COPY modes/download-binaries.js modes/
-COPY modes/fix-perms.js modes/
-COPY modes/prequal.js modes/
+COPY package.json daemon.js ini.js lib.js lokinet.js index.js start.js config.js uid.js get-uid.js ./
+COPY modes modes/
 COPY launcher-docker.ini launcher.ini
 # this doesn't work because mount stomps it
 RUN mkdir -p /root/storage
