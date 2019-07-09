@@ -255,6 +255,7 @@ COPY --from=blockchain /src/loki/build/release/bin/lokid bin/lokid
 COPY --from=network /src/loki-network/build/lokinet bin/lokinet
 #COPY --from=network /root/.lokinet/bootstrap.signed /root/.lokinet/
 COPY --from=storage /src/loki-storage-server/build/httpserver/httpserver bin/httpserver
+COPY package.json .
 COPY daemon.js .
 COPY ini.js .
 COPY lib.js .
