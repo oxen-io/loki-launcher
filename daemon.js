@@ -376,7 +376,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         process.env.__daemon = true
         // spawn as child
         var cp_opt = {
-          stdio: 'ignore',
+          stdio: ['ignore', 'pipe', 'pipe'],
           env: process.env,
           cwd: process.cwd(),
           detached: true
@@ -388,8 +388,16 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           console.error('Could not spawn detached process')
           process.exit(1)
         }
+        // won't accumulate cause we're quitting...
+        var stdout = '', stderr = ''
+        child.stdout.on('data', (data) => {
+          stdout += data
+        })
+        child.stderr.on('data', (data) => {
+          stderr += data
+        })
         function crashHandler(code) {
-          console.log('background launcher died with', code)
+          console.log('background launcher died with', code, stdout, stderr)
         }
         child.on('close', crashHandler)
         // required so we can exit
@@ -450,6 +458,14 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
               ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
           }
+          for(var i in args) {
+            var arg = args[i]
+            if (arg == '--ignore-storage-server-port-check') {
+              client.disconnect()
+              doStart()
+              return
+            }
+          }
           process.exit(1)
         } else {
           client.disconnect()
@@ -459,6 +475,13 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
     })
   }
   if (config.storage.enabled) {
+    for(var i in args) {
+      var arg = args[i]
+      if (arg == '--skip-storage-server-port-check') {
+        doStart()
+        return
+      }
+    }
     testOpenPorts()
   } else {
     doStart()
