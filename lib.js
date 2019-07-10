@@ -304,7 +304,9 @@ function stopLokid(config) {
     var pids = getPids(config)
     console.log('blockchain is running, requesting shutdown')
     process.kill(pids.lokid, 'SIGINT')
+    return 1
   }
+  return 0
 }
 
 function stopLauncher(config) {
@@ -312,25 +314,30 @@ function stopLauncher(config) {
   var pid = areWeRunning(config)
   // FIXME: add try/catch in case of EPERM
   // request launcher shutdown...
+  var count = 0
   if (pid) {
     // request launcher stop
     console.log('requesting launcher stop')
+    count++
     process.kill(pid, 'SIGINT')
     // we quit too fast
     //require(__dirname + '/client')(config)
   } else {
     var running = getProcessState(config)
     var pids = getPids(config)
-    stopLokid(config)
+    count += stopLokid(config)
     if (config.storage.enabled && running.storageServer) {
       console.log('storage is running, requesting shutdown')
       process.kill(pids.storageServer, 'SIGINT')
+      count++
     }
     if (config.network.enabled && running.lokinet) {
       console.log('network is running, requesting shutdown')
       process.kill(pids.lokinet, 'SIGINT')
+      count++
     }
   }
+  return count
 }
 
 function waitForLauncherStop(config, cb) {
