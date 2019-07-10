@@ -180,46 +180,6 @@ module.exports = function(config, debug) {
     })
   }
 
-  // port test
-  function portTest(lbl, port, client, cb) {
-    // start a network server on specified port
-    // FIXME: make sure port isn't already taken
-    var code = lokinet.randomString(96)
-    console.log('Starting open port check on configured', lbl, ':', port)
-    var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
-      if (debug) console.debug('port verified')
-      incomingConnection.send('quit ' + code + ' ' + Date.now())
-    })
-    tempResponder.errorHandler = function(err) {
-      if (err.code == 'EADDRINUSE') {
-        console.error('Something seems to be running on port', port + '. Make sure your lokid is stopped before running this test')
-        process.exit(1)
-      }
-    }
-    client.testPort(port, function(results) {
-      if (debug) console.debug('port test complete', results)
-      /*
-      if (results.code != code) {
-        console.warn('weird codes do not match but probably fine for now')
-      }
-      */
-      /*
-      if (results.result != 'good') {
-        console.warn('OpenPort: Failed !')
-        log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-          ', OPEN ON YOUR FIREWALL, this is now required to run a service node')
-        snode_problems++
-      } else {
-        console.log('OpenPort: Success !')
-      }
-      client.disconnect()
-      */
-      tempResponder.letsClose(function() {
-        cb(results.result, port)
-      })
-    })
-  }
-
   networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
     if (client === false) {
       console.warn('We could not connect to our testing server, please try again later')
@@ -228,9 +188,11 @@ module.exports = function(config, debug) {
     function done() {
       markCheckDone('rpcport')
       diskspaceCheck()
+      if (debug) console.debug('calling disconnect')
       client.disconnect()
     }
-    portTest('p2p port', config.blockchain.p2p_port, client, function(results, port) {
+    console.log('Starting open port check on configured blockchain p2p port:', config.blockchain.p2p_port)
+    client.startTestingServer(config.blockchain.p2p_port, debug, function(results, port) {
       if (results != 'good') {
         console.warn('OpenP2pPort: Failed !')
         log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
@@ -240,7 +202,8 @@ module.exports = function(config, debug) {
         console.log('OpenP2pPort: Success !')
       }
       if (config.storage.enabled) {
-        portTest('storage server port', config.storage.port, client, function(results, port) {
+        console.log('Starting open port check on configured storage server port:', config.storage.port)
+        client.startTestingServer(config.storage.port, debug, function(results, port) {
           if (results != 'good') {
             console.warn('OpenStoragePort: Failed !')
             log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
