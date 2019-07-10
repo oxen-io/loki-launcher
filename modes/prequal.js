@@ -194,9 +194,14 @@ module.exports = function(config, debug) {
     console.log('Starting open port check on configured blockchain p2p port:', config.blockchain.p2p_port)
     client.startTestingServer(config.blockchain.p2p_port, debug, function(results, port) {
       if (results != 'good') {
+        if (results === 'inuse') {
+          log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+            ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
+        } else {
+          log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+            ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
+        }
         console.warn('OpenP2pPort: Failed !')
-        log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-          ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
         snode_warnings++
       } else {
         console.log('OpenP2pPort: Success !')
@@ -205,9 +210,14 @@ module.exports = function(config, debug) {
         console.log('Starting open port check on configured storage server port:', config.storage.port)
         client.startTestingServer(config.storage.port, debug, function(results, port) {
           if (results != 'good') {
+            if (results === 'inuse') {
+              log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
+            } else {
+              log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+            }
             console.warn('OpenStoragePort: Failed !')
-            log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
             snode_problems++
           } else {
             console.log('OpenStoragePort: Success !')
