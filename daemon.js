@@ -5,6 +5,7 @@ const net = require('net')
 const path = require('path')
 const lib = require(__dirname + '/lib')
 const lokinet = require(__dirname + '/lokinet')
+const networkTest = require(__dirname + '/lib.networkTest')
 const { spawn } = require('child_process')
 const stdin = process.openStdin()
 
@@ -356,7 +357,7 @@ function startLokinet(config, args, cb) {
   })
 }
 
-function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
+function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
   /*
   try {
     process.seteuid('rtharp')
@@ -365,71 +366,103 @@ function startLauncherDaemon(config, interactive, entryPoint, args, cb) {
     console.log(`Failed to set uid: ${err}`)
   }
   */
+  function doStart() {
+    // see if we need to detach
+    //console.log('interactive', interactive)
+    if (!interactive) {
+      //console.log('fork check', process.env.__daemon)
+      if (!process.env.__daemon) {
+        // first run
+        process.env.__daemon = true
+        // spawn as child
+        var cp_opt = {
+          stdio: 'ignore',
+          env: process.env,
+          cwd: process.cwd(),
+          detached: true
+        }
+        console.log('launching', process.execPath, entryPoint, 'daemon-start', args)
+        var child = spawn(process.execPath, [entryPoint, 'daemon-start'].concat(args), cp_opt)
+        //console.log('child', child)
+        if (!child) {
+          console.error('Could not spawn detached process')
+          process.exit(1)
+        }
+        function crashHandler(code) {
+          console.log('background launcher died with', code)
+        }
+        child.on('close', crashHandler)
+        // required so we can exit
+        var startTime = Date.now()
+        console.log('waiting on start up confirmation...')
+        function areWeRunningYet() {
+          var diff = Date.now() - startTime
 
-  // see if we need to detach
-  //console.log('interactive', interactive)
-  if (!interactive) {
-    //console.log('fork check', process.env.__daemon)
-    if (!process.env.__daemon) {
-      // first run
-      process.env.__daemon = true
-      // spawn as child
-      var cp_opt = {
-        stdio: 'ignore',
-        env: process.env,
-        cwd: process.cwd(),
-        detached: true
+          console.log('checking start up progress')
+          lib.getLauncherStatus(config, lokinet, 'waiting...', function(running, checklist) {
+            var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+            if (nodeVer >= 10) {
+              console.table(checklist)
+            } else {
+              console.log(checklist)
+            }
+            var pids = lib.getPids(config) // need to get the config
+            if (running.launcher && running.lokid && checklist.socket &&
+                  pids.runningConfig && pids.runningConfig.blockchain) {
+              console.log('start up successful')
+              child.removeListener('close', crashHandler)
+              process.exit()
+            }
+            if (diff > 60 * 1000) {
+              console.log('start up timeout, likely failed')
+              process.exit(1)
+            }
+            setTimeout(areWeRunningYet, 5000)
+          })
+        }
+        setTimeout(areWeRunningYet, 5000)
+        child.unref()
+        return
       }
-      console.log('launching', process.execPath, entryPoint, args)
-      var child = spawn(process.execPath, [entryPoint, 'daemon-start'].concat(args), cp_opt)
-      //console.log('child', child)
-      if (!child) {
-        console.error('Could not spawn detached process')
-        process.exit(1)
-      }
-      function crashHandler(code) {
-        console.log('background launcher died with', code)
-      }
-      child.on('close', crashHandler)
-      // required so we can exit
-      var startTime = Date.now()
-      console.log('waiting on start up confirmation...')
-      function areWeRunningYet() {
-        var diff = Date.now() - startTime
-
-        console.log('checking start up progress')
-        lib.getLauncherStatus(config, lokinet, 'waiting...', function(running, checklist) {
-          var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
-          if (nodeVer >= 10) {
-            console.table(checklist)
-          } else {
-            console.log(checklist)
-          }
-          var pids = lib.getPids(config) // need to get the config
-          if (running.launcher && running.lokid && checklist.socket &&
-                pids.runningConfig && pids.runningConfig.blockchain) {
-            console.log('start up successful')
-            child.removeListener('close', crashHandler)
-            process.exit()
-          }
-          if (diff > 60 * 1000) {
-            console.log('start up timeout, likely failed')
-            process.exit(1)
-          }
-          setTimeout(areWeRunningYet, 5000)
-        })
-      }
-      setTimeout(areWeRunningYet, 5000)
-      child.unref()
-      return
+      // no one sees these
+      //console.log('backgrounded')
     }
-    // no one sees these
-    //console.log('backgrounded')
+    // backgrounded or launched in interactive mode
+    //console.log('backgrounded or launched in interactive mode')
+    lib.setStartupLock(config)
+    cb()
   }
-  // backgrounded or launched in interactive mode
-  //console.log('backgrounded or launched in interactive mode')
-  lib.setStartupLock(config)
-  cb()
+  function testOpenPorts() {
+    networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
+      if (client === false) {
+        console.warn('We could not connect to our testing server')
+        setTimeout(function() {
+          testOpenPorts()
+        }, 30 * 1000)
+        return
+      }
+      console.log('Starting open port check on configured storage server port:', config.storage.port)
+      client.startTestingServer(config.storage.port, debug, function(results, port) {
+        if (results != 'good') {
+          if (results == 'inuse') {
+            console.error(config.storage.port, '')
+          } else  {
+            console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+          }
+          process.exit(1)
+        } else {
+          client.disconnect()
+          doStart()
+        }
+      })
+    })
+  }
+  if (config.storage.enabled) {
+    testOpenPorts()
+  } else {
+    doStart()
+  }
 }
 
 // compile config into CLI arguments
