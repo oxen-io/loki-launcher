@@ -405,9 +405,14 @@ function checkStorageConfig(config) {
   if (config.storage.data_dir === undefined) {
     const os = require('os')
     // FIXME: really should be left alone and we should have a getter
+    //console.log('default storage server path, blockchain is', config.blockchain.data_dir)
+    //config.storage.data_dir = getLokiDataDir(config) + '/storage'
+    // launcher can use the same storage path for testnet and mainnet
     config.storage.data_dir = os.homedir() + '/.loki/storage'
     config.storage.data_dir_is_default = true
   }
+  // append /testnet if needed
+  //config.storage.data_dir = getStorageServerDataDir(config)
   // set default port
   if (!config.storage.port) {
     config.storage.port = 8080
