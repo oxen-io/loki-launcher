@@ -188,6 +188,8 @@ function launcherStorageServer(config, args, cb) {
 
   storageServer.stdout.pipe(process.stdout)
   var storageServer_version = 'unknown'
+
+  var stdout = '', stderr = '', collectData = true
   storageServer.stdout.on('data', (data) => {
     var lines = data.toString().split(/\n/)
     for(var i in lines) {
@@ -208,16 +210,28 @@ function launcherStorageServer(config, args, cb) {
     data = lines.join('\n')
     // we're already piping to stdout
     //console.log(`STORAGE: ${data}`)
+    if (collectData) stdout += data
   })
 
   storageServer.stderr.on('STORAGE:', (data) => {
     console.log(`STORAGE ERR: ${data}`)
+    if (collectData) stderr += data
   })
 
+  // don't hold up the exit too much
+  var memoryWatcher = setTimeout(function() {
+    collectData = false
+    stdout = ''
+    stderr = ''
+  }, 10 * 1000)
+
   storageServer.on('close', (code) => {
+    clearTimeout(memoryWatcher)
     console.log(`storageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
+      console.log(stdout, 'stderr', stderr)
+      console.log('')
       console.warn('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
       // we could want to issue one kill just to make sure
       // however since we don't know the pid, we won't know if it's ours
