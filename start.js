@@ -35,7 +35,11 @@ function killLokinetAndStorageServer(config, running, pids) {
   }
 }
 
-module.exports = function(args, config, entryPoint) {
+function isNothingRunning(running) {
+  return !(running.lokid || running.lokinet || running.storageServer)
+}
+
+module.exports = function(args, config, entryPoint, debug) {
   const VERSION = 0.7
 
   //var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
@@ -320,10 +324,6 @@ module.exports = function(args, config, entryPoint) {
   pids = lib.getPids(config)
   var running = lib.getProcessState(config)
 
-  function isNothingRunning(running) {
-    return !(running.lokid || running.lokinet || running.storageServer)
-  }
-
   // progress to 2nd phase where we might need to start something
   const daemon = require(__dirname + '/daemon')
   daemon.config = config // update config for shutdownEverything
@@ -346,7 +346,7 @@ module.exports = function(args, config, entryPoint) {
     //console.log('LAUNCHER: startEverything - foreground?', foregroundIt)
 
     //function start(config, foregroundIt, entryPoint, args) {
-    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, function() {
+    daemon.startLauncherDaemon(config, foregroundIt, entryPoint, args, debug, function() {
       // should be in the daemon at this point...
       if (config.launcher.publicIPv4) {
         // manually configured
