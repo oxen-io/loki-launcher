@@ -1,3 +1,6 @@
+const lokinet = require(__dirname + '/lokinet') // expects 0.8 used for randomString
+const netWrap = require('./lets_tcp')
+
 const slice = 10
 const blocksPerTick = 100
 
@@ -5,7 +8,6 @@ const VERSION = 0.1
 
 // FIXME: lock, so only one uploadTest can run at a time
 function createClient(host, port, cb, debug) {
-  const netWrap = require('./lets_tcp')
   netWrap.debug = debug
 
   var timer = null
@@ -98,7 +100,7 @@ function createClient(host, port, cb, debug) {
     //console.log('starting port test for', port)
     client.send('port ' + port)
     timeoutTimer = setTimeout(function() {
-      console.warn('port test timed out')
+      //console.warn('port test timed out')
       if (portTestCallback) {
         var callMe = portTestCallback
         portTestCallback = null
@@ -186,7 +188,7 @@ function createClient(host, port, cb, debug) {
     client.reconnect = false
     // prevent additional processing
     if (aborted) return
-    cb({
+    let publicClient = {
       testUpload: function(cb) {
         if (testCallback) {
           console.log('a test is already running')
@@ -218,7 +220,12 @@ function createClient(host, port, cb, debug) {
         client.destroy() // cause a disconnect
         client.socket.destroy()
       }
-    })
+    }
+    // I really don't like this
+    publicClient.startTestingServer = function(port, debug, cb) {
+      startTestingServer(port, publicClient, debug, cb)
+    }
+    cb(publicClient)
   })
 }
 
@@ -230,6 +237,30 @@ function formatBytes(bytes, decimals = 2) {
      sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
      i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+}
+
+// open port test by starting a network server on specified port
+function startTestingServer(port, client, debug, cb) {
+  // FIXME: make sure port isn't already taken
+  var code = lokinet.randomString(96)
+  var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
+    if (debug) console.debug('port verified')
+    incomingConnection.send('quit ' + code + ' ' + Date.now())
+  })
+  tempResponder.errorHandler = function(err) {
+    if (err.code == 'EADDRINUSE') {
+      cb('inuse', port)
+      return
+    } else {
+      if (err) console.error('serveTCP problem:', err)
+    }
+  }
+  client.testPort(port, function(results) {
+    if (debug) console.debug('port test complete', results)
+    tempResponder.letsClose(function() {
+      cb(results.result, port)
+    })
+  })
 }
 
 module.exports = {
