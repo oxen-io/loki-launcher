@@ -105,7 +105,7 @@ function warnRunAsRoot() {
     }
   }
 }
-
+console.log('running', mode)
 switch(mode) {
   case 'start': // official
     warnRunAsRoot()
@@ -243,6 +243,10 @@ switch(mode) {
   break;
   case 'check-systemd':
   case 'upgrade-systemd': // official
+    if (process.getuid() != 0) {
+      console.log('check-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
+      process.exit(1)
+    }
     require(__dirname + '/modes/check-systemd').start(config, __filename)
   break;
   case 'chown':
@@ -250,6 +254,10 @@ switch(mode) {
   case 'setperms':
   case 'set-perms':
   case 'fix-perms': // official
+    if (process.getuid() != 0) {
+      console.log('fix-perms needs to be ran as root, try prefixing your attempted command with: sudo')
+      process.exit(1)
+    }
     var user = findFirstArgWithoutDash()
     require(__dirname + '/modes/fix-perms').start(user, __dirname, config)
   break;
