@@ -396,8 +396,11 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         child.stderr.on('data', (data) => {
           stderr += data
         })
+        //var launcherHasExited = false
         function crashHandler(code) {
           console.log('background launcher died with', code, stdout, stderr)
+          //launcherHasExited = true
+          process.exit(1)
         }
         child.on('close', crashHandler)
         // required so we can exit
@@ -415,8 +418,13 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               console.log(checklist)
             }
             var pids = lib.getPids(config) // need to get the config
-            if (running.launcher && running.lokid && checklist.socket &&
-                  pids.runningConfig && pids.runningConfig.blockchain) {
+            // blockchain rpc is now required for SN
+            // (!config.storage.enabled) || (
+            // can't turn it off
+            var lastCheck = checklist.blockchain_rpc != 'waiting...'
+            if (running.launcher && running.lokid && checklist.socket != 'waiting...' &&
+                  pids.runningConfig && pids.runningConfig.blockchain &&
+                  lastCheck) {
               console.log('start up successful')
               child.removeListener('close', crashHandler)
               process.exit()
@@ -425,7 +433,9 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               console.log('start up timeout, likely failed')
               process.exit(1)
             }
+            //if (!launcherHasExited) {
             setTimeout(areWeRunningYet, 5000)
+            //}
           })
         }
         setTimeout(areWeRunningYet, 5000)
