@@ -109,7 +109,7 @@ console.log('running', mode)
 switch(mode) {
   case 'start': // official
     warnRunAsRoot()
-    require(__dirname + '/start')(args, config, __filename)
+    require(__dirname + '/start')(args, config, __filename, false)
   break;
   case 'status': // official
     const lokinet = require('./lokinet')
@@ -186,7 +186,7 @@ switch(mode) {
     // debug mode basically (but also used internally now)
     process.env.__daemon = true
     config.launcher.interactive = true
-    require(__dirname + '/start')(args, config, __filename)
+    require(__dirname + '/start')(args, config, __filename, true)
   break;
   case 'daemon-start': // official
     // debug mode basically (but also used internally now)
