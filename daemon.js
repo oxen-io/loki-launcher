@@ -2,9 +2,11 @@
 const fs = require('fs')
 //const os = require('os')
 const net = require('net')
+const dns = require('dns')
 const path = require('path')
 const lib = require(__dirname + '/lib')
 const lokinet = require(__dirname + '/lokinet')
+const configUtil = require(__dirname + '/config')
 const networkTest = require(__dirname + '/lib.networkTest')
 const { spawn } = require('child_process')
 const stdin = process.openStdin()
@@ -465,38 +467,71 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
     cb()
   }
   function testOpenPorts() {
-    networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
-      if (client === false) {
-        console.warn('We could not connect to our testing server')
-        setTimeout(function() {
-          testOpenPorts()
-        }, 30 * 1000)
-        return
-      }
-      console.log('Starting open port check on configured storage server port:', config.storage.port)
-      client.startTestingServer(config.storage.port, debug, function(results, port) {
-        if (results != 'good') {
-          if (results == 'inuse') {
-            console.error(config.storage.port, '')
-          } else  {
-            console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-          }
-          for(var i in args) {
-            var arg = args[i]
-            if (arg == '--ignore-storage-server-port-check') {
-              client.disconnect()
+    // move deterministic behavior than letting the OS decide
+    console.log('Starting verification phase')
+    console.log('Downloading test servers from testing.lokinet.org')
+    dns.resolve4('testing.lokinet.org', function(err, addresses) {
+      if (err) console.error('dnsLookup err', err)
+      //console.log('addresses', addresses)
+      function tryAndConnect() {
+        var idx = parseInt(Math.random() * addresses.length)
+        var server = addresses[idx]
+        /*
+        dns.resolvePtr(server, function(err, names) {
+          if (err) console.error('dnsPtrLookup err', err)
+          if (names.length) console.log('trying to connect to', names[0])
+        })
+        */
+        console.log('trying to connect to', server)
+        addresses.splice(idx, 1) // remove it
+        networkTest.createClient(server, 3000, function(client) {
+          //console.log('client', client)
+          if (client === false) {
+            if (!addresses.length) {
+              console.warn('We could not connect to ANY testing server, you may want to check your internet connection and DNS settings')
+              /*
+              setTimeout(function() {
+                testOpenPorts()
+              }, 30 * 1000)
+              */
+              console.log('verification phase complete')
               doStart()
+              return
+            } else {
+              // retry with a different server
+              tryAndConnect()
               return
             }
           }
-          process.exit(1)
-        } else {
-          client.disconnect()
-          doStart()
-        }
-      })
-    })
+          console.log('Starting open port check on configured storage server port:', config.storage.port)
+          client.startTestingServer(config.storage.port, debug, function(results, port) {
+            if (results != 'good') {
+              if (results == 'inuse') {
+                console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
+              } else  {
+                console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                  ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+              }
+              for(var i in args) {
+                var arg = args[i]
+                if (arg == '--ignore-storage-server-port-check') {
+                  client.disconnect()
+                  console.log('verification phase complete')
+                  doStart()
+                  return
+                }
+              }
+              process.exit(1)
+            } else {
+              console.log('verification phase complete')
+              client.disconnect()
+              doStart()
+            }
+          }) // end startTestingServer
+        }) // end createClient
+      } // end func tryAndConnect
+      tryAndConnect()
+    }) // end resolve
   }
   if (config.storage.enabled) {
     for(var i in args) {
@@ -552,24 +587,22 @@ function configureLokid(config, args) {
   // but not before the dedupe
   if (config.blockchain.network == "test") {
     lokid_options.push('--testnet')
-    // 4.0 not requires these
-    lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   } else
   if (config.blockchain.network == "demo") {
     lokid_options.push('--testnet')
     lokid_options.push('--add-priority-node=116.203.126.14')
-    // 4.0 not requires these
-    lokid_options.push('--storage-server-port', config.storage.port)
-    lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
   } else
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')
-    // 4.0 not requires these
+  }
+  // not 3.x
+  if (!configUtil.isBlockchainBinary3X()) {
+    // 4.x+
     lokid_options.push('--storage-server-port', config.storage.port)
     lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
+  } else {
+    console.log('3.x blockchain block binary detected')
   }
-
   // copy CLI options to lokid
   for (var i in args) {
     // should we prevent --non-interactive?
