@@ -140,6 +140,10 @@ module.exports = function(config, debug) {
         console.info('Your node successfully passed all tests')
       }
     }
+    if (killedLauncher) {
+      console.log('')
+      console.log('remember to restart your launcher')
+    }
   }
 
   // diskspace check
@@ -180,53 +184,60 @@ module.exports = function(config, debug) {
     })
   }
 
-  networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
-    if (client === false) {
-      console.warn('We could not connect to our testing server, please try again later')
-      process.exit()
-    }
-    function done() {
-      markCheckDone('rpcport')
-      diskspaceCheck()
-      if (debug) console.debug('calling disconnect')
-      client.disconnect()
-    }
-    console.log('Starting open port check on configured blockchain p2p port:', config.blockchain.p2p_port)
-    client.startTestingServer(config.blockchain.p2p_port, debug, function(results, port) {
-      if (results != 'good') {
-        if (results === 'inuse') {
-          log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-            ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
-        } else {
-          log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-            ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
-        }
-        console.warn('OpenP2pPort: Failed !')
-        snode_warnings++
-      } else {
-        console.log('OpenP2pPort: Success !')
+  function portTest() {
+    networkTest.createClient('na.testing.lokinet.org', 3000, function(client) {
+      if (client === false) {
+        console.warn('We could not connect to our testing server, please try again later')
+        process.exit()
       }
-      if (config.storage.enabled) {
-        console.log('Starting open port check on configured storage server port:', config.storage.port)
-        client.startTestingServer(config.storage.port, debug, function(results, port) {
-          if (results != 'good') {
-            if (results === 'inuse') {
-              log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
-            } else {
-              log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-            }
-            console.warn('OpenStoragePort: Failed !')
-            snode_problems++
+      function done() {
+        markCheckDone('rpcport')
+        diskspaceCheck()
+        if (debug) console.debug('calling disconnect')
+        client.disconnect()
+      }
+      console.log('Starting open port check on configured blockchain p2p port:', config.blockchain.p2p_port)
+      client.startTestingServer(config.blockchain.p2p_port, debug, function(results, port) {
+        if (results != 'good') {
+          if (results === 'inuse') {
+            log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+              ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
           } else {
-            console.log('OpenStoragePort: Success !')
+            log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+              ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
           }
+          console.warn('OpenP2pPort: Failed !')
+          snode_warnings++
+        } else {
+          console.log('OpenP2pPort: Success !')
+        }
+        if (config.storage.enabled) {
+          console.log('Starting open port check on configured storage server port:', config.storage.port)
+          client.startTestingServer(config.storage.port, debug, function(results, port) {
+            if (results != 'good') {
+              if (results === 'inuse') {
+                log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                  ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
+              } else {
+                log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                  ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+              }
+              console.warn('OpenStoragePort: Failed !')
+              snode_problems++
+            } else {
+              console.log('OpenStoragePort: Success !')
+            }
+            done()
+          })
+        } else {
           done()
-        })
-      } else {
-        done()
-      }
-    })
-  }, debug)
+        }
+      })
+    }, debug)
+  }
+
+  const killedLauncher = lib.stopLauncher(config)
+  lib.waitForLauncherStop(config, function() {
+    portTest()
+  })
 }
