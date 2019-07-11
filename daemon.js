@@ -383,6 +383,18 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
   }
   */
   function doStart() {
+
+    // strip any launcher-specific params we shouldn't need any more
+    for(var i in args) {
+      var arg = args[i]
+      if (arg == '--skip-storage-server-port-check') {
+        args.splice(i, 1) // remove this option
+      } else
+      if (arg == '--ignore-storage-server-port-check') {
+        args.splice(i, 1) // remove this option
+      }
+    }
+
     // see if we need to detach
     //console.log('interactive', interactive)
     if (!interactive) {
@@ -517,6 +529,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                 if (arg == '--ignore-storage-server-port-check') {
                   client.disconnect()
                   console.log('verification phase complete')
+                  args.splice(i, 1) // remove this option
                   doStart()
                   return
                 }
@@ -537,6 +550,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
     for(var i in args) {
       var arg = args[i]
       if (arg == '--skip-storage-server-port-check') {
+        args.splice(i, 1) // remove this option
         doStart()
         return
       }
