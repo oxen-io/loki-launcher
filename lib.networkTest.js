@@ -135,7 +135,8 @@ function createClient(host, port, cb, debug) {
   }
 
   netWrap.recv = function(pkt, client) {
-    //console.log('got', pkt, 'from', client.socket.address().address)
+    //console.log('got', pkt, 'to', client.socket.address().address)
+    //console.log('got', pkt, 'from', client.socket.remoteAddress)
     var parts = pkt.split(/ /)
     var w0    = parts[0]
     switch(w0) {
