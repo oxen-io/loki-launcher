@@ -94,7 +94,7 @@ function areWeRunning(config) {
     } catch(e) {
       return 0
     }
-    if (isPidRunning(pid)) {
+    if (pid && isPidRunning(pid)) {
       // pid is correct, syslog could take this spot, verify the name
       //console.log('our process name', process.title)
       var stdout = execSync('ps -p ' + pid + ' -ww -o pid,ppid,uid,gid,args', {
