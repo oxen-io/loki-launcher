@@ -64,8 +64,7 @@ function walk(dir, fn, cb) {
 
 // should be ran after download-binaries
 function start(user, dir, config) {
-  // FIXME: make sure the launcher isn't running
-  lib.stopLauncher(config)
+  const killedLauncher = lib.stopLauncher(config)
   lib.waitForLauncherStop(config, function() {
     const uidGetter = require(dir + '/uid')
     console.log('setting permissions to', user)
@@ -162,6 +161,10 @@ function start(user, dir, config) {
         })
       } else {
         console.log('no blockchain data_dir')
+      }
+      if (killedLauncher) {
+        console.log('')
+        console.log('remember to restart your launcher')
       }
     })
   })
