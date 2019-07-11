@@ -384,17 +384,6 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
   */
   function doStart() {
 
-    // strip any launcher-specific params we shouldn't need any more
-    for(var i in args) {
-      var arg = args[i]
-      if (arg == '--skip-storage-server-port-check') {
-        args.splice(i, 1) // remove this option
-      } else
-      if (arg == '--ignore-storage-server-port-check') {
-        args.splice(i, 1) // remove this option
-      }
-    }
-
     // see if we need to detach
     //console.log('interactive', interactive)
     if (!interactive) {
@@ -410,7 +399,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           detached: true
         }
         console.log('launching', process.execPath, entryPoint, 'daemon-start', args)
-        var child = spawn(process.execPath, [entryPoint, 'daemon-start'].concat(args), cp_opt)
+        var child = spawn(process.execPath, [entryPoint, 'daemon-start', '--skip-storage-server-port-check'].concat(args), cp_opt)
         //console.log('child', child)
         if (!child) {
           console.error('Could not spawn detached process')
@@ -474,6 +463,16 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
       //console.log('backgrounded')
     }
     // backgrounded or launched in interactive mode
+    // strip any launcher-specific params we shouldn't need any more
+    for(var i in args) {
+      var arg = args[i]
+      if (arg == '--skip-storage-server-port-check') {
+        args.splice(i, 1) // remove this option
+      } else
+      if (arg == '--ignore-storage-server-port-check') {
+        args.splice(i, 1) // remove this option
+      }
+    }
     //console.log('backgrounded or launched in interactive mode')
     lib.setStartupLock(config)
     cb()
