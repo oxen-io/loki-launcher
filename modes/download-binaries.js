@@ -1,16 +1,17 @@
 const fs = require('fs')
 const os = require('os')
-const lib = require(__dirname + '/../lib')
-const lokinet = require(__dirname + '/../lokinet')
 const http = require('http')
 const https = require('https')
 const urlparser = require('url')
 const pathUtil = require('path')
+const lib = require(__dirname + '/../lib')
+const lokinet = require(__dirname + '/../lokinet')
+//const configUtil = require(__dirname + '/../config')
 
 const debug = false
 
 // we need this for github header
-const VERSION = 0.2
+const VERSION = 0.3
 //console.log('loki binary downloader version', VERSION, 'registered')
 
 function getFileSizeSync(path) {
@@ -197,16 +198,33 @@ function downloadGithubRepo(github_url, options, config, cb) {
 
     if (data.length) {
       console.log('got a list of', data.length, 'releases, narrowing it down')
-      var selectedVersion
-      while(1) {
-        selectedVersion = data.shift()
+      var selectedVersion = null
+      for(var i in data) {
+        const ver = data[i]
         if (options.prereleaseOnly) {
-          if (selectedVersion.prerelease) {
-            break;
+          if (ver.prerelease) {
+            selectedVersion = ver
+            break
           }
         } else {
-          break;
+          if (options.notPrerelease) {
+            if (!ver.prerelease) {
+              selectedVersion = ver
+              break
+            }
+          } else {
+            // not prereleaseOnly and not notPrerelease
+            // just download the first
+            selectedVersion = ver
+            break
+          }
         }
+      }
+      if (selectedVersion === null) {
+        console.error('Could not find latest release')
+        if (options.prereleaseOnly) console.log('prerelease only mode')
+        if (options.notPrerelease) console.log('release only Mode')
+        process.exit(1)
       }
       data = selectedVersion
       console.log('selecting', data.name)
@@ -272,11 +290,14 @@ function start(config) {
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false }, config, function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, prereleaseOnly: true }, config, function() {
       downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, prereleaseOnly: true }, config)
     })
   } else {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/latest', { filename: 'lokid', useDir: true }, config)
+    // 4.x
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+    })
   }
 }
 
