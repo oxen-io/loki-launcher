@@ -2,6 +2,7 @@ const fs = require('fs')
 const os = require('os')
 const ini = require(__dirname + '/ini')
 const lib = require(__dirname + '/lib')
+const { execFileSync } = require('child_process')
 
 // only defaults we can save to disk
 // disk config is loaded over this...
@@ -235,10 +236,26 @@ function precheckConfig(config, args, debug) {
   storageDataDirReady = true
 }
 
+var binary3xCache = null
+function isBlockchainBinary3X(config) {
+  if (binary3xCache !== null) return binary3xCache
+  if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
+    var stdout = execFileSync(config.blockchain.binary_path, ['--version'])
+    var lokid_version = stdout.toString().trim()
+    binary3xCache = lokid_version.match(/v3.0/)?true:false
+    return binary3xCache
+  }
+  return undefined
+}
+
 function checkLauncherConfig(config) {
   if (config.network === undefined) config.network = {}
   if (config.storage === undefined) config.storage = {}
   // launcher defaults
+
+  // in case they have a config file with no launcher section but had a blockchain section with this missing
+  // had to move this from blockchain to launcher, so we can do the version check
+  if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = '/opt/loki-launcher/bin/lokid'
 
   // only thing you can't turn off is blockchain (lokid)
   // if you have storage without lokinet, it will use the public IP to serve on
@@ -248,13 +265,20 @@ function checkLauncherConfig(config) {
     config.network.enabled = false
   }
   if (config.storage.enabled === undefined) {
-    // only auto-enable for testnet for now
-    //console.log('network', config.blockchain.network)
-    if (config.blockchain.network == 'test') {
-      config.storage.enabled = true
-    } else {
+    config.storage.enabled = true
+
+    var is3x = isBlockchainBinary3X(config)
+    //console.log('is3x', is3x)
+    // only disable if on 3.x
+    if (is3x === true) {
+      console.log('3.x series blockchain binary detected, disabling storage server by default')
       config.storage.enabled = false
     }
+    // I don't think we need this, 3.x users will be in the minority
+     /* else
+    if (is3x === undefined) {
+      console.log('Could not detect your lokid version, leaving storage server enabled')
+    } */
   }
 }
 
@@ -354,8 +378,6 @@ function setupInitialBlockchainOptions(xmrOptions, config) {
 
 function checkBlockchainConfig(config) {
   // set default
-  // in case they have a config file with no launcher section but had a blockchain section with this missing
-  if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = '/opt/loki-launcher/bin/lokid'
   // set network so we can run toLowerCase on it
   if (config.blockchain.network === undefined) {
     config.blockchain.network = 'main'
@@ -539,4 +561,5 @@ module.exports = {
   prequal: prequal,
   setupInitialBlockchainOptions: setupInitialBlockchainOptions,
   ensureDirectoriesExist: ensureDirectoriesExist,
+  isBlockchainBinary3X: isBlockchainBinary3X,
 }
