@@ -116,7 +116,17 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 
-- 0.0.12 - (work in progress) fixes loki.conf file parsing, interactive mode bug, update ifconfig.me's URL
+- 0.0.12 
+  - 4.0 release changes
+    - storage server open port check enforced on start
+    - and actually updating the prequal to be 4.0 ready
+  - start now waits for rpc port to be open before saying it's a success
+  - pass info if lokid/storage server exit before it's declared started
+  - stop launchers before certain modes
+  - exited with warning if not root instead of throwing EPERMs
+  - fixes loki.conf file parsing
+  - interactive mode bug
+  - update ifconfig.me's URL
 - 0.0.11 - removes lokid key search requirement for non-testnet
 - 0.0.10* - fixes 3.0.7 release breaking testnet
 - 0.0.9* - fixes missing INI library (issue #34)
