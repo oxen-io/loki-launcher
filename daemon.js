@@ -663,7 +663,7 @@ function configureLokid(config, args) {
     lokid_options.push('--stagenet')
   }
   // not 3.x
-  if (!configUtil.isBlockchainBinary3X()) {
+  if (!configUtil.isBlockchainBinary3X(config)) {
     // 4.x+
     lokid_options.push('--storage-server-port', config.storage.port)
     lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)
