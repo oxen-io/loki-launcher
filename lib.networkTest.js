@@ -8,6 +8,7 @@ const VERSION = 0.1
 
 // FIXME: lock, so only one uploadTest can run at a time
 function createClient(host, port, cb, debug) {
+  //console.log('creating Client')
   netWrap.debug = debug
 
   var timer = null
@@ -136,7 +137,7 @@ function createClient(host, port, cb, debug) {
 
   netWrap.recv = function(pkt, client) {
     //console.log('got', pkt, 'to', client.socket.address().address)
-    //console.log('got', pkt, 'from', client.socket.remoteAddress)
+    if (debug) console.log('got', pkt, 'from', client.socket.remoteAddress)
     var parts = pkt.split(/ /)
     var w0    = parts[0]
     switch(w0) {
@@ -184,6 +185,7 @@ function createClient(host, port, cb, debug) {
     aborted = true
   }, 60 * 1000)
   netWrap.connectTCP(host, port, function(client) {
+    //console.log('connectTCP')
     clearTimeout(connectTimeoutTimer)
     // don't reconnect on disconnect (so we can actually force a disconnect when done)
     client.reconnect = false
@@ -215,6 +217,7 @@ function createClient(host, port, cb, debug) {
         startPortTest(client, port)
       },
       disconnect: function() {
+        client.send('dc')
         client.reconnect = false
         shutdownOk = true
         //client.disconncet()
