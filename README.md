@@ -116,10 +116,18 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 
+- 0.0.13
+  - change storage server default port from 8080 to 23023
+  - storage server/lokinet start up now waits for blockchain rpc port to be open
+  - fix linux pipe race condition (would say started but then launcher would die)
+  - unhandle exception logger
+  - add more retries on failure
+  - don't check open storage server port twice
 - 0.0.12 
   - 4.0 release changes
     - storage server open port check enforced on start
     - and actually updating the prequal to be 4.0 ready
+  - 3.x detection for backwards compatibility
   - start now waits for rpc port to be open before saying it's a success
   - pass info if lokid/storage server exit before it's declared started
   - stop launchers before certain modes
