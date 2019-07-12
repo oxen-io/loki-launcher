@@ -548,8 +548,8 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         console.log('trying to connect to', server)
         addresses.splice(idx, 1) // remove it
         networkTest.createClient(server, 3000, function(client) {
-          console.log('got createClient cb')
           //console.log('client', client)
+          if (debug) console.debug('got createClient cb')
           if (client === false) {
             if (!addresses.length) {
               console.warn('We could not connect to ANY testing server, you may want to check your internet connection and DNS settings')
@@ -569,7 +569,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           }
           console.log('Starting open port check on configured storage server port:', config.storage.port)
           client.startTestingServer(config.storage.port, debug, function(results, port) {
-            console.log('got startTestingServer cb')
+            if (debug) console.debug('got startTestingServer cb')
             if (results != 'good') {
               if (results == 'inuse') {
                 console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
@@ -663,7 +663,7 @@ function configureLokid(config, args) {
     lokid_options.push('--stagenet')
   }
   // not 3.x
-  if (!configUtil.isBlockchainBinary3X()) {
+  if (!configUtil.isBlockchainBinary3X(config)) {
     // 4.x+
     lokid_options.push('--storage-server-port', config.storage.port)
     lokid_options.push('--service-node-public-ip', config.launcher.publicIPv4)

@@ -176,8 +176,8 @@ RUN set -ex \
 WORKDIR /src
 #COPY src/loki .
 
-ADD https://api.github.com/repos/Doy-lee/loki/git/refs/heads/ConsensusNet version.json
-RUN git clone https://github.com/Doy-lee/loki.git && cd loki && git checkout ConsensusNet && git submodule init && git submodule update
+ADD https://api.github.com/repos/loki-project/loki/git/refs/heads/dev version.json
+RUN git clone https://github.com/loki-project/loki.git && cd loki && git checkout dev && git submodule init && git submodule update
 
 ENV USE_SINGLE_BUILDDIR=1
 WORKDIR /src/loki
@@ -226,11 +226,10 @@ RUN ./install-deps-linux.sh
 #COPY src/loki-storage-server .
 
 ADD https://api.github.com/repos/loki-project/loki-storage-server/git/refs/heads/dev version.json
-RUN git clone https://github.com/loki-project/loki-storage-server.git && cd loki-storage-server && git checkout dev
-#&& git submodule init && git submodule update
+RUN git clone https://github.com/loki-project/loki-storage-server.git && cd loki-storage-server && git checkout dev && git submodule init && git submodule update
 
 WORKDIR /src/loki-storage-server
-RUN mkdir -p build && cd build && sodium_LIBRARY_RELEASE="deps/sodium/lib" cmake .. -DBOOST_ROOT="/src/deps/boost" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" -DCMAKE_BUILD_TYPE=Release && cmake --build .
+RUN mkdir -p build && cd build && sodium_LIBRARY_RELEASE="deps/sodium/lib" cmake .. -DBOOST_ROOT="/src/deps/boost" -DOPENSSL_ROOT_DIR="/usr/include/openssl/" -DCMAKE_BUILD_TYPE=Release -DDISABLE_SNODE_SIGNATURE=OFF && cmake --build .
 #RUN find . -name httpserver
 
 #CMD ["build/httpserver", "127.0.0.1", "3000"]

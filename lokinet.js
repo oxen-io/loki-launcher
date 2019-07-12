@@ -216,10 +216,12 @@ function getPublicIPv4(cb) {
     if (done[0] != done[1]) {
       // try 2 random services again
       getPublicIPv4_retries++
-      if (getPublicIPv4_retries > 10) {
+      // FIXME was 10, add CLI option to up this for CI
+      if (getPublicIPv4_retries > 50) {
         console.error('NAT detection: Can\'t determine public IP address')
         process.exit()
       }
+      console.log('retry #', getPublicIPv4_retries)
       getPublicIPv4(cb)
     } else {
       // return
