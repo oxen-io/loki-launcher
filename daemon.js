@@ -11,8 +11,20 @@ const networkTest = require(__dirname + '/lib.networkTest')
 const { spawn } = require('child_process')
 const stdin = process.openStdin()
 
+//const longjohn = require('longjohn')
+
 const VERSION = 0.2
 //console.log('loki daemon library version', VERSION, 'registered')
+
+process.on('uncaughtException', function (err) {
+  console.error('Caught exception: ' + err)
+  fs.appendFileSync('launcher_exception.log', JSON.stringify({
+    err: err,
+    code: err.code,
+    msg: err.message,
+    trace: err.stack.split("\n")
+  }) + "\n")
+})
 
 var connections = []
 function disconnectAllClients() {
@@ -188,7 +200,11 @@ function launcherStorageServer(config, args, cb) {
   storageServer.startTime = Date.now()
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
-  storageServer.stdout.pipe(process.stdout)
+  // copy the output to stdout
+  // FIXME: I think it can only pipe while there's a stdout pipe open...
+  storageServer.stdout.pipe(process.stdout).on('error', function(err) {
+    console.error('STORARE1_PIPE_ERR:', JSON.stringify(err))
+  })
   var storageServer_version = 'unknown'
 
   var stdout = '', stderr = '', collectData = true
@@ -214,18 +230,28 @@ function launcherStorageServer(config, args, cb) {
     //console.log(`STORAGE: ${data}`)
     if (collectData) stdout += data
   })
+  storageServer.stdout.on('error', (err) => {
+    console.error('STORAGE1_ERR:', JSON.stringify(err))
+  })
 
   storageServer.stderr.on('STORAGE:', (data) => {
     console.log(`STORAGE ERR: ${data}`)
     if (collectData) stderr += data
   })
+  storageServer.stderr.on('error', (err) => {
+    console.error('STORAGE2_ERR:', JSON.stringify(err))
+  })
 
   // don't hold up the exit too much
   var memoryWatcher = setTimeout(function() {
+    console.log('turning off storage server start up watcher')
     collectData = false
     stdout = ''
     stderr = ''
   }, 10 * 1000)
+  storageServer.on('error', (err) => {
+    console.error('STORAGEP_ERR:', JSON.stringify(err))
+  })
 
   storageServer.on('close', (code) => {
     clearTimeout(memoryWatcher)
@@ -398,6 +424,8 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           cwd: process.cwd(),
           detached: true
         }
+        // this doesn't work like this...
+        //args.push('1>', 'log.out', '2>', 'err.out')
         console.log('launching', process.execPath, entryPoint, 'daemon-start', args)
         var child = spawn(process.execPath, [entryPoint, 'daemon-start', '--skip-storage-server-port-check'].concat(args), cp_opt)
         //console.log('child', child)
@@ -408,10 +436,12 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         // won't accumulate cause we're quitting...
         var stdout = '', stderr = ''
         child.stdout.on('data', (data) => {
-          stdout += data
+          //if (debug) console.log(data.toString())
+          stdout += data.toString()
         })
         child.stderr.on('data', (data) => {
-          stderr += data
+          //if (debug) console.error(data.toString())
+          stderr += data.toString()
         })
         //var launcherHasExited = false
         function crashHandler(code) {
@@ -425,7 +455,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         console.log('waiting on start up confirmation...')
         function areWeRunningYet() {
           var diff = Date.now() - startTime
-
+          // , process.pid
           console.log('checking start up progress')
           lib.getLauncherStatus(config, lokinet, 'waiting...', function(running, checklist) {
             var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
@@ -446,7 +476,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               child.removeListener('close', crashHandler)
               process.exit()
             }
-            if (diff > 60 * 1000) {
+            if (diff > 1   * 60 * 1000) {
               console.log('start up timeout, likely failed')
               process.exit(1)
             }
@@ -496,6 +526,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         console.log('trying to connect to', server)
         addresses.splice(idx, 1) // remove it
         networkTest.createClient(server, 3000, function(client) {
+          console.log('got createClient cb')
           //console.log('client', client)
           if (client === false) {
             if (!addresses.length) {
@@ -505,7 +536,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                 testOpenPorts()
               }, 30 * 1000)
               */
-              console.log('verification phase complete')
+              console.log('Verification phase complete')
               doStart()
               return
             } else {
@@ -516,6 +547,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           }
           console.log('Starting open port check on configured storage server port:', config.storage.port)
           client.startTestingServer(config.storage.port, debug, function(results, port) {
+            console.log('got startTestingServer cb')
             if (results != 'good') {
               if (results == 'inuse') {
                 console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
@@ -535,7 +567,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               }
               process.exit(1)
             } else {
-              console.log('verification phase complete')
+              console.log('verification phase complete.')
               client.disconnect()
               doStart()
             }
@@ -682,6 +714,10 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     shutdown_everything()
     return
   }
+  loki_daemon.on('error', (err) => {
+    console.error('BLOCKCHAINP_ERR:', JSON.stringify(err))
+  })
+
   loki_daemon.startTime = Date.now()
   savePidConfig = {
     config: config,
@@ -705,6 +741,27 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
           conn.write(data + "\n")
         }
       }
+    })
+    loki_daemon.stdout.on('error', (err) => {
+      console.error('BLOCKCHAIN1_ERR:', JSON.stringify(err))
+    })
+    loki_daemon.stderr.on('data', (data) => {
+      console.log(`blockchainErrRAW: ${data}`)
+      //var parts = data.toString().split(/\n/)
+      //parts.pop()
+      //stripped = parts.join('\n')
+      //console.log(`blockchain: ${stripped}`)
+      // seems to be working...
+      if (server) {
+        // broadcast
+        for (var i in connections) {
+          var conn = connections[i]
+          conn.write("ERR" + data + "\n")
+        }
+      }
+    })
+    loki_daemon.stderr.on('error', (err) => {
+      console.error('BLOCKCHAIN1_ERR:', JSON.stringify(err))
     })
   }
 
@@ -856,6 +913,9 @@ function startLokid(config, args) {
         }
       }
     })
+    stdin.on('error', function(err) {
+      console.error('STDIN ERR:', JSON.stringify(err))
+    })
   } else {
     // we're non-interactive, set up socket server
     console.log('SOCKET: Starting')
@@ -870,6 +930,9 @@ function startLokid(config, args) {
           connections.splice(idx, 1)
         }
       })
+      c.on('error', (err) => {
+        c.write('SOCKETERR: ' + JSON.stringify(err))
+      })
       c.on('data', (data) => {
         var parts = data.toString().split(/\n/)
         parts.pop()
@@ -882,7 +945,9 @@ function startLokid(config, args) {
         }
       })
       c.write('connection successful\n')
-      c.pipe(c)
+      c.pipe(c).on('error', function(err) {
+        console.error('SOCKETSRV_ERR:', JSON.stringify(err))
+      })
     })
     setUpLokinetHandlers()
 
@@ -915,6 +980,16 @@ function startLokid(config, args) {
   setupHandlers()
 }
 
+function getInterestingChildData(child) {
+  var out = {}
+  out.pid = child.pid
+  out.killed = child.killed
+  out.spawnfile = child.spawnfile
+  out.spawnargs = child.spawnargs
+  out.startTime = child.startTime
+  return out
+}
+
 var handlersSetup = false
 function setupHandlers() {
   if (handlersSetup) return
@@ -945,9 +1020,9 @@ function setupHandlers() {
     } else {
       console.log(procInfo)
     }
-    console.log('loki_daemon status', loki_daemon)
+    console.log('loki_daemon status', getInterestingChildData(loki_daemon))
     console.log('lokinet status', lokinet.isRunning())
-    console.log('storageServer status', storageServer)
+    console.log('storageServer status', getInterestingChildData(storageServer))
   })
   // ctrl-c
   process.on('SIGINT', function () {
