@@ -299,6 +299,9 @@ module.exports = function(args, config, entryPoint, debug) {
 
   //console.log('userInfo', os.userInfo('utf8'))
   //console.log('started as', process.getuid(), process.geteuid())
+
+  // no need to double bitch
+  /*
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
       console.error('MacOS requires you start this with sudo')
@@ -309,6 +312,7 @@ module.exports = function(args, config, entryPoint, debug) {
       console.error('Its not recommended you run this as root')
     }
   }
+  */
 
   //
   // get processes state
