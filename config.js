@@ -437,7 +437,7 @@ function checkStorageConfig(config) {
   //config.storage.data_dir = getStorageServerDataDir(config)
   // set default port
   if (!config.storage.port) {
-    config.storage.port = 8080
+    config.storage.port = 23023
   }
   // storage server auto config
   if (config.storage.lokid_key === undefined) {
