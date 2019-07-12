@@ -94,13 +94,19 @@ function areWeRunning(config) {
     } catch(e) {
       return 0
     }
+    //console.log('pid is', pid)
     if (pid && isPidRunning(pid)) {
       // pid is correct, syslog could take this spot, verify the name
       //console.log('our process name', process.title)
-      var stdout = execSync('ps -p ' + pid + ' -ww -o pid,ppid,uid,gid,args', {
-        maxBuffer: 2 * TO_MB,
-        windowsHide: true
-      })
+      try {
+        var stdout = execSync('ps -p ' + pid + ' -ww -o pid,ppid,uid,gid,args', {
+          maxBuffer: 2 * TO_MB,
+          windowsHide: true
+        })
+      } catch(e) {
+        console.log('Can not check process name')
+        return 0
+      }
       //console.log('stdout', typeof(stdout), stdout)
       var lines = stdout.toString().split(/\n/)
       var labels = lines.shift().trim().split(/( |\t)+/)
@@ -155,10 +161,12 @@ function areWeRunning(config) {
 }
 
 function setStartupLock(config) {
+  //console.log('SETTING STARTUP LOCK')
   fs.writeFileSync(config.launcher.var_path + '/launcher.pid', process.pid)
 }
 
 function clearPids(config) {
+  //console.log('CLEARING STARTUP LOCK')
   if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
     console.log('LAUNCHER: clearing ' + config.launcher.var_path + '/pids.json')
     fs.unlinkSync(config.launcher.var_path + '/pids.json')
@@ -247,6 +255,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
 
   if (config.network.enabled || config.storage.enabled) {
     if (running.lokid) {
+      //console.log('lokid_key', config.storage.lokid_key)
       checklist.lokiKey = fs.existsSync(config.storage.lokid_key) ? ('found at ' + config.storage.lokid_key) : offlineMessage
     }
   }
