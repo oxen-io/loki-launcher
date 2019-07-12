@@ -178,11 +178,12 @@ function downloadGithubRepo(github_url, options, config, cb) {
     if (json === undefined) {
       // possibly a 403
       start_retries++
-      if (start_retries < 10) {
+      // 20 * 2m = 40m
+      if (start_retries < 20) {
         setTimeout(function() {
           console.log('retrying...')
           downloadGithubRepo(github_url, options, config, cb)
-        }, 60 * 1000)
+        }, 120 * 1000)
       } else {
         console.warn('failure communicating with api.github.com')
       }
@@ -272,6 +273,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
   })
 }
 
+// FIXME: move into options
 var start_retries = 0
 function start(config) {
   // quick request so should be down by the time the file downloads...
@@ -291,11 +293,13 @@ function start(config) {
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, prereleaseOnly: true }, config, function() {
+      start_retries = 0
       downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, prereleaseOnly: true }, config)
     })
   } else {
     // 4.x
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
+      start_retries = 0
       downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
     })
   }
