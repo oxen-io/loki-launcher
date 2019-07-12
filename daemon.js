@@ -324,6 +324,8 @@ function waitForLokiKey(config, timeout, start, cb) {
   cb(true)
 }
 
+// FIXME: make sure blockchain.rpc port is bound before starting...
+var rpcUpTimer = null
 function startStorageServer(config, args, cb) {
   //console.log('trying to get IP information about lokinet')
   // does this belong here?
@@ -334,30 +336,50 @@ function startStorageServer(config, args, cb) {
       }
     }
   }
-  if (config.network.enabled) {
-    lokinet.getLokiNetIP(function (ip) {
-      // lokinet has started, save config and various process pid
-      lib.savePids(config, args, loki_daemon, lokinet, storageServer)
-      if (ip) {
-        console.log('DAEMON: starting storageServer on', ip)
-        config.storage.ip = ip
-        launcherStorageServer(config, args, cb)
-      } else {
-        console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
-        if (cb) cb(false)
-        //shutdown_everything()
+
+  function checkRpcUp(cb) {
+    if (shuttingDown) {
+      //if (cb) cb()
+      console.log('STORAGE: not going to start storageServer, shutting down')
+      return
+    }
+    lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, function(portFree) {
+      if (!portFree) {
+        cb()
+        return
       }
+      rpcUpTimer = setTimeout(function() {
+        checkRpcUp(cb)
+      }, 5 * 1000)
     })
-  } else if (config.storage.enabled) {
-    lokinet.getNetworkIP(function(err, localIP) {
-      console.log('DAEMON: starting storageServer on', localIP)
-      // we can only ever bind to the local IP
-      config.storage.ip = localIP
-      launcherStorageServer(config, args, cb)
-    })
-  } else {
-    console.log('storageServer is not enabled')
   }
+
+  checkRpcUp(function() {
+    if (config.network.enabled) {
+      lokinet.getLokiNetIP(function (ip) {
+        // lokinet has started, save config and various process pid
+        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+        if (ip) {
+          console.log('DAEMON: starting storageServer on', ip)
+          config.storage.ip = ip
+          launcherStorageServer(config, args, cb)
+        } else {
+          console.error('DAEMON: Sorry cant detect our lokinet IP:', ip)
+          if (cb) cb(false)
+          //shutdown_everything()
+        }
+      })
+    } else if (config.storage.enabled) {
+      lokinet.getNetworkIP(function(err, localIP) {
+        console.log('DAEMON: starting storageServer on', localIP)
+        // we can only ever bind to the local IP
+        config.storage.ip = localIP
+        launcherStorageServer(config, args, cb)
+      })
+    } else {
+      console.log('storageServer is not enabled')
+    }
+  })
 }
 
 function startLokinet(config, args, cb) {
