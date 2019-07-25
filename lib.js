@@ -1,6 +1,7 @@
 // no npm!
 const fs = require('fs')
 const { execSync } = require('child_process')
+const { spawnSync } = require('child_process');
 
 //
 // common functions for client and daemon
@@ -53,10 +54,27 @@ function isPidRunning(pid) {
     return false
   }
   try {
+    //console.log('checking', pid)
     process.kill(pid, 0)
+    // node 10.16.0 ignores kill 0 (maybe only in lxc but it does)
+    // so we're try a SIGHUP
+    // can't use SIGHUP lokid dies..
+    //process.kill(pid, 'SIGHUP')
+    const ps = spawnSync('ps', ['--pid', pid])
+    //console.log('output', ps.output.toString())
+    //console.log('status', ps.status)
+    if (ps.status == 1) {
+      // can't find pid
+      console.warn('ps and kill -0 disagree')
+      return false
+    }
     //console.log('able to kill', pid)
     return true
   } catch (e) {
+    //console.log(pid, 'isRunning', e.code)
+    if (e.code === undefined) {
+      console.error('ps err', e)
+    }
     if (e.code == 'ERR_INVALID_ARG_TYPE') {
       // means pid was undefined
       return true
@@ -227,6 +245,7 @@ function getProcessState(config) {
     running.launcher = pid
   }
   var pids = getPids(config)
+  //console.log('getProcessState pids', pids)
   if (pids.lokid && isPidRunning(pids.lokid)) {
     //console.log("LAUNCHER: old lokid is still running", pids.lokid)
     running.lokid = pids.lokid
@@ -249,6 +268,7 @@ function getProcessState(config) {
 function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   var checklist = {}
   var running = getProcessState(config)
+  //console.log('getLauncherStatus running', running)
   // pid...
   checklist.launcher = running.launcher ? ('running as ' + running.launcher) : offlineMessage
   checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : offlineMessage
