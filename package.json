@@ -1,6 +1,6 @@
 {
   "name": "loki-launcher",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "manages the Loki.network suite of software primarily for service node operation",
   "main": "index.js",
   "dependencies": {
