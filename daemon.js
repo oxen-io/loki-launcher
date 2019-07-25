@@ -48,6 +48,8 @@ function lowerPermissions(user, cb) {
 var shuttingDown = false
 var shutDownTimer = null
 function shutdown_everything() {
+  //console.log('shutdown_everything()!')
+  //console.trace('shutdown_everything()!')
   shuttingDown = true
   stdin.pause()
   if (storageServer && !storageServer.killed) {
@@ -1009,11 +1011,13 @@ function startLokid(config, args) {
 
 function getInterestingChildData(child) {
   var out = {}
-  out.pid = child.pid
-  out.killed = child.killed
-  out.spawnfile = child.spawnfile
-  out.spawnargs = child.spawnargs
-  out.startTime = child.startTime
+  if (child) {
+    out.pid = child.pid
+    out.killed = child.killed
+    out.spawnfile = child.spawnfile
+    out.spawnargs = child.spawnargs
+    out.startTime = child.startTime
+  }
   return out
 }
 
