@@ -202,9 +202,14 @@ function launcherStorageServer(config, args, cb) {
 
   // copy the output to stdout
   // FIXME: I think it can only pipe while there's a stdout pipe open...
-  storageServer.stdout.pipe(process.stdout).on('error', function(err) {
-    console.error('STORARE1_PIPE_ERR:', JSON.stringify(err))
-  })
+  function restartPipe() {
+    storageServer.stdout.pipe(process.stdout).on('error', function(err) {
+      console.error('STORARE1_PIPE_ERR:', JSON.stringify(err))
+      restartPipe()
+    })
+  }
+  restartPipe()
+
   var storageServer_version = 'unknown'
 
   var stdout = '', stderr = '', collectData = true
