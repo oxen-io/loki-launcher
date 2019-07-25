@@ -239,7 +239,7 @@ function launcherStorageServer(config, args, cb) {
     console.error('STORAGE1_ERR:', JSON.stringify(err))
   })
 
-  storageServer.stderr.on('STORAGE:', (data) => {
+  storageServer.stderr.on('data', (data) => {
     console.log(`STORAGE ERR: ${data}`)
     if (collectData) stderr += data
   })
