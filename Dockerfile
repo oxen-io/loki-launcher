@@ -253,7 +253,7 @@ COPY --from=blockchain /src/loki/build/release/bin/lokid bin/lokid
 #COPY lokinet-docker.ini /root/.lokinet/lokinet.ini
 COPY --from=network /src/loki-network/build/lokinet bin/lokinet
 #COPY --from=network /root/.lokinet/bootstrap.signed /root/.lokinet/
-COPY --from=storage /src/loki-storage-server/build/httpserver/httpserver bin/httpserver
+COPY --from=storage /src/loki-storage-server/build/httpserver/loki-storage bin/loki-storage
 COPY package.json daemon.js ini.js lib.js lokinet.js index.js start.js config.js uid.js get-uid.js ./
 COPY modes modes/
 COPY launcher-docker.ini launcher.ini
