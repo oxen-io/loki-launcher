@@ -1,6 +1,6 @@
 {
   "name": "loki-launcher",
-  "version": "git",
+  "version": "0.0.0git",
   "description": "manages the Loki.network suite of software primarily for service node operation",
   "main": "index.js",
   "dependencies": {
