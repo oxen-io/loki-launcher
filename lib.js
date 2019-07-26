@@ -61,10 +61,10 @@ function isPidRunning(pid) {
     // so we're try a SIGHUP
     // can't use SIGHUP lokid dies..
     //process.kill(pid, 'SIGHUP')
-    const ps = spawnSync('ps', ['--pid', pid])
+    const ps = spawnSync('ps', ['-p', pid])
     //console.log('output', ps.output.toString())
     //console.log('status', ps.status)
-    if (ps.status == 1) {
+    if (ps.status != '0') {
       // can't find pid
       console.warn('ps and kill -0 disagree')
       return false
