@@ -203,51 +203,39 @@ function launcherStorageServer(config, args, cb) {
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   // copy the output to stdout
-  // FIXME: I think it can only pipe while there's a stdout pipe open...
-  function restartPipe() {
-    storageServer.stdout.pipe(process.stdout).on('error', function(err) {
-      console.error('STORARE1_PIPE_ERR:', JSON.stringify(err))
-      restartPipe()
+  let storageServer_version = 'unknown'
+  let stdout = '', stderr = '', collectData = true
+  storageServer.stdout
+    .on('data', (data) => {
+      console.log(`Storage Server data: ${data.toString('utf8').trim()}`)
+      if (collectData) {
+        const lines = data.toString().split(/\n/)
+        for(let i in lines) {
+          const tline = lines[i].trim()
+          if (tline.match('Loki Storage Server v')) {
+            const parts = tline.split('Loki Storage Server v')
+            storageServer_version = parts[1]
+          }
+          if (tline.match('git commit hash: ')) {
+            const parts = tline.split('git commit hash: ')
+            fs.writeFileSync(config.launcher.var_path + '/storageServer.version', storageServer_version+"\n"+parts[1])
+          }
+        }
+        stdout += data
+      }
     })
-  }
-  restartPipe()
+    .on('error', (err) => {
+      console.error(`Storage Server stdout error: ${err}`)
+    })
 
-  var storageServer_version = 'unknown'
+  storageServer.stderr
+    .on('data', (err) => {
+      console.log(`Storage Server error: ${err.toString('utf8').trim()}`)
+    })
+    .on('error', (err) => {
+      console.error(`Storage Server stderr error: ${err}`)
+    })
 
-  var stdout = '', stderr = '', collectData = true
-  storageServer.stdout.on('data', (data) => {
-    var lines = data.toString().split(/\n/)
-    for(var i in lines) {
-      var tline = lines[i].trim()
-      //Loki Storage Server v0.1
-      if (tline.match('Loki Storage Server v')) {
-        var parts = tline.split('Loki Storage Server v')
-        storageServer_version = parts[1]
-      }
-      // git commit hash: 94c835f
-      if (tline.match('git commit hash: ')) {
-        var parts = tline.split('git commit hash: ')
-        //lokinet_version = parts[1]
-        fs.writeFileSync(config.launcher.var_path + '/storageServer.version', storageServer_version+"\n"+parts[1])
-      }
-    }
-    lines.pop()
-    data = lines.join('\n')
-    // we're already piping to stdout
-    //console.log(`STORAGE: ${data}`)
-    if (collectData) stdout += data
-  })
-  storageServer.stdout.on('error', (err) => {
-    console.error('STORAGE1_ERR:', JSON.stringify(err))
-  })
-
-  storageServer.stderr.on('data', (data) => {
-    console.log(`STORAGE ERR: ${data}`)
-    if (collectData) stderr += data
-  })
-  storageServer.stderr.on('error', (err) => {
-    console.error('STORAGE2_ERR:', JSON.stringify(err))
-  })
 
   // don't hold up the exit too much
   var memoryWatcher = setTimeout(function() {
