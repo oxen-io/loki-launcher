@@ -315,8 +315,9 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     let socketClientTest = net.connect({ path: config.launcher.var_path + '/launcher.socket' }, function () {
       // successfully connected, then it's in use...
       checklist.socketWorks = 'running at ' + config.launcher.var_path
-      checkDone('socketWorks')
       socketClientTest.end()
+      socketClientTest.destroy()
+      checkDone('socketWorks')
     }).on('error', function (e) {
       if (e.code === 'ECONNREFUSED') {
         console.log('SOCKET: socket is stale, nuking')
