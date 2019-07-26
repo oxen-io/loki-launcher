@@ -149,6 +149,9 @@ function start(user, dir, config) {
       if (fs.existsSync(config.launcher.var_path + '/launcher.socket')) {
         fs.chownSync(config.launcher.var_path + '/launcher.socket', uid, 0)
       }
+      if (fs.existsSync(config.launcher.var_path + 'launcher_exception.log')) {
+        fs.chownSync(config.launcher.var_path + 'launcher_exception.log', uid, 0)
+      }
       // this is the only place download binaries downloads too
       fs.chownSync('/opt/loki-launcher/bin', uid, 0)
       if (config.blockchain.data_dir) {
