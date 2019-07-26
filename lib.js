@@ -1,5 +1,6 @@
 // no npm!
 const fs = require('fs')
+const net = require('net')
 const { execSync } = require('child_process')
 const { spawnSync } = require('child_process');
 
@@ -171,7 +172,12 @@ function areWeRunning(config) {
         }
       }
     } else {
-      console.log('stale ' + config.launcher.var_path + '/launcher.pid')
+      // so many calls
+      // do we need to say this everytime?
+      console.log('stale ' + config.launcher.var_path + '/launcher.pid, removing...')
+      // should we nuke this proven incorrect file? yes
+      fs.unlinkSync(config.launcher.var_path + '/launcher.pid')
+      // FIXME: maybe have a lastrun file for debugging
       pid = 0
     }
   }
@@ -289,11 +295,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   }
 
   // socket...
-  var haveSocket = fs.existsSync(config.launcher.var_path + '/launcher.socket')
-  // FIXME: test to see if it's stale
-  // don't want to say everything is stopped but this is running if it's stale
-  //checklist.push('socket', pids.lokid?'running':offlineMessage)
-  checklist.socket = haveSocket ? ('running at ' + config.launcher.var_path) : offlineMessage
+  let socketExists = fs.existsSync(config.launcher.var_path + '/launcher.socket')
 
   var pids = getPids(config) // need to get the config
   var need = {
@@ -307,6 +309,26 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     // all tasks complete
     cb(running, checklist)
   }
+
+  if (socketExists) {
+    need.socketWorks = false
+    let socketClientTest = net.connect({ path: config.launcher.var_path + '/launcher.socket' }, function () {
+      // successfully connected, then it's in use...
+      checklist.socketWorks = 'running at ' + config.launcher.var_path
+      checkDone('socketWorks')
+      socketClientTest.end()
+    }).on('error', function (e) {
+      if (e.code === 'ECONNREFUSED') {
+        console.log('SOCKET: socket is stale, nuking')
+        fs.unlinkSync(config.launcher.var_path + '/launcher.socket')
+      }
+      checklist.socketWorks = offlineMessage
+      checkDone('socketWorks')
+    })
+  }
+  // don't want to say everything is stopped but this is running if it's stale
+  //checklist.push('socket', pids.lokid?'running':offlineMessage)
+
 
   if (pids.runningConfig && pids.runningConfig.blockchain) {
     need.blockchain_rpc = false
@@ -332,7 +354,7 @@ function stopLokid(config) {
   if (running.lokid) {
     var pids = getPids(config)
     console.log('blockchain is running, requesting shutdown')
-    process.kill(pids.lokid, 'SIGINT')
+    process.kill(pids.lokid, 15)
     return 1
   }
   return 0
@@ -348,7 +370,7 @@ function stopLauncher(config) {
     // request launcher stop
     console.log('requesting launcher stop')
     count++
-    process.kill(pid, 'SIGINT')
+    process.kill(pid, 15)
     // we quit too fast
     //require(__dirname + '/client')(config)
   } else {
@@ -357,12 +379,12 @@ function stopLauncher(config) {
     count += stopLokid(config)
     if (config.storage.enabled && running.storageServer) {
       console.log('storage is running, requesting shutdown')
-      process.kill(pids.storageServer, 'SIGINT')
+      process.kill(pids.storageServer, 15)
       count++
     }
     if (config.network.enabled && running.lokinet) {
       console.log('network is running, requesting shutdown')
-      process.kill(pids.lokinet, 'SIGINT')
+      process.kill(pids.lokinet, 15)
       count++
     }
   }
