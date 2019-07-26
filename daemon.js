@@ -208,25 +208,20 @@ function launcherStorageServer(config, args, cb) {
   storageServer.stdout
     .on('data', (data) => {
       console.log(`Storage Server data: ${data.toString('utf8').trim()}`)
-      const lines = data.toString().split(/\n/)
-      for(let i in lines) {
-        const tline = lines[i].trim()
-        if (tline.match('Loki Storage Server v')) {
-          const parts = tline.split('Loki Storage Server v')
-          storageServer_version = parts[1]
+      if (collectData) {
+        const lines = data.toString().split(/\n/)
+        for(let i in lines) {
+          const tline = lines[i].trim()
+          if (tline.match('Loki Storage Server v')) {
+            const parts = tline.split('Loki Storage Server v')
+            storageServer_version = parts[1]
+          }
+          if (tline.match('git commit hash: ')) {
+            const parts = tline.split('git commit hash: ')
+            fs.writeFileSync(config.launcher.var_path + '/storageServer.version', storageServer_version+"\n"+parts[1])
+          }
         }
-        if (tline.match('git commit hash: ')) {
-          const parts = tline.split('git commit hash: ')
-          fs.writeFileSync(config.launcher.var_path + '/storageServer.version', storageServer_version+"\n"+parts[1])
-        }
-      }
-      if (collectData) stdout += data
-      if (server) {
-        // broadcast
-        for (let i in connections) {
-          const conn = connections[i]
-          conn.write(`Storage Server data: ${data}`)
-        }
+        stdout += data
       }
     })
     .on('error', (err) => {
@@ -236,13 +231,6 @@ function launcherStorageServer(config, args, cb) {
   storageServer.stderr
     .on('data', (err) => {
       console.log(`Storage Server error: ${err.toString('utf8').trim()}`)
-      if (server) {
-        // broadcast
-        for (let i in connections) {
-          const conn = connections[i]
-          conn.write(`Storage Server error: ${err}`)
-        }
-      }
     })
     .on('error', (err) => {
       console.error(`Storage Server stderr error: ${err}`)
