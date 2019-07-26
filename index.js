@@ -13,7 +13,7 @@ if (VERSION === 'git') {
       continueStart()
       return
     }
-    VERSION = stdout
+    VERSION = stdout.trim()
     useGitVersion = true
     continueStart()
   })
@@ -109,8 +109,8 @@ function continueStart() {
 
   //console.log('Launcher config:', config)
   if (useGitVersion) {
-    var logo = lib.getLogo('LAUNCHER vversion')
-    console.log(logo.replace(/version/, VERSION))
+    var logo = lib.getLogo('git rev version')
+    console.log(logo.replace(/version/, VERSION.toString().split('').join('')))
   } else {
     var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
     console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
