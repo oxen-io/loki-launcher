@@ -11,6 +11,7 @@ const VERSION = 0.2
 function clientConnect(config) {
   var socketPath = config.launcher.var_path + '/launcher.socket'
   console.log('trying to connect to', socketPath)
+  // FIXME: file exist check
   const client = net.createConnection({ path: socketPath }, () => {
     // 'connect' listener
     console.log('connected to server!')
@@ -26,6 +27,10 @@ function clientConnect(config) {
     } else
     if (err.code == 'EPERM') {
       console.error('It seems user', process.getuid(), 'does not have the required permissions')
+      process.exit(1)
+    } else
+    if (err.code == 'ENOENT') {
+      console.error('socket server is not likely running')
       process.exit(1)
     }
     console.error('error', err)
