@@ -107,6 +107,8 @@ function warnRunAsRoot() {
 }
 console.log('running', mode)
 switch(mode) {
+  case 'strt':
+  case 'strart':
   case 'start': // official
     warnRunAsRoot()
     require(__dirname + '/start')(args, config, __filename, false)
