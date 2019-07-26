@@ -116,6 +116,16 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 
+- 1.0.0
+  - fix storage server pipe that would lock up storage server
+  - fix storage server stderr handler typo
+  - SIGHUP guard fix
+  - double check running pid
+  - use SIGTERM instead of SIGINT to stop processes
+  - handle socket write errors better
+  - test socket for connectivity in status
+  - clear stale pid and socket files
+  - move uncaught exception log into var_path
 - 0.0.13
   - change storage server default port from 8080 to 23023
   - storage server/lokinet start up now waits for blockchain rpc port to be open
