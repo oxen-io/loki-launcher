@@ -369,8 +369,9 @@ function stopLauncher(config) {
   var count = 0
   if (pid) {
     // request launcher stop
-    console.log('requesting launcher stop')
+    console.log('requesting launcher('+pid+') to stop')
     count++
+    // hrm 15 doesn't always kill it... (lxc308)
     process.kill(pid, 15)
     // we quit too fast
     //require(__dirname + '/client')(config)
