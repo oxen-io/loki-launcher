@@ -118,6 +118,7 @@ For more indepth details, be sure to check out our weekly [dev reports](https://
 
 - 1.0.0
   - fix storage server pipe that would lock up storage server
+  - make sure storage server is running before starting startup is successful
   - fix storage server stderr handler typo
   - SIGHUP guard fix
   - double check running pid
