@@ -6,7 +6,7 @@ const packageData = require('./package.json')
 let VERSION = packageData.version
 let useGitVersion = false
 
-if (VERSION === 'git') {
+if (VERSION.match(/git/)) {
   const exec = require('child_process').exec
   exec('git rev-parse HEAD', function(err, stdout) {
     if (err) {
