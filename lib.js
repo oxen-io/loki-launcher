@@ -372,7 +372,7 @@ function stopLauncher(config) {
     console.log('requesting launcher('+pid+') to stop')
     count++
     // hrm 15 doesn't always kill it... (lxc308)
-    process.kill(pid, 15)
+    process.kill(pid, 'SIGTERM') // 15
     // we quit too fast
     //require(__dirname + '/client')(config)
   } else {
@@ -381,12 +381,12 @@ function stopLauncher(config) {
     count += stopLokid(config)
     if (config.storage.enabled && running.storageServer) {
       console.log('storage is running, requesting shutdown')
-      process.kill(pids.storageServer, 15)
+      process.kill(pids.storageServer, 'SIGTERM') // 15
       count++
     }
     if (config.network.enabled && running.lokinet) {
       console.log('network is running, requesting shutdown')
-      process.kill(pids.lokinet, 15)
+      process.kill(pids.lokinet, 'SIGTERM') // 15
       count++
     }
   }
