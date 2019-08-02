@@ -226,7 +226,6 @@ function launcherStorageServer(config, args, cb) {
         }
         stdout += data
       }
-      console.log('STORAGE:', data.toString('utf8').trim())
     })
     .on('error', (err) => {
       console.error(`Storage Server stdout error: ${err.toString('utf8').trim()}`)
