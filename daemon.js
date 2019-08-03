@@ -210,7 +210,7 @@ function launcherStorageServer(config, args, cb) {
   let stdout = '', stderr = '', collectData = true
   storageServer.stdout
     .on('data', (data) => {
-      console.log(`Storage Server data: ${data.toString('utf8').trim()}`)
+      console.log(`STORAGE: ${data.toString('utf8').trim()}`)
       if (collectData) {
         const lines = data.toString().split(/\n/)
         for(let i in lines) {
