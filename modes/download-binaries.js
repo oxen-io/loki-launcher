@@ -150,8 +150,8 @@ function downloadArchive(url, config, options) {
           //console.log('stdout', stdout)
           //console.log('stderr', stderr)
           //console.log('Untar Success')
-          console.log(filename, 'successfully extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/' + filename), 'bytes extracted')
-          console.log('Running version check')
+          console.log(filename, 'successfully extracted to /opt/loki-launcher/bin', getFileSizeSync('/opt/loki-launcher/bin/' + filename), 'bytes extracted.')
+          console.log('Running version check..')
           var option = '-version'
           if (filename == 'loki-storage') {
             option = 'v'
@@ -198,7 +198,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
     }
 
     if (data.length) {
-      console.log('got a list of', data.length, 'releases, narrowing it down')
+      console.log('Got a list of', data.length, 'releases, narrowing it down.')
       var selectedVersion = null
       for(var i in data) {
         const ver = data[i]

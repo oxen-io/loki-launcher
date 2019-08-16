@@ -127,7 +127,7 @@ function continueStart() {
       }
     }
   }
-  console.log('running', mode)
+  console.log('Running', mode)
   switch(mode) {
     case 'strt':
     case 'strart':
@@ -191,17 +191,17 @@ function continueStart() {
           waiting.push('storage')
         }
         if (running.lokid || running.lokinet || running.storageServer) {
-          console.log('shutdown waiting on', waiting.join(' '))
+          console.log('Shutdown waiting on', waiting.join(' '))
           setTimeout(shutdownMonitor, 1000)
         } else {
-          console.log('successfully shutdown')
+          console.log('Successfully shutdown.')
         }
       }
       var running = lib.getProcessState(config)
       var wait = 500
       if (running.lokid) wait += 4500
       if (running.lokid || running.lokinet || running.storageServer) {
-        console.log('waiting for daemons to stop')
+        console.log('Waiting for daemons to stop.')
         setTimeout(shutdownMonitor, wait)
       }
     break;
@@ -235,7 +235,7 @@ function continueStart() {
       // commit it to disk if it doesn't exist
     break;
     case 'config-view': // official
-      console.log('loki-launcher is in', __dirname)
+      console.log('Loki-launcher is in', __dirname)
       // FIXME: prettyPrint
       console.log('Launcher stored-config:', config)
       var pids = lib.getPids(config)
@@ -268,7 +268,7 @@ function continueStart() {
     case 'check-systemd':
     case 'upgrade-systemd': // official
       if (process.getuid() != 0) {
-        console.log('check-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
+        console.log('Check-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
       require(__dirname + '/modes/check-systemd').start(config, __filename)
@@ -279,7 +279,7 @@ function continueStart() {
     case 'set-perms':
     case 'fix-perms': // official
       if (process.getuid() != 0) {
-        console.log('fix-perms needs to be ran as root, try prefixing your attempted command with: sudo')
+        console.log('Fix-perms needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
       var user = findFirstArgWithoutDash()

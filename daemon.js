@@ -31,7 +31,7 @@ process.on('uncaughtException', function (err) {
 
 let connections = []
 function disconnectAllClients() {
-  console.log('SOCKET: disconnecting all', connections.length, 'clients')
+  console.log('SOCKET: Disconnecting all', connections.length, 'clients.')
   for(let i in connections) {
     const conn = connections[i]
     if (!conn.destroyed) {
@@ -56,7 +56,7 @@ function shutdown_everything() {
   shuttingDown = true
   stdin.pause()
   if (storageServer && !storageServer.killed) {
-    console.log('LAUNCHER: requesting storageServer be shutdown', storageServer.pid)
+    console.log('LAUNCHER: Requesting storageServer be shutdown.', storageServer.pid)
     // FIXME: if this pid isn't running we crash
     // FIXME: was killed not set?
     try {
@@ -69,7 +69,7 @@ function shutdown_everything() {
   // even if not running, yet, stop any attempts at starting it too
   lokinet.stop()
   if (loki_daemon && !loki_daemon.killed) {
-    console.log('LAUNCHER: requesting lokid be shutdown', loki_daemon.pid)
+    console.log('LAUNCHER: Requesting lokid be shutdown.', loki_daemon.pid)
     try {
       process.kill(loki_daemon.pid, 'SIGINT')
     } catch(e) {
@@ -85,7 +85,7 @@ function shutdown_everything() {
     shutDownTimer = setInterval(function () {
       let stop = true
       if (storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)) {
-        console.log('LAUNCHER: storage server still running')
+        console.log('LAUNCHER: Storage server still running.')
         stop = false
       }
       if (loki_daemon) {
@@ -95,18 +95,18 @@ function shutdown_everything() {
         }
       }
       if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
-        console.log('LAUNCHER: lokid still running')
+        console.log('LAUNCHER: lokid still running.')
         // lokid on macos may need a kill -9 after a couple failed 15
         // lets say 50s of not stopping -15 then wait 30s if still run -9
         stop = false
       }
       let lokinetState = lokinet.isRunning()
       if (lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)) {
-        console.log('LAUNCHER: lokinet still running')
+        console.log('LAUNCHER: lokinet still running.')
         stop = false
       }
       if (stop) {
-        console.log('all daemons down')
+        console.log('All daemons down.')
         // deallocate
         // can't null these yet because lokid.onExit
         // race between the pid dying and registering of the exit
@@ -146,13 +146,13 @@ function shutdown_everything() {
   }
 
   if (server) {
-    console.log('SOCKET: closing socket server')
+    console.log('SOCKET: Closing socket server.')
     disconnectAllClients()
     server.close()
     server.unref()
   }
   if (fs.existsSync(module.exports.config.launcher.var_path + '/launcher.socket')) {
-    console.log('SOCKET: cleaning socket')
+    console.log('SOCKET: Cleaning socket.')
     fs.unlinkSync(module.exports.config.launcher.var_path + '/launcher.socket')
   }
   // don't think we need, seems to handle itself
@@ -164,11 +164,11 @@ let storageServer
 function launcherStorageServer(config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
-    console.log('STORAGE: not going to start storageServer, shutting down')
+    console.log('STORAGE: Not going to start storageServer, shutting down.')
     return
   }
   if (!config.storage.lokid_key) {
-    console.error('storageServer requires lokid_key to be configured')
+    console.error('storageServer requires lokid_key to be configured.')
     if (cb) cb(false)
     return
   }
@@ -190,7 +190,7 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.force_start) {
     optionals.push('--force-start')
   }
-  console.log('STORAGE: launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
+  console.log('STORAGE: Launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
   // ip and port must be first
   storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
   // , { stdio: 'inherit' })
@@ -242,7 +242,7 @@ function launcherStorageServer(config, args, cb) {
 
   // don't hold up the exit too much
   let memoryWatcher = setTimeout(function() {
-    console.log('turning off storage server start up watcher')
+    console.log('Turning off storage server start up watcher.')
     collectData = false
     stdout = ''
     stderr = ''
@@ -253,12 +253,12 @@ function launcherStorageServer(config, args, cb) {
 
   storageServer.on('close', (code) => {
     clearTimeout(memoryWatcher)
-    console.log(`storageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
+    console.log(`StorageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
       console.log(stdout, 'stderr', stderr)
       console.log('')
-      console.warn('storageServer bind port could be in use, please check to make sure', config.binary_path, 'is not already running on port', config.port)
+      console.warn('StorageServer bind port could be in use, please check to make sure.', config.binary_path, 'is not already running on port', config.port)
       // we could want to issue one kill just to make sure
       // however since we don't know the pid, we won't know if it's ours
       // or meant be running by another copy of the launcher
@@ -272,7 +272,7 @@ function launcherStorageServer(config, args, cb) {
     if (!shuttingDown) {
       // wait 30s
       setTimeout(function() {
-        console.log('loki_daemon is still running, restarting storageServer')
+        console.log('loki_daemon is still running, restarting storageServer.')
         launcherStorageServer(config, args)
       }, 30 * 1000)
     }
@@ -301,13 +301,13 @@ function waitForLokiKey(config, timeout, start, cb) {
   if (start === undefined) start = Date.now()
   if (config.storage.lokid_key === undefined) {
     if (config.storage.enabled) {
-      console.error('storage lokid_key is not configured')
+      console.error('Storage lokid_key is not configured')
       process.exit(1)
     }
     cb(true)
     return
   }
-  console.log('DAEMON: checking on', config.storage.lokid_key)
+  console.log('DAEMON: Checking on', config.storage.lokid_key)
   if (!fs.existsSync(config.storage.lokid_key)) {
     if (timeout && (Date.now - start > timeout)) {
       cb(false)
@@ -338,7 +338,7 @@ function startStorageServer(config, args, cb) {
   function checkRpcUp(cb) {
     if (shuttingDown) {
       //if (cb) cb()
-      console.log('STORAGE: not going to start storageServer, shutting down')
+      console.log('STORAGE: Not going to start storageServer, shutting down.')
       return
     }
     lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, function(portFree) {
@@ -358,7 +358,7 @@ function startStorageServer(config, args, cb) {
         // lokinet has started, save config and various process pid
         lib.savePids(config, args, loki_daemon, lokinet, storageServer)
         if (ip) {
-          console.log('DAEMON: starting storageServer on', ip)
+          console.log('DAEMON: Starting storageServer on', ip)
           config.storage.ip = ip
           launcherStorageServer(config, args, cb)
         } else {
@@ -369,13 +369,13 @@ function startStorageServer(config, args, cb) {
       })
     } else if (config.storage.enabled) {
       lokinet.getNetworkIP(function(err, localIP) {
-        console.log('DAEMON: starting storageServer on', localIP)
+        console.log('DAEMON: Starting storageServer on', localIP)
         // we can only ever bind to the local IP
         config.storage.ip = localIP
         launcherStorageServer(config, args, cb)
       })
     } else {
-      console.log('storageServer is not enabled')
+      console.log('StorageServer is not enabled.')
     }
   })
 }
@@ -384,7 +384,7 @@ function startLokinet(config, args, cb) {
   // waitForLokiKey(config, timeout, start, cb)
   if (config.storage.lokid_key === undefined) {
     if (config.storage.enabled) {
-      console.error('storage server enabled but no key location given')
+      console.error('Storage server enabled but no key location given.')
       process.exit(1)
     }
     if (config.network.enabled) {
@@ -397,14 +397,14 @@ function startLokinet(config, args, cb) {
     }
     return
   }
-  console.log('DAEMON: waiting for loki key at', config.storage.lokid_key)
+  console.log('DAEMON: Waiting for loki key at', config.storage.lokid_key)
   waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
     if (!haveKey) {
-      console.error('DAEMON: timeout waiting for loki key')
+      console.error('DAEMON: Timeout waiting for loki key.')
       // FIXME: what do?
       return
     }
-    console.log('DAEMON: got loki key!')
+    console.log('DAEMON: Got Loki key!')
     if (config.network.enabled) {
       lokinet.startServiceNode(config.network, function () {
         startStorageServer(config, args, cb)
@@ -446,7 +446,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         }
         // this doesn't work like this...
         //args.push('1>', 'log.out', '2>', 'err.out')
-        console.log('launching', process.execPath, entryPoint, 'daemon-start', args)
+        console.log('Launching', process.execPath, entryPoint, 'daemon-start', args)
         let child = spawn(process.execPath, [entryPoint, 'daemon-start', '--skip-storage-server-port-check'].concat(args), cp_opt)
         //console.log('child', child)
         if (!child) {
@@ -465,18 +465,18 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         })
         //var launcherHasExited = false
         function crashHandler(code) {
-          console.log('background launcher died with', code, stdout, stderr)
+          console.log('Background launcher died with', code, stdout, stderr)
           //launcherHasExited = true
           process.exit(1)
         }
         child.on('close', crashHandler)
         // required so we can exit
         var startTime = Date.now()
-        console.log('waiting on start up confirmation...')
+        console.log('Waiting on start up confirmation...')
         function areWeRunningYet() {
           var diff = Date.now() - startTime
           // , process.pid
-          console.log('checking start up progress')
+          console.log('Checking start up progress...')
           lib.getLauncherStatus(config, lokinet, 'waiting...', function(running, checklist) {
             var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
             if (nodeVer >= 10) {
@@ -494,18 +494,18 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               if (pids.runningConfig && pids.runningConfig.storage.enabled && checklist.storageServer == 'waiting...') {
                 // give it 30s more if everything else is fine...
                 if (diff > 1   * 90 * 1000) {
-                  console.log('storage server start up timeout, likely failed')
+                  console.log('Storage server start up timeout, likely failed.')
                   process.exit(1)
                 }
                 setTimeout(areWeRunningYet, 5000)
                 return
               }
-              console.log('start up successful')
+              console.log('Start up successful!')
               child.removeListener('close', crashHandler)
               process.exit()
             }
             if (diff > 1   * 60 * 1000) {
-              console.log('start up timeout, likely failed')
+              console.log('Start up timeout, likely failed.')
               process.exit(1)
             }
             //if (!launcherHasExited) {
@@ -552,7 +552,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           if (names.length) console.log('trying to connect to', names[0])
         })
         */
-        console.log('trying to connect to', server)
+        console.log('Trying to connect to', server)
         addresses.splice(idx, 1) // remove it
         networkTest.createClient(server, 3000, function(client) {
           //console.log('client', client)
@@ -693,7 +693,7 @@ function configureLokid(config, args) {
           var parts2 = option.split(/=/)
           var option_key = parts2.shift()
           if (option_key == key) {
-            console.log('BLOCKCHAIN: removing previous established option', option)
+            console.log('BLOCKCHAIN: Removing previous established option', option)
             lokid_options.splice(j, 1)
           }
         }
@@ -702,7 +702,7 @@ function configureLokid(config, args) {
       for(var j in lokid_options) {
         var option = lokid_options[j]
         if (arg == option) {
-          console.log('BLOCKCHAIN: removing previous established option', option)
+          console.log('BLOCKCHAIN: Removing previous established option', option)
           lokid_options.splice(j, 1)
         }
       }
@@ -721,7 +721,7 @@ var savePidConfig = {}
 function launchLokid(binary_path, lokid_options, interactive, config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
-    console.log('BLOCKCHAIN: not going to start lokid, shutting down')
+    console.log('BLOCKCHAIN: Not going to start lokid, shutting down.')
     return
   }
   // hijack STDIN but not OUT/ERR
@@ -735,11 +735,11 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     })
   } else {
     // allow us to hijack stdout
-    console.log('BLOCKCHAIN: launching', binary_path, lokid_options.join(' '))
+    console.log('BLOCKCHAIN: Launching', binary_path, lokid_options.join(' '))
     loki_daemon = spawn(binary_path, lokid_options)
   }
   if (!loki_daemon) {
-    console.error('BLOCKCHAIN: failed to start lokied, exiting...')
+    console.error('BLOCKCHAIN: Failed to start lokid, exiting...')
     shutdown_everything()
     return
   }
@@ -827,10 +827,10 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     if (!shuttingDown) {
       // if we need to restart
       if (config.blockchain.restart) {
-        console.log('BLOCKCHAIN: lokid is configured to be restarted. Will do so in 30s')
+        console.log('BLOCKCHAIN: lokid is configured to be restarted. Will do so in 30s.')
         // restart it in 30 seconds to avoid pegging the cpu
         setTimeout(function () {
-          console.log('BLOCKCHAIN: restarting lokid')
+          console.log('BLOCKCHAIN: Restarting lokid.')
           launchLokid(config.blockchain.binary_path, lokid_options, config.launcher.interactive, config, args)
         }, 30 * 1000)
       } else {
@@ -843,7 +843,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
 
   function flushOutput() {
     if (!loki_daemon) {
-      console.log('BLOCKCHAIN: flushOutput lost handle, stopping flushing')
+      console.log('BLOCKCHAIN: flushOutput lost handle, stopping flushing.')
       return
     }
     // FIXME turn off when in prepare status...
@@ -949,11 +949,11 @@ function startLokid(config, args) {
     // we're non-interactive, set up socket server
     console.log('SOCKET: Starting')
     server = net.createServer((c) => {
-      console.log('SOCKET: client connected')
+      console.log('SOCKET: Client connected.')
       connections.push(c)
       c.setEncoding('utf8')
       c.on('end', () => {
-        console.log('SOCKET: client disconnected')
+        console.log('SOCKET: Client disconnected.')
         var idx = connections.indexOf(c)
         if (idx != -1) {
           connections.splice(idx, 1)
@@ -963,7 +963,7 @@ function startLokid(config, args) {
         if (c.connected) {
           c.write('SOCKETERR: ' + JSON.stringify(err))
         } else {
-          console.log('not connected, SOCKETERR:', JSON.stringify(err))
+          console.log('Not connected, SOCKETERR:', JSON.stringify(err))
         }
       })
       c.on('data', (data) => {
@@ -973,11 +973,11 @@ function startLokid(config, args) {
         console.log('SOCKET: got', stripped)
         if (handleInput(stripped)) return
         if (loki_daemon && !loki_daemon.killed) {
-          console.log('SOCKET:sending to lokid')
+          console.log('SOCKET: Sending to lokid.')
           loki_daemon.stdin.write(data + "\n")
         }
       })
-      c.write('connection successful\n')
+      c.write('Connection successful\n')
       c.pipe(c).on('error', function(err) {
         console.error('SOCKETSRV_ERR:', JSON.stringify(err))
       })
