@@ -417,7 +417,7 @@ module.exports = function(args, config, entryPoint, debug) {
       console.log('rpc:', useConfig.blockchain.rpc_ip + ':' + useConfig.blockchain.rpc_port, 'status', portFree?'not running':'running')
       if (!portFree) {
         console.log('')
-        console.log('There\'s a lokid that we\'re not tracking using our configuration. You likely will want to confirm and manually stop it before start using the launcher again. Exiting...')
+        console.log('There\'s a lokid that we\'re not tracking using our configuration (rpc_port is already in use). You likely will want to confirm and manually stop it before start using the launcher again. Exiting...')
         console.log('')
         // no pids.json will exist... and not easy to fake one
         daemon.shutdown_everything()
