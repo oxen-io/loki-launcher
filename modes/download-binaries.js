@@ -14,6 +14,8 @@ const debug = false
 const VERSION = 0.3
 //console.log('loki binary downloader version', VERSION, 'registered')
 
+let xenial_hack = false
+
 function getFileSizeSync(path) {
   const stats = fs.statSync(path);
   return stats.size;
@@ -276,6 +278,13 @@ function downloadGithubRepo(github_url, options, config, cb) {
 // FIXME: move into options
 var start_retries = 0
 function start(config) {
+  const { exec } = require('child_process')
+  exec('lsb_release -c', (err, stdout, stderr) => {
+    //console.log(stdout)
+    if (stdout && stdout.match(/xenial/)) {
+      xenial_hack = true
+    }
+  })
   // quick request so should be down by the time the file downloads...
   lib.stopLauncher(config)
   /*
@@ -300,7 +309,12 @@ function start(config) {
     // 4.x
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
       start_retries = 0
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+      if (xenial_hack) {
+        console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+      } else {
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+      }
     })
   }
 }
