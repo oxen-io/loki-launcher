@@ -278,6 +278,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
 // FIXME: move into options
 var start_retries = 0
 function start(config) {
+  /*
   const { exec } = require('child_process')
   exec('lsb_release -c', (err, stdout, stderr) => {
     //console.log(stdout)
@@ -285,6 +286,7 @@ function start(config) {
       xenial_hack = true
     }
   })
+  */
   // quick request so should be down by the time the file downloads...
   lib.stopLauncher(config)
   /*
