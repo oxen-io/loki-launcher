@@ -237,16 +237,34 @@ function precheckConfig(config, args, debug) {
 }
 
 var binary3xCache = null
-function isBlockchainBinary3X(config) {
-  if (binary3xCache !== null) return binary3xCache
+var binary4Xor5XCache = null
+
+function getLokidVersion(config) {
   if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
     var stdout = execFileSync(config.blockchain.binary_path, ['--version'])
     var lokid_version = stdout.toString().trim()
-    binary3xCache = lokid_version.match(/v3.0/)?true:false
+    //console.log('lokid_version', lokid_version)
+    binary3xCache = lokid_version.match(/v3\.0/)?true:false
+    binary4Xor5XCache = lokid_version.match(/v[54]\./)?true:false
     return binary3xCache
+  } else {
+    binary3xCache = undefined
+    binary4Xor5XCache = undefined
   }
-  return undefined
 }
+
+function isBlockchainBinary3X(config) {
+  if (binary3xCache !== null) return binary3xCache
+  getLokidVersion(config)
+  return binary3xCache
+}
+
+function isBlockchainBinary4Xor5X(config) {
+  if (binary4Xor5XCache !== null) return binary4Xor5XCache
+  getLokidVersion(config)
+  return binary4Xor5XCache
+}
+
 
 function checkLauncherConfig(config) {
   if (config.network === undefined) config.network = {}
@@ -262,7 +280,13 @@ function checkLauncherConfig(config) {
   // we will internally change these defaults over time
   // users are not encourage (currently) to put these in their INI (only loki devs)
   if (config.network.enabled === undefined) {
-    config.network.enabled = false
+    if (isBlockchainBinary3X(config) || isBlockchainBinary4Xor5X(config)) {
+      console.log('3-5 series blockchain binary detected, disabling lokinet by default')
+      config.network.enabled = false
+    } else {
+      config.network.enabled = true
+    }
+    //console.log('lokinet should be running?', config.network.enabled)
   }
   if (config.storage.enabled === undefined) {
     config.storage.enabled = true
@@ -394,12 +418,13 @@ function checkBlockchainConfig(config) {
       config.blockchain.rpc_port = 38160
     } else
     if (config.blockchain.network == 'staging') {
-      config.blockchain.rpc_port = 38154
+      config.blockchain.rpc_port = 38057
     } else {
       // main
       config.blockchain.rpc_port = 22023
     }
   }
+
   // actualize rpc_ip so we can pass it around to other daemons
   if (config.blockchain.rpc_ip === undefined) {
     config.blockchain.rpc_ip = '127.0.0.1'
@@ -415,8 +440,30 @@ function checkNetworkConfig(config) {
   if (config.network.testnet && config.network.netid === undefined) {
     if (config.blockchain.network == "demo") {
       config.network.netid = "demonet"
+    } else {
+      config.network.netid = "gamma"
     }
   }
+  // if no bootstrap, set default (can't leave this blank for lokinet)
+  if (config.network.bootstrap_path === undefined && config.network.connects === undefined &&
+     config.network.bootstrap_url === undefined) {
+    if (config.network.testnet) {
+      config.network.bootstrap_url = 'https://seed.lokinet.org/testnet.signed'
+    } else {
+      config.network.bootstrap_url = 'https://seed.lokinet.org/lokinet.signed'
+    }
+  }
+
+  if (config.network.public_port === undefined) {
+    config.network.public_port = 1090
+  }
+  if (config.network.rpc_port === undefined) {
+    config.network.rpc_port = 1190
+  }
+  /*
+    mkdir -p /dev/net
+    mknod /dev/net/tun c 10 200
+  */
 }
 
 // requires blockchain to be configured
@@ -424,6 +471,11 @@ function checkNetworkConfig(config) {
 function checkStorageConfig(config) {
   if (!config.storage.enabled) return
   if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/loki-storage'
+
+  if (config.storage.testnet === undefined) {
+    config.storage.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
+  }
+
   if (config.storage.data_dir === undefined) {
     const os = require('os')
     // FIXME: really should be left alone and we should have a getter
@@ -431,13 +483,16 @@ function checkStorageConfig(config) {
     //config.storage.data_dir = getLokiDataDir(config) + '/storage'
     // launcher can use the same storage path for testnet and mainnet
     config.storage.data_dir = os.homedir() + '/.loki/storage'
+    if (config.storage.testnet) {
+      config.storage.data_dir += '_testnet'
+    }
     config.storage.data_dir_is_default = true
   }
   // append /testnet if needed
   //config.storage.data_dir = getStorageServerDataDir(config)
   // set default port
   if (!config.storage.port) {
-    config.storage.port = 23023
+    config.storage.port = config.storage.testnet ? 38155 : 22021
   }
   // storage server auto config
   if (config.storage.lokid_key === undefined) {
@@ -503,7 +558,7 @@ function checkConfig(config, args, debug) {
 
 // need blockchain.p2pport
 function prequal(config) {
-  if (config.blockchain.p2p_port === undefined) {
+  if (config.blockchain.p2p_port === undefined || config.blockchain.p2p_port === '0') {
     // configure based on network
     // only do this here
     // p2p_port if deafult should be left for undefined...
@@ -514,9 +569,19 @@ function prequal(config) {
       config.blockchain.p2p_port = 38159
     } else
     if (config.blockchain.network == 'staging') {
-      config.blockchain.p2p_port = 38153
+      config.blockchain.p2p_port = 38056
     } else {
       config.blockchain.p2p_port = 22022
+    }
+  }
+  if (config.blockchain.qun_port === undefined || config.blockchain.qun_port === '0') {
+    if (config.blockchain.network == 'test') {
+      config.blockchain.qun_port = 38159
+    } else
+    if (config.blockchain.network == 'staging') {
+      config.blockchain.qun_port = 38059
+    } else {
+      config.blockchain.qun_port = 22025
     }
   }
 }
