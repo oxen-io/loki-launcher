@@ -123,6 +123,15 @@ function start(user, dir, config) {
       if (config.network.data_dir) fs.chownSync(config.network.data_dir, uid, 0)
       // config.network.lokinet_nodedb
       if (config.network.lokinet_nodedb) fs.chownSync(config.network.lokinet_nodedb, uid, 0)
+      if (config.network.enabled) {
+        if (fs.existsSync(config.launcher.var_path + '/lokinet.version')) {
+          fs.chownSync(config.launcher.var_path + '/lokinet.version', uid, 0)
+        }
+        if (fs.existsSync(config.launcher.var_path + '/snode_address')) {
+          fs.chownSync(config.launcher.var_path + '/snode_address', uid, 0)
+        }
+      }
+
       // config.storage.data_dir
       if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
       if (config.storage.enabled) {
