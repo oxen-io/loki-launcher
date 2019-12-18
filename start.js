@@ -405,7 +405,7 @@ module.exports = function(args, config, entryPoint, debug) {
 
   if (config.network.enabled && !running.lokid) {
     // no lokid, kill remaining
-    console.log('LAUNCHER: lokid is down, kill idlers.')
+    //console.log('LAUNCHER: lokid is down, kill idlers.')
     killLokinetAndStorageServer(config, running, pids)
   }
 
