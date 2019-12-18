@@ -20,8 +20,8 @@ let g_config = null
 process.on('uncaughtException', function (err) {
   console.error('Caught exception: ' + err)
   let var_path = ''
-  if (g_config) var_path = config.launcher.var_path
-  fs.appendFileSync(var_path + 'launcher_exception.log', JSON.stringify({
+  if (g_config) var_path = g_config.launcher.var_path
+  fs.appendFileSync(var_path + '/launcher_exception.log', JSON.stringify({
     err: err,
     code: err.code,
     msg: err.message,
@@ -167,17 +167,27 @@ function launcherStorageServer(config, args, cb) {
     console.log('STORAGE: Not going to start storageServer, shutting down.')
     return
   }
+  // no longer true
+  /*
   if (!config.storage.lokid_key) {
     console.error('storageServer requires lokid_key to be configured.')
     if (cb) cb(false)
     return
   }
+  */
   // set storage port default
   if (!config.storage.port) {
     config.storage.port = 8080
   }
   // configure command line parameters
-  let optionals = ['--lokid-key', config.storage.lokid_key]
+  let optionals = []
+  if (config.storage.testnet) {
+    optionals.push('--testnet')
+  }
+  // this was required
+  if (config.storage.lokid_key) {
+    optionals.push('--lokid-key', config.storage.lokid_key)
+  }
   if (config.storage.log_level) {
     optionals.push('--log-level', config.storage.log_level)
   }
@@ -353,7 +363,11 @@ function startStorageServer(config, args, cb) {
   }
 
   checkRpcUp(function() {
+    config.storage.ip = '0.0.0.0';
     if (config.network.enabled) {
+      lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      launcherStorageServer(config, args, cb)
+      /*
       lokinet.getLokiNetIP(function (ip) {
         // lokinet has started, save config and various process pid
         lib.savePids(config, args, loki_daemon, lokinet, storageServer)
@@ -367,13 +381,17 @@ function startStorageServer(config, args, cb) {
           //shutdown_everything()
         }
       })
+      */
     } else if (config.storage.enabled) {
+      /*
       lokinet.getNetworkIP(function(err, localIP) {
         console.log('DAEMON: Starting storageServer on', localIP)
         // we can only ever bind to the local IP
         config.storage.ip = localIP
         launcherStorageServer(config, args, cb)
       })
+      */
+      launcherStorageServer(config, args, cb)
     } else {
       console.log('StorageServer is not enabled.')
     }
@@ -388,7 +406,7 @@ function startLokinet(config, args, cb) {
       process.exit(1)
     }
     if (config.network.enabled) {
-      lokinet.startServiceNode(config.network, function () {
+      lokinet.startServiceNode(config, function () {
         startStorageServer(config, args, cb)
       })
     } else {
@@ -406,7 +424,7 @@ function startLokinet(config, args, cb) {
     }
     console.log('DAEMON: Got Loki key!')
     if (config.network.enabled) {
-      lokinet.startServiceNode(config.network, function () {
+      lokinet.startServiceNode(config, function () {
         startStorageServer(config, args, cb)
       })
     } else {
@@ -728,7 +746,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   //console.log('launchLokid - interactive?', interactive)
   if (interactive) {
     // don't hijack stdout, so prepare_registration works
-    console.log('BLOCKCHAIN: launchLokid - interactive mode')
+    console.log('BLOCKCHAIN: (interactive mode) Launching', binary_path, lokid_options)
     loki_daemon = spawn(binary_path, lokid_options, {
       stdio: ['pipe', 'inherit', 'inherit'],
       //shell: true
