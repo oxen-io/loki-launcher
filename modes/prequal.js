@@ -1,5 +1,6 @@
 // no npm!
 const fs = require('fs')
+const os = require('os')
 const ini = require(__dirname + '/../ini')
 const lib = require(__dirname + '/../lib')
 const configUtil = require(__dirname + '/../config')
@@ -21,6 +22,12 @@ module.exports = function(config, debug) {
 
   // set up config for prequal
   configUtil.prequal(config)
+  if (config.launcher.testnet || config.blockchain.network === 'test') {
+    console.log('')
+    console.log('in testnet mode, this only checks port for testnet')
+    console.log('please run outside of testnet mode if you plan to take this node onto the mainnet')
+    console.log('')
+  }
 
   // diskspace check
   function getFreeSpaceUnix(path, cb) {
@@ -191,47 +198,119 @@ module.exports = function(config, debug) {
         process.exit()
       }
       function done() {
+        //console.log('rpcport done')
         markCheckDone('rpcport')
         diskspaceCheck()
         if (debug) console.debug('calling disconnect')
         client.disconnect()
       }
-      console.log('Starting open port check on configured blockchain p2p port:', config.blockchain.p2p_port)
+      console.log('Starting open port check on configured blockchain p2p TCP port:', config.blockchain.p2p_port)
       client.startTestingServer(config.blockchain.p2p_port, debug, function(results, port) {
         if (results != 'good') {
           if (results === 'inuse') {
             log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-              ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
+              ' TCP, OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
           } else {
             log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-              ', OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
+              ' TCP, OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
           }
           console.warn('OpenP2pPort: Failed !')
           snode_warnings++
         } else {
           console.log('OpenP2pPort: Success !')
         }
-        if (config.storage.enabled) {
-          console.log('Starting open port check on configured storage server port:', config.storage.port)
-          client.startTestingServer(config.storage.port, debug, function(results, port) {
-            if (results != 'good') {
-              if (results === 'inuse') {
-                log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                  ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
-              } else {
-                log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                  ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-              }
-              console.warn('OpenStoragePort: Failed !')
-              snode_problems++
+        // iptables -I OUTPUT -p tcp --sport 22025 -j DROP
+        console.log('Starting open port check on configured blockchain quorumnet TCP port:', config.blockchain.qun_port)
+        client.startTestingServer(config.blockchain.qun_port, debug, function(results, port) {
+          if (results != 'good') {
+            if (results === 'inuse') {
+              log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                ' TCP, OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
             } else {
-              console.log('OpenStoragePort: Success !')
+              log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                ' TCP, OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
             }
+            console.warn('OpenQuorumNetPort: Failed !')
+            snode_warnings++
+          } else {
+            console.log('OpenQuorumNetPort: Success !')
+          }
+          //if (config.storage.enabled) {
+            console.log('Starting open port check on configured storage server TCP port:', config.storage.port)
+            client.startTestingServer(config.storage.port, debug, function(results, port) {
+              if (results != 'good') {
+                if (results === 'inuse') {
+                  log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                    ' TCP, OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
+                } else {
+                  log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                    ' TCP, OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                }
+                console.warn('OpenStoragePort: Failed !')
+                snode_problems++
+              } else {
+                console.log('OpenStoragePort: Success !')
+              }
+              //if (config.network.enabled) {
+                // test for /dev/net/tun on linux
+                if (os.platform() == 'linux') {
+                  console.log('Detected linux platform, checking for /dev/net')
+                  if (!fs.existsSync('/dev/net')) {
+                    log.push('WE COULD NOT VERIFY THAT YOU HAVE /dev/net, this is now required to run a service node. Ask your service provider to enable it or you may need to find a new provider.')
+                    console.log('NetworkTunable: Failed !')
+                    snode_problems++
+                  } else {
+                    console.log('NetworkTunable: Success !')
+                  }
+                }
+                console.log('Starting incoming UDP port check on configured network server port:', config.network.public_port)
+                client.startUDPRecvTestingServer(config.network.public_port, debug, function(results, port) {
+                  if (results != 'good') {
+                    if (results === 'inuse') {
+                      log.push('WE COULD NOT VERIFY THAT YOU HAVE INCOMING UDP PORT ' + port +
+                        ', OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
+                    } else {
+                      log.push('WE COULD NOT VERIFY THAT YOU HAVE INCOMING UDP PORT ' + port +
+                        ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                    }
+                    console.warn('OpenNetworkRecvPort: Failed !')
+                    snode_problems++
+                  } else {
+                    console.log('OpenNetworkRecvPort: Success !')
+                  }
+                  console.log('Starting outgoing UDP port check on configured network server from UDP port:', config.network.public_port)
+                  client.testUDPSendPort(config.network.public_port, 1090, function(results, port) {
+                    if (results != 'good') {
+                      // destination port is always 1090, because we hardcoded it above
+                      // source port is whatever you configured it to be (config.network.public_port)
+                      // but I'm guessing we'll be using several destination ports across the network...
+                      if (results === 'inuse') {
+                        log.push('WE COULD NOT VERIFY THAT YOU HAVE OUTGOING '+
+                                 'UDP OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using port '+config.network.public_port+' before running')
+                      } else {
+                        log.push('WE COULD NOT VERIFY THAT YOU HAVE OUTGOING UDP' +
+                                 ' OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                      }
+                      console.warn('OpenNetworkSendPort: Failed !')
+                      snode_problems++
+                    } else {
+                      console.log('OpenNetworkSendPort: Success !')
+                    }
+                    done()
+                  });
+                });
+              /*
+              } else {
+                done()
+              }
+              */
+            })
+          /*
+          } else {
             done()
-          })
-        } else {
-          done()
-        }
+          }
+          */
+        })
       })
     }, debug)
   }

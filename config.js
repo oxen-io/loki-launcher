@@ -455,7 +455,7 @@ function checkNetworkConfig(config) {
   }
 
   if (config.network.public_port === undefined) {
-    config.network.public_port = 1090
+    config.network.public_port = config.network.testnet ? 1666 : 1090
   }
   if (config.network.rpc_port === undefined) {
     config.network.rpc_port = 1190
@@ -583,6 +583,9 @@ function prequal(config) {
     } else {
       config.blockchain.qun_port = 22025
     }
+  }
+  if (config.network.public_port === undefined) {
+    config.network.public_port = config.network.testnet ? 1666 : 1090
   }
 }
 

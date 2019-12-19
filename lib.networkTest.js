@@ -1,6 +1,9 @@
 const lokinet = require(__dirname + '/lokinet') // expects 0.8 used for randomString
 const netWrap = require('./lets_tcp')
 
+const dgram = require('dgram')
+const udpClient = dgram.createSocket('udp4')
+
 const slice = 10
 const blocksPerTick = 100
 
@@ -13,12 +16,14 @@ function createClient(host, port, cb, debug) {
 
   var timer = null
   var uiTimer = null
+  var intTimer = null
   var ticks = 0
   var count = 0
   var ip = null
   var testCallback = null
   var portTestCallback = null
   var shutdownOk = false
+  var shutdownFinal = false
   var testResults = 0
 
   var downloadBytes = 0
@@ -125,6 +130,10 @@ function createClient(host, port, cb, debug) {
       clearInterval(uiTimer)
       uiTimer = null
     }
+    if (timeoutTimer) {
+      clearInterval(timeoutTimer)
+      timeoutTimer = null
+    }
     if (testCallback) {
       var callMe = testCallback
       testCallback = null
@@ -157,6 +166,7 @@ function createClient(host, port, cb, debug) {
       case 'report':
         //console.log('got report')
         clearTimeout(timeoutTimer)
+        clearInterval(intTimer)
         if (portTestCallback) {
           portTestCallback({
             ip: ip,
@@ -167,16 +177,28 @@ function createClient(host, port, cb, debug) {
         }
       break
       default:
-        console.log('got', pkt, 'from', client.socket.address().address)
+        console.log('got unknown pkt', pkt, 'from', client.socket.address().address)
       break
     }
   }
 
-  netWrap.disconnect = function(client) {
-    if (!shutdownOk) {
-      console.log('got disconnected, stopping any pending tests')
+  netWrap.disconnect = function(socket, isClient) {
+    /*
+    if (shutdownFinal) {
+      console.log('shutdownOk', shutdownOk)
+      console.trace(socket.name, 'got disconnect. isClient', isClient)
     }
-    stopTest()
+    */
+    if (!shutdownOk && !shutdownFinal) {
+      console.trace(socket.name, 'got disconnected, stopping any pending tests. isClient', isClient)
+      stopTest()
+    }
+    if (!shutdownOk && !shutdownFinal) {
+      process.exit()
+    }
+    // you get one
+    //if (shutdownOk) console.log('resetting shutdownOk')
+    shutdownOk = false
   }
 
   var aborted = false
@@ -216,21 +238,166 @@ function createClient(host, port, cb, debug) {
         portTestCallback = cb
         startPortTest(client, port)
       },
+      testUDPRecvPort: function(port, cb) {
+        if (portTestCallback) {
+          console.log('a test is already running')
+          return
+        }
+        // set lock
+        portTestCallback = cb
+        // create failure case
+        timeoutTimer = setTimeout(function() {
+          //console.warn('port test timed out')
+          clearInterval(intTimer)
+          if (portTestCallback) {
+            var callMe = portTestCallback
+            portTestCallback = null
+            callMe({
+              ip: '127.0.0.1',
+              result: 'unknown',
+              code: port
+            })
+          }
+        }, 10 * 1000)
+        // sent 5 packets, only need one
+        intTimer = setInterval(function() {
+          client.send('udpsendport ' + port)
+        }, 1000)
+      },
+      testUDPSendPort: function(localPort, destPort, cb) {
+        if (portTestCallback) {
+          console.log('a test is already running')
+          return
+        }
+        const safeLocalPort = parseInt(localPort)
+        const safeDestPort = parseInt(destPort)
+        if (!safeDestPort) {
+          console.error('invalid destination port', safeDestPort)
+          return
+        }
+        portTestCallback = function(res) {
+          udpClient.close() // close server
+          cb(res.result, res.code)
+        }
+        //client.send('udprecvport ' + port)
+        const message = Buffer.from('Some bytes')
+        // 1090 here is a destination port
+        udpClient.bind(safeLocalPort, function() {
+          timeoutTimer = setTimeout(function() {
+            //console.warn('port test timed out')
+            clearInterval(intTimer)
+            if (portTestCallback) {
+              var callMe = portTestCallback
+              portTestCallback = null
+              callMe({
+                ip: '127.0.0.1',
+                result: 'unknown',
+                code: safeDestPort
+              })
+            }
+          }, 5 * 1000)
+          intTimer = setInterval(function() {
+            udpClient.send(message, safeDestPort, host, function() {
+              // done sending...
+              // server will send to us if we're connect if it receives it: report good
+            })
+          }, 1000)
+        })
+      },
       disconnect: function() {
+        //console.log('lib.networkTest - disconnecting')
+        shutdownFinal = true
         client.send('dc')
         client.reconnect = false
-        shutdownOk = true
         //client.disconncet()
         client.destroy() // cause a disconnect
         client.socket.destroy()
+        shutdownOk = true
       }
     }
     // I really don't like this
     publicClient.startTestingServer = function(port, debug, cb) {
       startTestingServer(port, publicClient, debug, cb)
     }
+    publicClient.startUDPRecvTestingServer = function(port, debug, cb) {
+      startUDPRecvTestingServer(port, publicClient, debug, cb)
+    }
     cb(publicClient)
   })
+
+  // open port test by starting a network server on specified port
+  function startTestingServer(port, networkTester, debug, cb) {
+    // FIXME: make sure port isn't already taken
+    var code = lokinet.randomString(96)
+    var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
+      if (debug) console.debug('port verified')
+      // request shutdown of the tcp connection from server side
+      //incomingConnection.send('quit ' + code + ' ' + Date.now())
+    })
+    tempResponder.errorHandler = function(err) {
+      if (err.code == 'EADDRINUSE') {
+        tempResponder.letsClose(function() {
+          cb('inuse', port)
+        })
+        return
+      } else {
+        if (err) console.error('serveTCP problem:', err)
+      }
+    }
+    networkTester.testPort(port, function(results) {
+      if (debug) console.debug('port test complete', results)
+      shutdownOk = true
+      tempResponder.letsClose(function() {
+        cb(results.result, port)
+      })
+    })
+  }
+
+  function startUDPRecvTestingServer(port, networkTester, debug, cb) {
+    // FIXME: make sure port isn't already taken
+    var code = lokinet.randomString(96)
+    var tempResponder = netWrap.serveUDP(port, function(message, rinfo) {
+      var str = message.toString()
+      //console.log('message', str)
+      if (str === 'Some bytes') {
+        if (debug) console.debug('port verified')
+        clearTimeout(timeoutTimer)
+        clearInterval(intTimer)
+        portTestCallback = null // release test lock
+        shutdownOk = true
+        tempResponder.letsClose(function() {
+          cb('good', port)
+        })
+      }
+    })
+    tempResponder.errorHandler = function(err) {
+      if (err.code == 'EADDRINUSE') {
+        portTestCallback = null // release test lock
+        clearTimeout(timeoutTimer)
+        clearInterval(intTimer)
+        shutdownOk = true
+        tempResponder.letsClose(function() {
+          cb('inuse', port)
+        })
+        return
+      } else {
+        if (err) console.error('serveUDP problem:', err)
+      }
+    }
+
+    // set up test, and ask servers to hit us
+    networkTester.testUDPRecvPort(port, function(results) {
+      // only called on timeout
+      portTestCallback = null // release lock (points to this function actually)
+      clearTimeout(timeoutTimer)
+      clearInterval(intTimer)
+      shutdownOk = true
+      tempResponder.letsClose(function() {
+        cb(results.result, results.code)
+      })
+    })
+  }
+
 }
 
 // from https://stackoverflow.com/a/18650828
@@ -241,30 +408,6 @@ function formatBytes(bytes, decimals = 2) {
      sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
      i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
-}
-
-// open port test by starting a network server on specified port
-function startTestingServer(port, client, debug, cb) {
-  // FIXME: make sure port isn't already taken
-  var code = lokinet.randomString(96)
-  var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
-    if (debug) console.debug('port verified')
-    incomingConnection.send('quit ' + code + ' ' + Date.now())
-  })
-  tempResponder.errorHandler = function(err) {
-    if (err.code == 'EADDRINUSE') {
-      cb('inuse', port)
-      return
-    } else {
-      if (err) console.error('serveTCP problem:', err)
-    }
-  }
-  client.testPort(port, function(results) {
-    if (debug) console.debug('port test complete', results)
-    tempResponder.letsClose(function() {
-      cb(results.result, port)
-    })
-  })
 }
 
 module.exports = {
