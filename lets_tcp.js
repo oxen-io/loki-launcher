@@ -4,7 +4,7 @@
  * @module lets_tcp
  */
 const net = require('net');
-
+const dgram = require('dgram');
 const VERSION = 0.2
 
 // works for client/server
@@ -89,7 +89,7 @@ module.exports={
    * @function
    * @param {object} client - client to disconnect
    */
-  disconnect: function(client) {
+  disconnect: function(socket, type) {
     console.log('disconnect stub');
   },
   /**
@@ -146,7 +146,7 @@ module.exports={
       },
       */
       disconnect: function() {
-        module.exports.disconnect(clients[handle]);
+        module.exports.disconnect(clients[handle], true);
         if (client.reconnect) {
           console.log('sending reconnect');
           // good for partial disconnects
@@ -327,7 +327,7 @@ module.exports={
         },
         // disconnect has happened
         disconnect: function() {
-          module.exports.disconnect(client);
+          module.exports.disconnect(client, false);
         },
       }
       if (module.exports.debug) console.debug('lets_tcp::serveTCP - serverClientCounter', serverClientCounter);
@@ -469,6 +469,59 @@ module.exports={
     }
     servers.push(server);
     server.listen(port);
+    return server;
+  },
+  /**
+   * create a UDP server
+   *
+   * @param {string} port - port to listen on
+   * @param {callback} callback - connect handler function
+   * @returns object - server socket
+   */
+  serveUDP: function(port, callback) {
+    const server = dgram.createSocket('udp4');
+    const safePort = parseInt(port);
+    if (!safePort) {
+      return false;
+    }
+    server.on('error', (err) => {
+      if (server.errorHandler) {
+        server.errorHandler(err)
+      } else {
+        console.error('SOCKET ERROR:', err)
+        if (module.exports.debug) console.log(`server error:\n${err.stack}`);
+        //server.close();
+      }
+    });
+
+    server.on('message', (msg, rinfo) => {
+      if (module.exports.debug) console.log(`UDPserver got: ${msg} from ${rinfo.address}:${rinfo.port}`);
+      callback(msg, rinfo);
+    });
+
+    server.on('listening', () => {
+      const address = server.address();
+      if (module.exports.debug) console.log(`server listening ${address.address}:${address.port}`);
+    });
+    let open = true
+    server.on('close', () => {
+      open = false
+    });
+
+    server.letsClose=function(cb) {
+      if (module.exports.debug) console.debug('closing server UDP', port, 'connections', clients.length);
+      //console.debug('server', port, 'clients destroyed');
+      if (open) {
+        server.close(function() {
+          //console.debug('server port', port, 'closed');
+          if (cb) cb();
+        });
+      } else {
+        if (cb) cb();
+      }
+    }
+
+    server.bind(safePort);
     return server;
   }
 }
