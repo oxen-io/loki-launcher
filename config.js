@@ -394,12 +394,13 @@ function checkBlockchainConfig(config) {
       config.blockchain.rpc_port = 38160
     } else
     if (config.blockchain.network == 'staging') {
-      config.blockchain.rpc_port = 38154
+      config.blockchain.rpc_port = 38057
     } else {
       // main
       config.blockchain.rpc_port = 22023
     }
   }
+
   // actualize rpc_ip so we can pass it around to other daemons
   if (config.blockchain.rpc_ip === undefined) {
     config.blockchain.rpc_ip = '127.0.0.1'
@@ -424,6 +425,11 @@ function checkNetworkConfig(config) {
 function checkStorageConfig(config) {
   if (!config.storage.enabled) return
   if (config.storage.binary_path === undefined) config.storage.binary_path = '/opt/loki-launcher/bin/loki-storage'
+
+  if (config.storage.testnet === undefined) {
+    config.storage.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
+  }
+
   if (config.storage.data_dir === undefined) {
     const os = require('os')
     // FIXME: really should be left alone and we should have a getter
@@ -437,7 +443,7 @@ function checkStorageConfig(config) {
   //config.storage.data_dir = getStorageServerDataDir(config)
   // set default port
   if (!config.storage.port) {
-    config.storage.port = 23023
+    config.storage.port = config.storage.testnet ? 38155 : 22021
   }
   // storage server auto config
   if (config.storage.lokid_key === undefined) {
@@ -503,7 +509,7 @@ function checkConfig(config, args, debug) {
 
 // need blockchain.p2pport
 function prequal(config) {
-  if (config.blockchain.p2p_port === undefined) {
+  if (config.blockchain.p2p_port === undefined || config.blockchain.p2p_port === '0') {
     // configure based on network
     // only do this here
     // p2p_port if deafult should be left for undefined...
@@ -514,10 +520,23 @@ function prequal(config) {
       config.blockchain.p2p_port = 38159
     } else
     if (config.blockchain.network == 'staging') {
-      config.blockchain.p2p_port = 38153
+      config.blockchain.p2p_port = 38056
     } else {
       config.blockchain.p2p_port = 22022
     }
+  }
+  if (config.blockchain.qun_port === undefined || config.blockchain.qun_port === '0') {
+    if (config.blockchain.network == 'test') {
+      config.blockchain.qun_port = 38159
+    } else
+    if (config.blockchain.network == 'staging') {
+      config.blockchain.qun_port = 38059
+    } else {
+      config.blockchain.qun_port = 22025
+    }
+  }
+  if (config.network.public_port === undefined) {
+    config.network.public_port = config.network.testnet ? 1666 : 1090
   }
 }
 
