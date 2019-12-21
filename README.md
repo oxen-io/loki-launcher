@@ -116,6 +116,12 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 
+- 1.0.4
+  - Add lokid 6.x prequal tests
+- 1.0.3
+  - disable 1.0.2 workaround
+- 1.0.2
+  - add xenial workaround
 - 1.0.0
   - fix storage server pipe that would lock up storage server
   - make sure storage server is running before starting startup is successful
