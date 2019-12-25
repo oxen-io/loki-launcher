@@ -183,22 +183,18 @@ function createClient(host, port, cb, debug) {
   }
 
   netWrap.disconnect = function(socket, isClient) {
-    /*
-    if (shutdownFinal) {
-      console.log('shutdownOk', shutdownOk)
-      console.trace(socket.name, 'got disconnect. isClient', isClient)
+    // only if the client disconnects...
+    if (isClient) {
+      if (!shutdownFinal) {
+        console.log(socket.name, 'got disconnected, aborting any pending tests.')
+        stopTest()
+        process.exit()
+      } else {
+        if (debug) console.debug('Successfully disconnected from testing server')
+      }
+    } else {
+      if (debug) console.debug('got server disconnect')
     }
-    */
-    if (!shutdownOk && !shutdownFinal) {
-      console.trace(socket.name, 'got disconnected, stopping any pending tests. isClient', isClient)
-      stopTest()
-    }
-    if (!shutdownOk && !shutdownFinal) {
-      process.exit()
-    }
-    // you get one
-    //if (shutdownOk) console.log('resetting shutdownOk')
-    shutdownOk = false
   }
 
   var aborted = false

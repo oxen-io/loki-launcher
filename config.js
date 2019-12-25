@@ -240,13 +240,19 @@ var binary3xCache = null
 var binary4Xor5XCache = null
 
 function getLokidVersion(config) {
-  if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
-    var stdout = execFileSync(config.blockchain.binary_path, ['--version'])
-    var lokid_version = stdout.toString().trim()
-    //console.log('lokid_version', lokid_version)
-    binary3xCache = lokid_version.match(/v3\.0/)?true:false
-    binary4Xor5XCache = lokid_version.match(/v[54]\./)?true:false
-    return binary3xCache
+  if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {<<<<<<< HEAD
+    try {
+      var stdout = execFileSync(config.blockchain.binary_path, ['--version'])
+      var lokid_version = stdout.toString().trim()
+      //console.log('lokid_version', lokid_version)
+      binary3xCache = lokid_version.match(/v3\.0/)?true:false
+      binary4Xor5XCache = lokid_version.match(/v[54]\./)?true:false
+      return binary3xCache
+    } catch(e) {
+      console.error('Cant detect lokid version', e)
+      // can't hurt to retry I guess, maybe it is a temp problem
+      //binary3xCache = null
+    }
   } else {
     binary3xCache = undefined
     binary4Xor5XCache = undefined
