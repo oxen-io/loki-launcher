@@ -590,6 +590,7 @@ function prequal(config) {
       config.blockchain.qun_port = 22025
     }
   }
+  // not sure we need this here...
   if (config.network.public_port === undefined) {
     config.network.public_port = config.network.testnet ? 1666 : 1090
   }
