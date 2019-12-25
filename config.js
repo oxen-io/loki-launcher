@@ -240,7 +240,7 @@ var binary3xCache = null
 var binary4Xor5XCache = null
 
 function getLokidVersion(config) {
-  if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {<<<<<<< HEAD
+  if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
     try {
       var stdout = execFileSync(config.blockchain.binary_path, ['--version'])
       var lokid_version = stdout.toString().trim()
