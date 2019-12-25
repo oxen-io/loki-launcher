@@ -746,7 +746,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   //console.log('launchLokid - interactive?', interactive)
   if (interactive) {
     // don't hijack stdout, so prepare_registration works
-    console.log('BLOCKCHAIN: (interactive mode) Launching', binary_path, lokid_options)
+    console.log('BLOCKCHAIN: (interactive mode) Launching', binary_path, lokid_options.join(' '))
     loki_daemon = spawn(binary_path, lokid_options, {
       stdio: ['pipe', 'inherit', 'inherit'],
       //shell: true
