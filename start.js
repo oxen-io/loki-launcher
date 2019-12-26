@@ -160,6 +160,9 @@ module.exports = function(args, config, entryPoint, debug) {
     config.network.encryption_privkey = config.network.data_dir + '/encryption.private'
     config.network.ident_privkey = config.network.data_dir + '/identity.private'
     config.network.contact_file = config.network.data_dir + '/self.signed'
+    if ((config.network.profiling === undefined || config.network.profiling) && config.network.profiling_file === undefined) {
+      config.network.profiling_file = config.network.data_dir + '/profiles.dat'
+    }
   }
   lokinet.checkConfig(config.network) // can auto-configure network.binary_path. how?
 
