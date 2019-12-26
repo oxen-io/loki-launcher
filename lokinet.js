@@ -789,15 +789,22 @@ function generateSerivceNodeINI(config, cb) {
       useNAT = true
     }
     log('Drafting lokinet service node config')
-    // FIXME: lock down identity.private for storage server
     runningConfig = {
       router: {
-        nickname: 'ldl',
+        threads: 4,
+        'min-routers': 6,
+        'max-routers': 60,
       },
       dns: {
         upstream: params.upstreamDNS_servers,
         bind: params.lokinet_free53Ip + ':53',
       },
+      logging: {
+        level: 'info',
+      }, /*
+      metrics: {
+        json-metrics-path:
+      }, */
       netdb: {
         dir: params.lokinet_nodedb,
       },
@@ -805,10 +812,16 @@ function generateSerivceNodeINI(config, cb) {
         // will be set after
       },
       network: {
+        enabled: true,
+        exit: false
       },
       api: {
         enabled: true,
         bind: config.rpc_ip + ':' + params.use_lokinet_rpc_port
+      },
+      system: {
+        user: '_lokinet',
+        group: '_loki'
       }
     }
     if (config.lokid) {
