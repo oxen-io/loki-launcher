@@ -431,6 +431,18 @@ function checkBlockchainConfig(config) {
     }
   }
 
+  // we know to know about these ports for the port check on start mode
+  if (config.blockchain.qun_port === undefined || config.blockchain.qun_port === '0') {
+    if (config.blockchain.network == 'test') {
+      config.blockchain.qun_port = 38159
+    } else
+    if (config.blockchain.network == 'staging') {
+      config.blockchain.qun_port = 38059
+    } else {
+      config.blockchain.qun_port = 22025
+    }
+  }
+
   // actualize rpc_ip so we can pass it around to other daemons
   if (config.blockchain.rpc_ip === undefined) {
     config.blockchain.rpc_ip = '127.0.0.1'
@@ -514,6 +526,11 @@ function postcheckConfig(config) {
   }
 }
 
+// the desired user matters
+// hopefully running as the right user
+// we only make dirs as current user if they don't exit
+// won't affect perms on the dir after
+// so fix-perms can right everything
 function ensureDirectoriesExist(config, uid) {
   // from start... (also potentially fix-perms...)
   if (!fs.existsSync(config.launcher.var_path)) {
@@ -526,19 +543,17 @@ function ensureDirectoriesExist(config, uid) {
   // from daemon...
   if (config.storage.data_dir !== undefined) {
     if (!fs.existsSync(config.storage.data_dir)) {
+      consoel.log('making', config.storage.data_dir)
       lokinet.mkDirByPathSync(config.storage.data_dir)
       fs.chownSync(config.launcher.var_path, uid, 0)
     }
   }
   // from prequal.js
-  // FIXME: but the desired user matters
   if (!fs.existsSync(config.blockchain.data_dir)) {
-    // FIXME: hopefully running as the right user
     lokinet.mkDirByPathSync(config.blockchain.data_dir)
     fs.chownSync(config.launcher.var_path, uid, 0)
   }
   // from lokinet.js
-  /*
   if (config.network.data_dir && !fs.existsSync(config.network.data_dir)) {
     consoel.log('making', config.data_dir)
     mkDirByPathSync(config.data_dir)
@@ -549,10 +564,10 @@ function ensureDirectoriesExist(config, uid) {
     mkDirByPathSync(config.network.lokinet_nodedb)
     fs.chownSync(config.launcher.var_path, uid, 0)
   }
-  */
 }
 
 // ran after disk config is loaded
+// for everything (index.js)
 function checkConfig(config, args, debug) {
   precheckConfig(config, args, debug)
   checkLauncherConfig(config)
@@ -562,8 +577,10 @@ function checkConfig(config, args, debug) {
   postcheckConfig(config)
 }
 
-// need blockchain.p2pport
+// need blockchain.p2pport, blockchain.qun_port, network.public_port
 function prequal(config) {
+  // this port is set by default in lokid
+  // and it's not a required port, just a prequal suggestion check
   if (config.blockchain.p2p_port === undefined || config.blockchain.p2p_port === '0') {
     // configure based on network
     // only do this here
@@ -579,20 +596,6 @@ function prequal(config) {
     } else {
       config.blockchain.p2p_port = 22022
     }
-  }
-  if (config.blockchain.qun_port === undefined || config.blockchain.qun_port === '0') {
-    if (config.blockchain.network == 'test') {
-      config.blockchain.qun_port = 38159
-    } else
-    if (config.blockchain.network == 'staging') {
-      config.blockchain.qun_port = 38059
-    } else {
-      config.blockchain.qun_port = 22025
-    }
-  }
-  // not sure we need this here...
-  if (config.network.public_port === undefined) {
-    config.network.public_port = config.network.testnet ? 1666 : 1090
   }
 }
 
