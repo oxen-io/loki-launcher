@@ -303,23 +303,25 @@ function start(config) {
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, prereleaseOnly: true }, config, function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
       start_retries = 0
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, prereleaseOnly: true }, config, function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
         start_retries = 0
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, prereleaseOnly: true }, config)
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
       })
     })
   } else {
-    // 4.x
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
       start_retries = 0
-      if (xenial_hack) {
-        console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
-      } else {
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
-      }
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
+        start_retries = 0
+        if (xenial_hack) {
+          console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
+          downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+        } else {
+          downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+        }
+      })
     })
   }
 }
