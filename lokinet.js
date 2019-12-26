@@ -1357,6 +1357,7 @@ module.exports = {
   findLokiNetDNS: findLokiNetDNS,
   lookup: lookup,
   isRunning: isRunning,
+  getLokinetDaemonObj: function () { return lokinet },
   stop: stop,
   getLokiNetIP: getLokiNetIP,
   enableLogging: enableLogging,
