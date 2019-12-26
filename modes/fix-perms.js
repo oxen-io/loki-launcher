@@ -1,7 +1,9 @@
 const fs = require('fs')
+const os = require('os')
 const pathUtil = require('path')
 const lokinet = require(__dirname + '/../lokinet')
 const lib = require(__dirname + '/../lib')
+const { exec } = require('child_process')
 
 function walk(dir, fn, cb) {
   var count,
@@ -76,7 +78,11 @@ function start(user, dir, config) {
       console.log('user', user, 'uid is', uid, 'homedir is', homedir)
       homedir = homedir.replace(/\/$/, '')
       // binary paths
-      fs.chownSync(config.blockchain.binary_path, uid, 0)
+      if (fs.existsSync(config.blockchain.binary_path)) {
+        fs.chownSync(config.blockchain.binary_path, uid, 0)
+      } else {
+        console.warn('Warning your lokid does not exist at', config.blockchain.binary_path, ', recommend running download-binaries or obtain them off github')
+      }
       if (config.network.binary_path) fs.chownSync(config.network.binary_path, uid, 0)
       if (config.storage.binary_path) fs.chownSync(config.storage.binary_path, uid, 0)
       // config.launcher.var_path doesn't always exist yet
@@ -153,13 +159,13 @@ function start(user, dir, config) {
             // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
             if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
               if (process.getgid() != 0) {
-                conole.log(config.network.binary_path, 'does not have setcap. Please run fix-perms with sudo one time, so we can fix this')
+                console.log(config.network.binary_path, 'does not have setcap. Please run fix-perms with sudo one time, so we can fix this')
                 process.exit()
               } else {
                 // are root
-                log('going to try to setcap your lokinet binary, so you don\'t need to run as root')
+                console.log('going to try to setcap your lokinet binary, so you don\'t need to run as root')
                 exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.network.binary_path, function (error, stdout, stderr) {
-                  log('binary permissions upgraded')
+                  console.log('binary permissions upgraded')
                 })
               }
             }
@@ -182,6 +188,7 @@ function start(user, dir, config) {
       }
       // this is the only place download binaries downloads too
       fs.chownSync('/opt/loki-launcher/bin', uid, 0)
+      // this fixes storage/network config files too
       if (config.blockchain.data_dir) {
         walk(config.blockchain.data_dir, function(path, cb) {
           console.log('fixing blockchain.data_dir file', path)
