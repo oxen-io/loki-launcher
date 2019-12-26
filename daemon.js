@@ -1102,16 +1102,36 @@ function startLokid(config, args) {
   setupHandlers()
 }
 
-function getInterestingChildData(child) {
-  var out = {}
-  if (child) {
-    out.pid = child.pid
-    out.killed = child.killed
-    out.spawnfile = child.spawnfile
-    out.spawnargs = child.spawnargs
-    out.startTime = child.startTime
+function getInterestingDaemonData() {
+  var ts = Date.now()
+  var lokinet_daemon = lokinet.getLokinetDaemonObj();
+  var procInfo = {
+    blockchain: {
+      pid: loki_daemon?loki_daemon.pid:0,
+      killed: loki_daemon?loki_daemon.killed:false,
+      uptime: loki_daemon?(ts - loki_daemon.startTime):0,
+      startTime: loki_daemon?loki_daemon.startTime:0,
+      spawnfile: loki_daemon?loki_daemon.spawnfile:'',
+      spawnargs: loki_daemon?loki_daemon.spawnargs:'',
+    },
+    network: {
+      pid: lokinet?lokinet.pid:lokinet,
+      killed: lokinet?lokinet.killed:false,
+      uptime: lokinet?(ts - lokinet.startTime):0,
+      startTime: lokinet?lokinet.startTime:0,
+      spawnfile: lokinet?lokinet.spawnfile:'',
+      spawnargs: lokinet?lokinet.spawnargs:'',
+    },
+    storage: {
+      pid: storageServer?storageServer.pid:0,
+      killed: storageServer?storageServer.killed:false,
+      uptime: storageServer?(ts - storageServer.startTime):0,
+      startTime: storageServer?storageServer.startTime:0,
+      spawnfile: storageServer?storageServer.spawnfile:'',
+      spawnargs: storageServer?storageServer.spawnargs:'',
+    },
   }
-  return out
+  return procInfo;
 }
 
 var handlersSetup = false
@@ -1123,30 +1143,14 @@ function setupHandlers() {
       lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
     }
     console.log('shuttingDown?', shuttingDown)
-    var ts = Date.now()
-    var procInfo = {
-      blockchain: {
-        pid: loki_daemon?loki_daemon.pid:0,
-        uptime: loki_daemon?(ts - loki_daemon.startTime):0
-      },
-      network: {
-        pid: lokinet?lokinet.pid:lokinet,
-        uptime: lokinet?(ts - lokinet.startTime):0
-      },
-      storage: {
-        pid: storageServer?storageServer.pid:0,
-        uptime: storageServer?(ts - storageServer.startTime):0
-      },
-    }
+    const procInfo = getInterestingDaemonData()
     var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
     if (nodeVer >= 10) {
       console.table(procInfo)
     } else {
       console.log(procInfo)
     }
-    console.log('loki_daemon status', getInterestingChildData(loki_daemon))
     console.log('lokinet status', lokinet.isRunning())
-    console.log('storageServer status', getInterestingChildData(storageServer))
   })
   // ctrl-c
   process.on('SIGINT', function () {
