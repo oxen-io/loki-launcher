@@ -60,7 +60,10 @@ function getLokiDataDir(config) {
   return dir
 }
 
+
+// only works after precheckConfig
 var storageDataDirReady = false
+// what calls this?!?
 function getStorageServerDataDir(config) {
   if (!storageDataDirReady) {
     console.log('getStorageServerDataDir is not ready for use!')
@@ -462,6 +465,19 @@ function checkNetworkConfig(config) {
       config.network.netid = "gamma"
     }
   }
+  // putting all files required for migration into ~/.loki/network
+  if (config.network.data_dir === undefined) {
+    const os = require('os')
+    // FIXME: really should be left alone and we should have a getter
+    //console.log('default network server path, blockchain is', config.blockchain.data_dir)
+    //config.network.data_dir = getLokiDataDir(config) + '/network'
+    config.network.data_dir = os.homedir() + '/.loki/network'
+    if (config.network.testnet) {
+      config.network.data_dir += '_testnet'
+    }
+    config.network.data_dir_is_default = true
+  }
+
   // if no bootstrap, set default (can't leave this blank for lokinet)
   if (config.network.bootstrap_path === undefined && config.network.connects === undefined &&
      config.network.bootstrap_url === undefined) {
