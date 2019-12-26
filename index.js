@@ -289,6 +289,7 @@ function continueStart() {
       console.log('in :', process.argv)
       console.log('out:', args)
     break;
+    case 'donwload-binaries': // official
     case 'download-binaries': // official
       require(__dirname + '/modes/download-binaries').start(config)
     break;
