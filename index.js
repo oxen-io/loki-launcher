@@ -138,10 +138,10 @@ function continueStart() {
     case 'status': // official
       const lokinet = require('./lokinet')
       var running = lib.getProcessState(config)
+      var pids = lib.getPids(config)
       if (running.lokid === undefined) {
         //console.log('no pids...')
         var pid = lib.areWeRunning(config)
-        var pids = lib.getPids(config)
         if (pids.err == 'noFile'  && pid) {
           console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
           process.kill(pid, 'SIGHUP')
@@ -153,6 +153,15 @@ function continueStart() {
           console.log('replacing disk config with running config')
           config = pids.runningConfig
         }
+      }
+      if (pids.blockchain_startTime) {
+        console.log('Last blockchain (re)start:', new Date(pids.blockchain_startTime))
+      }
+      if (pids.network_startTime) {
+        console.log('Last network    (re)start:', new Date(pids.network_startTime))
+      }
+      if (pids.storage_startTime) {
+        console.log('Last storage    (re)start:', new Date(pids.storage_startTime))
       }
 
       // "not running" but too easy to confuse with "running"
