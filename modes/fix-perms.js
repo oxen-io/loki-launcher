@@ -146,6 +146,25 @@ function start(user, dir, config) {
         if (fs.existsSync(config.launcher.var_path + '/snode_address')) {
           fs.chownSync(config.launcher.var_path + '/snode_address', uid, 0)
         }
+        if (os.platform() == 'linux') {
+          // not root-like
+          exec('getcap ' + config.network.binary_path, function (error, stdout, stderr) {
+            //console.log('stdout', stdout)
+            // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
+            if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
+              if (process.getgid() != 0) {
+                conole.log(config.network.binary_path, 'does not have setcap. Please run fix-perms with sudo one time, so we can fix this')
+                process.exit()
+              } else {
+                // are root
+                log('going to try to setcap your lokinet binary, so you don\'t need to run as root')
+                exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.network.binary_path, function (error, stdout, stderr) {
+                  log('binary permissions upgraded')
+                })
+              }
+            }
+          })
+        }
       }
       // apt will all be owned as root...
       // /opt/loki-launcher/bin
