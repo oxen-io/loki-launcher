@@ -278,11 +278,16 @@ function continueStart() {
     case 'setperms':
     case 'set-perms':
     case 'fix-perms': // official
+      var user = findFirstArgWithoutDash()
+      if (!user) {
+        console.log('No user passed in! You must explicitly tell us what user you want the permissions to be set for')
+        console.log('You are currently logged in as', os.userInfo().username)
+        return
+      }
       if (process.getuid() != 0) {
         console.log('Fix-perms needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
-      var user = findFirstArgWithoutDash()
       require(__dirname + '/modes/fix-perms').start(user, __dirname, config)
     break;
     case 'args-debug': // official
