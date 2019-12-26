@@ -733,7 +733,7 @@ function applyConfig(file_config, config_obj) {
 }
 
 var runningConfig = {}
-var genSnCallbackFired
+var genSnCallbackFired // a lock to make sure we only have one callback inflight at a time
 function generateSerivceNodeINI(config, cb) {
   const homeDir = os.homedir()
   var done = {
@@ -767,6 +767,7 @@ function generateSerivceNodeINI(config, cb) {
     // we may have un-required proceses call markDone after we started
     if (genSnCallbackFired) return
     genSnCallbackFired = true
+    /*
     var keyPath = homeDir + '/.loki/'
     //
     if (config.lokid && config.lokid.data_dir) {
@@ -781,6 +782,7 @@ function generateSerivceNodeINI(config, cb) {
       keyPath += 'testnet/'
     }
     keyPath += 'key'
+    */
     log('markDone params', JSON.stringify(params))
     log('PUBLIC', params.publicIP, 'IFACE', params.interfaceIP)
     var useNAT = false
@@ -813,6 +815,7 @@ function generateSerivceNodeINI(config, cb) {
       },
       network: {
         enabled: true,
+        //profiling: false,
         exit: false
       },
       api: {
