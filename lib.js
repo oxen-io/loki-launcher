@@ -46,6 +46,7 @@ function falsish(val) {
   if (val === 1) return false
   if (val.toLowerCase() === 'false') return true
   if (val.toLowerCase() === 'no') return true
+  if (val.toLowerCase() === 'off') return true
   return false
 }
 
@@ -207,13 +208,23 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
   }
   if (loki_daemon && !loki_daemon.killed && loki_daemon.pid) {
     obj.lokid = loki_daemon.pid
+    obj.blockchain_startTime = loki_daemon.startTime
+    obj.blockchain_spawn_file = loki_daemon.spawnfile
+    obj.blockchain_spawn_args = loki_daemon.spawnargs
   }
   if (storageServer && !storageServer.killed && storageServer.pid) {
     obj.storageServer = storageServer.pid
+    obj.storage_startTime = storageServer.startTime
+    obj.storage_spawn_file = storageServer.spawnfile
+    obj.storage_spawn_args = storageServer.spawnargs
   }
   var lokinetPID = lokinet.getPID()
   if (lokinetPID) {
+    var lokinet_daemon = lokinet.getLokinetDaemonObj()
     obj.lokinet = lokinetPID
+    obj.network_startTime = lokinet_daemon.startTime
+    obj.network_spawn_file = lokinet_daemon.spawnfile
+    obj.network_spawn_args = lokinet_daemon.spawnargs
   }
   fs.writeFileSync(config.launcher.var_path + '/pids.json', JSON.stringify(obj))
 }
@@ -370,6 +381,8 @@ function stopLauncher(config) {
   if (pid) {
     // request launcher stop
     console.log('requesting launcher('+pid+') to stop')
+    console.warn('we may hang if launcher was set up with systemd, and you will need to')
+    console.warn('"systemctl stop lokid.service" before running this')
     count++
     // hrm 15 doesn't always kill it... (lxc308)
     process.kill(pid, 'SIGTERM') // 15
