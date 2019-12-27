@@ -8,10 +8,16 @@ let useGitVersion = false
 
 if (VERSION.match(/git/)) {
   const execSync = require('child_process').execSync
+  try {
   var stdout = execSync('git rev-parse HEAD')
   if (stdout && stdout.toString) {
     VERSION = stdout.toString().trim()
     useGitVersion = true
+  }
+  } catch(e) {
+    // guessing you don't have git installed...
+    console.warn('git is not installed, can\'t determine revision')
+    // silently fail
   }
   continueStart()
 } else {
