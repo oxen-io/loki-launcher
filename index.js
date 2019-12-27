@@ -215,6 +215,12 @@ function continueStart() {
       }
     break;
     case 'start-debug':
+      // debug mode basically (but also used internally now)
+      process.env.__daemon = true
+      // no interactive or docker
+      config.launcher.cimode = true
+      require(__dirname + '/start')(args, config, __filename, true)
+    break;
     case 'interactive':
       // debug mode basically (but also used internally now)
       process.env.__daemon = true
