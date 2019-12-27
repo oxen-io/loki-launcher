@@ -128,7 +128,7 @@ For more indepth details, be sure to check out our weekly [dev reports](https://
   - fix duplicate socket server error logging
   - handle lokinet EPERM condition better
   - various logging clean up
-- 1.0.5
+- 1.0.5*
   - enable lokinet 
   - remove service-node-seed / keyPath from lokinet
   - add seedMode to lokinet
