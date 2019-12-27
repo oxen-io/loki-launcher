@@ -147,7 +147,7 @@ For more indepth details, be sure to check out our weekly [dev reports](https://
   - make status check storage rpc port
   - check on storage server every hour and restart if rpc does not respond
   - timer adjustments/better cancelations for speed improvements
-- 1.0.4
+- 1.0.4*
   - Add lokid 6.x prequal tests
 - 1.0.3
   - disable 1.0.2 workaround
