@@ -172,8 +172,8 @@ function start(user, dir, config) {
                 exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.network.binary_path, function (error, stdout, stderr) {
                   if (error) console.error('upgrade failed:', error)
                   else console.log('binary permissions upgraded')
-                  console.log('fix stdout', stdout)
-                  console.log('fix stderr', stderr)
+                  //console.log('fix stdout', stdout)
+                  //console.log('fix stderr', stderr)
                 })
               }
             }
