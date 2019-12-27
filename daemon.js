@@ -556,7 +556,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                   checklist.storage_rpc != 'waiting...' &&
                   lastCheck) {
               // if storage is enabled but not running, wait for it
-              if (pids.runningConfig && pids.runningConfig.storage.enabled && checklist.storageServer == 'waiting...') {
+              if (pids.runningConfig && pids.runningConfig.storage.enabled && (checklist.storageServer === 'waiting...' || checklist.storage_rpc === 'waiting...')) {
                 // give it 30s more if everything else is fine...
                 if (diff > 1   * 90 * 1000) {
                   console.log('Storage server start up timeout, likely failed.')
