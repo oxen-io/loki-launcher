@@ -121,7 +121,7 @@ function httpGet(url, cb) {
       return
     }
   }, 5000)
-  protoClient.get({
+  return protoClient.get({
     hostname: urlDetails.hostname,
     protocol: urlDetails.protocol,
     port: urlDetails.port,
@@ -158,6 +158,7 @@ function httpGet(url, cb) {
     })
   }).on("error", (err) => {
     console.error("NETWORK: httpGet Error: " + err.message, 'port', urlDetails.port)
+    clearInterval(watchdog)
     //console.log('err', err)
     cb()
   })
@@ -1095,7 +1096,7 @@ function launchLokinet(config, instance, cb) {
 function checkConfig(config) {
   if (config === undefined) config = {}
 
-  if (config.auto_config_test_ips === undefined) config.auto_config_test_ips = ['1.1.1.1', '8.8.8.8']
+  if (config.auto_config_test_ips === undefined) config.auto_config_test_ips = ['1.1.1.1', '72.21.211.176']
   if (config.auto_config_test_host === undefined) config.auto_config_test_host = 'www.imdb.com'
   if (config.auto_config_test_port === undefined) config.auto_config_test_port = 80
   auto_config_test_port = config.auto_config_test_port
