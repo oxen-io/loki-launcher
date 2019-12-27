@@ -282,6 +282,8 @@ function getProcessState(config) {
   return running
 }
 
+// won't take longer than 5s
+// offlineMessage is waiting... or offline
 function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   var checklist = {}
   var running = getProcessState(config)
@@ -290,58 +292,67 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   checklist.launcher = running.launcher ? ('running as ' + running.launcher) : offlineMessage
   checklist.blockchain = running.lokid ? ('running as ' + running.lokid) : offlineMessage
 
-  if (config.network.enabled || config.storage.enabled) {
-    if (running.lokid) {
-      //console.log('lokid_key', config.storage.lokid_key)
-      checklist.lokiKey = fs.existsSync(config.storage.lokid_key) ? ('found at ' + config.storage.lokid_key) : offlineMessage
-    }
+  var pids = getPids(config) // need to get the active config
+  // if not running, just use our current config
+  if (!pids.runningConfig) {
+    pids.runningConfig = config
   }
-
-  if (config.network.enabled) {
-    checklist.network = running.lokinet ? ('running as ' + running.lokinet) : offlineMessage
-    // lokinet rpc check?
-  }
-  if (config.storage.enabled) {
-    checklist.storageServer = running.storageServer ? ('running as ' + running.storageServer) : offlineMessage
-  }
-
-  // socket...
-  let socketExists = fs.existsSync(config.launcher.var_path + '/launcher.socket')
-
-  var pids = getPids(config) // need to get the config
   var need = {
   }
   function checkDone(task) {
     //console.log('checking done', task, need)
     need[task] = true
     for(var i in need) {
+      // if still need something
       if (need[i] === false) return
     }
     // all tasks complete
     cb(running, checklist)
   }
 
-  if (socketExists) {
-    need.socketWorks = false
-    let socketClientTest = net.connect({ path: config.launcher.var_path + '/launcher.socket' }, function () {
-      // successfully connected, then it's in use...
-      checklist.socketWorks = 'running at ' + config.launcher.var_path
-      socketClientTest.end()
-      socketClientTest.destroy()
-      checkDone('socketWorks')
-    }).on('error', function (e) {
-      if (e.code === 'ECONNREFUSED') {
-        console.log('SOCKET: socket is stale, nuking')
-        fs.unlinkSync(config.launcher.var_path + '/launcher.socket')
+  if (pids.runningConfig.network.enabled || pids.runningConfig.storage.enabled) {
+    if (running.lokid) {
+      //console.log('lokid_key', config.storage.lokid_key)
+      checklist.lokiKey = fs.existsSync(pids.runningConfig.storage.lokid_key) ? ('found at ' + pids.runningConfig.storage.lokid_key) : offlineMessage
+    }
+  }
+
+  if (pids.runningConfig.network.enabled) {
+    checklist.network = running.lokinet ? ('running as ' + running.lokinet) : offlineMessage
+    // lokinet rpc check?
+  }
+  if (pids.runningConfig.storage.enabled) {
+    checklist.storageServer = running.storageServer ? ('running as ' + running.storageServer) : offlineMessage
+  }
+
+  // socket...
+  let socketExists = fs.existsSync(pids.runningConfig.launcher.var_path + '/launcher.socket')
+  if (running.lokid) {
+    need.blockchain_rpc = false
+    checklist.blockchain_rpc = 'Checking...'
+    var url = 'http://' + pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port + '/json_rpc'
+    //console.log('Lokid is running, checking to make sure it\'s responding')
+    //console.log('blockchain', config.blockchain)
+    var responded = false
+    setTimeout(function() {
+      if (responded) return
+      responded = true
+      ref.abort()
+      checklist.blockchain_rpc = offlineMessage
+      checkDone('blockchain_rpc')
+    }, 5000)
+    var ref = lokinet.httpGet(url, function(data) {
+      if (responded) return
+      responded = true
+      if (data === undefined) {
+        checklist.blockchain_rpc = offlineMessage
+      } else {
+        checklist.blockchain_rpc = 'running on ' + pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port
       }
-      checklist.socketWorks = offlineMessage
-      checkDone('socketWorks')
+      checkDone('blockchain_rpc')
     })
   }
-  // don't want to say everything is stopped but this is running if it's stale
-  //checklist.push('socket', pids.lokid?'running':offlineMessage)
-
-
+  /*
   if (pids.runningConfig && pids.runningConfig.blockchain) {
     need.blockchain_rpc = false
     lokinet.portIsFree(pids.runningConfig.blockchain.rpc_ip, pids.runningConfig.blockchain.rpc_port, function(portFree) {
@@ -351,7 +362,80 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
       checkDone('blockchain_rpc')
     })
   }
-  if (config.network.enabled) {
+  */
+
+  if (pids.runningConfig.storage.enabled && running.storageServer) {
+    need.storage_rpc = false
+    checklist.storage_rpc = 'Checking...'
+    function runTest() {
+      var url = 'https://' + pids.runningConfig.storage.ip + ':' + pids.runningConfig.storage.port + '/get_stats/v1'
+      //console.log('Storage server is running, checking to make sure it\'s responding')
+      //console.log('storage', config.storage)
+      //console.log('asking', url)
+      var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
+      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0 // turn it off for now
+      var responded = false
+      setTimeout(function() {
+        if (responded) return
+        responded = true
+        ref.abort()
+        checklist.storage_rpc = offlineMessage
+        checkDone('storage_rpc')
+      }, 5000)
+      var ref = lokinet.httpGet(url, function(data) {
+        process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = oldTLSValue
+        if (responded) return
+        responded = true
+        if (data === undefined) {
+          checklist.storage_rpc = offlineMessage
+        } else {
+          //console.log('data', data)
+          checklist.storage_rpc = 'running on ' + pids.runningConfig.storage.ip + ':' + pids.runningConfig.storage.port
+        }
+        checkDone('storage_rpc')
+      })
+    }
+    if (pids.runningConfig.storage.ip === undefined) {
+      // well can't use 0.0.0.0
+      // don't lokinet running to use the lokinet interface
+      // just need a list of interfaces...
+      if (pids.runningConfig.launcher.publicIPv4) {
+        pids.runningConfig.storage.ip = pids.runningConfig.launcher.publicIPv4
+        return runTest()
+      }
+      lokinet.checkConfig() // set up test config for getNetworkIP
+      lokinet.getNetworkIP(function(err, localIP) {
+        if (err) console.error('lib::getLauncherStatus - lokinet.getNetworkIP', err)
+        pids.runningConfig.storage.ip = localIP
+        runTest()
+      })
+    } else {
+      runTest()
+    }
+  }
+
+  if (socketExists) {
+    need.socketWorks = false
+    let socketClientTest = net.connect({ path: pids.runningConfig.launcher.var_path + '/launcher.socket' }, function () {
+      // successfully connected, then it's in use...
+      checklist.socketWorks = 'running at ' + pids.runningConfig.launcher.var_path
+      socketClientTest.end()
+      socketClientTest.destroy()
+      checkDone('socketWorks')
+    }).on('error', function (e) {
+      if (e.code === 'ECONNREFUSED') {
+        console.log('SOCKET: socket is stale, nuking')
+        fs.unlinkSync(pids.runningConfig.launcher.var_path + '/launcher.socket')
+      }
+      checklist.socketWorks = offlineMessage
+      checkDone('socketWorks')
+    })
+  }
+  // don't want to say everything is stopped but this is running if it's stale
+  //checklist.push('socket', pids.lokid?'running':offlineMessage)
+
+
+  if (pids.runningConfig.network.enabled) {
     // if lokinet rpc is enabled...
     //need.network_rpc = true
     // checkDone('network_rpc')
