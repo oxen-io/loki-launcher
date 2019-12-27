@@ -8,7 +8,7 @@ const path = require('path')
 const http = require('http')
 const https = require('https')
 const urlparser = require('url')
-const { spawn, exec } = require('child_process')
+const { spawn, exec, execSync } = require('child_process')
 
 // FIXME: disable rpc if desired
 const VERSION = 0.9
@@ -999,7 +999,13 @@ function launchLokinet(config, instance, cb) {
     cli_options.push('-v')
   }
   console.log('NETWORK: launching', networkConfig.binary_path, cli_options.join(' '))
-  lokinet = spawn(networkConfig.binary_path, cli_options)
+  try {
+    lokinet = spawn(networkConfig.binary_path, cli_options)
+  } catch(e) {
+    console.error(e)
+    // debug EPERM
+    console.log(execSync('ls -la ' + networkConfig.binary_path))
+  }
 
   if (!lokinet) {
     console.error('failed to start lokinet, exiting...')
