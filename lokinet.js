@@ -1004,11 +1004,9 @@ function launchLokinet(config, instance, cb) {
   } catch(e) {
     console.error(e)
     // debug EPERM
-    console.log('code', e.code)
     if (e.code === 'EPERM') {
-      console.log('permissions error?')
+      console.log(execSync('ls -la ' + networkConfig.binary_path).toString())
     }
-    console.log(execSync('ls -la ' + networkConfig.binary_path).toString())
   }
 
   if (!lokinet) {
