@@ -1005,7 +1005,10 @@ function launchLokinet(config, instance, cb) {
     console.error(e)
     // debug EPERM
     if (e.code === 'EPERM') {
+      console.log('this usually means your host doesn\'t have enough permissions for lokinet. Outputting additional debug information for developers:')
       console.log(execSync('ls -la ' + networkConfig.binary_path).toString())
+      console.log(execSync('getcap ' + networkConfig.binary_path).toString())
+      console.log(execSync('ls -la /dev/net').toString())
     }
   }
 
