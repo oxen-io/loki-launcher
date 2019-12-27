@@ -1106,6 +1106,14 @@ function startLokid(config, args) {
           c.write('SOCKETERR: ' + JSON.stringify(err))
         } else {
           console.log('Not connected, SOCKETERR:', JSON.stringify(err))
+          if (err.code === 'ECONNRESET') {
+            // make sure we remove ourself from broadcasts (lokid stdout writes)...
+            var idx = connections.indexOf(c)
+            if (idx != -1) {
+              connections.splice(idx, 1)
+            }
+            // leave it to the client to reconnect
+          }
         }
       })
       c.on('data', (data) => {
