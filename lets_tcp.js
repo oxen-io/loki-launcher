@@ -227,7 +227,7 @@ module.exports={
       }
 
       tcpClient.on('data', function(data) {
-        if (module.exports.debug) console.log('recieved from', client.name, data);
+        if (module.exports.debug) console.log('recieved from', client.name, data.toString());
         client.buf=Buffer.concat([client.buf, data]);
         checkForData();
       });
@@ -379,7 +379,7 @@ module.exports={
       socket.on('data', function (data) {
         //broadcast(socket.name + "> " + data, socket);
         //console.log('recieved from cli', data);
-        if (module.exports.debug) console.log('recieved from', client.name, data);
+        if (module.exports.debug) console.log('recieved from', client.name, data.toString());
         client.buf=Buffer.concat([client.buf, data]);
 
         /*
