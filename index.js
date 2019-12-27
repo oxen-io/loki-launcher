@@ -7,16 +7,13 @@ let VERSION = packageData.version
 let useGitVersion = false
 
 if (VERSION.match(/git/)) {
-  const exec = require('child_process').exec
-  exec('git rev-parse HEAD', function(err, stdout) {
-    if (err) {
-      continueStart()
-      return
-    }
-    VERSION = stdout.trim()
+  const execSync = require('child_process').execSync
+  var stdout = execSync('git rev-parse HEAD')
+  if (stdout && stdout.toString) {
+    VERSION = stdout.toString().trim()
     useGitVersion = true
-    continueStart()
-  })
+  }
+  continueStart()
 } else {
   continueStart()
 }
