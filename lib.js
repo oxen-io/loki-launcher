@@ -67,7 +67,7 @@ function isPidRunning(pid) {
     //console.log('status', ps.status)
     if (ps.status != '0') {
       // can't find pid
-      console.warn('ps and kill -0 disagree')
+      console.warn('ps and kill -0 disagree. ps.status:', ps.status, 'expected 0')
       return false
     }
     //console.log('able to kill', pid)
@@ -79,7 +79,7 @@ function isPidRunning(pid) {
     }
     if (e.code == 'ERR_INVALID_ARG_TYPE') {
       // means pid was undefined
-      return true
+      return false
     }
     if (e.code == 'ESRCH') {
       // not running
