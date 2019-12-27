@@ -116,7 +116,7 @@ function createClient(host, port, cb, debug) {
           code: 'unknown'
         })
       }
-    }, 60 * 1000)
+    }, 10 * 1000)
   }
 
   function stopTest() {
