@@ -955,26 +955,6 @@ function preLaunchLokinet(config, cb) {
       } */
   }
 
-  if (os.platform() == 'linux') {
-    // not root-like
-    exec('getcap ' + config.binary_path, function (error, stdout, stderr) {
-      //console.log('stdout', stdout)
-      // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
-      if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
-        if (process.getgid() != 0) {
-          conole.log(config.binary_path, 'does not have setcap. Please setcap the binary (make install usually does this) or run launcher root one time, so we can')
-          process.exit()
-        } else {
-          // are root
-          log('going to try to setcap your binary, so you dont need root')
-          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
-            log('binary permissions upgraded')
-          })
-        }
-      }
-    })
-  }
-
   // lokinet will crash if this file is zero bytes
   if (fs.existsSync('profiles.dat')) {
     var stats = fs.statSync('profiles.dat')
@@ -1112,6 +1092,29 @@ function checkConfig(config) {
   if (config.rpc_port === undefined) config.rpc_port = 0
 
   // set public_port ?
+  if (os.platform() == 'linux') {
+    // not root-like
+    exec('getcap ' + config.binary_path, function (error, stdout, stderr) {
+      //console.log('getcap stdout', stdout)
+      // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
+      if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
+        if (process.getgid() != 0) {
+          console.error('')
+          console.error(config.binary_path, 'does not have the correct setcap permissions: ', stdout)
+          console.error('Please run: "sudo loki-launcher fix-perms', os.userInfo().username, '" one time, so we can fix permissions on this binary!')
+          console.error('shutting down...')
+          console.error('')
+          process.exit()
+        } else {
+          // are root
+          log('going to try to setcap your binary, so you dont need root')
+          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
+            log('binary permissions upgraded')
+          })
+        }
+      }
+    })
+  }
 }
 
 function waitForUrl(url, cb) {
