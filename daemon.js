@@ -1120,9 +1120,10 @@ function startLokid(config, args) {
         }
       })
       c.write('Connection successful\n')
-      c.pipe(c).on('error', function(err) {
+      // confirmed error is already catch above
+      c.pipe(c)/* .on('error', function(err) {
         console.error('SOCKETSRV_ERR:', JSON.stringify(err))
-      })
+      }) */
     })
     setUpLokinetHandlers()
 
