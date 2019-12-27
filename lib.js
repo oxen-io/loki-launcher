@@ -67,7 +67,7 @@ function isPidRunning(pid) {
     //console.log('status', ps.status)
     if (ps.status != '0') {
       // can't find pid
-      console.warn('ps and kill -0 disagree. ps.status:', ps.status, 'expected 0')
+      console.warn('ps and kill -0 disagree. ps.status:', ps.status, 'expected 0', ps.stdout.toString(), ps.stderr.toString())
       return false
     }
     //console.log('able to kill', pid)
