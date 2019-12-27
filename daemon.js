@@ -171,6 +171,7 @@ function shutdown_everything() {
 }
 
 let storageServer
+var storageLogging = true
 function launcherStorageServer(config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
@@ -230,7 +231,7 @@ function launcherStorageServer(config, args, cb) {
   let stdout = '', stderr = '', collectData = true
   storageServer.stdout
     .on('data', (data) => {
-      console.log(`STORAGE: ${data.toString('utf8').trim()}`)
+      if (storageLogging) console.log(`STORAGE: ${data.toString('utf8').trim()}`)
       if (collectData) {
         const lines = data.toString().split(/\n/)
         for(let i in lines) {
@@ -253,7 +254,7 @@ function launcherStorageServer(config, args, cb) {
 
   storageServer.stderr
     .on('data', (err) => {
-      console.log(`Storage Server error: ${err.toString('utf8').trim()}`)
+      if (storageLogging) console.log(`Storage Server error: ${err.toString('utf8').trim()}`)
     })
     .on('error', (err) => {
       console.error(`Storage Server stderr error: ${err.toString('utf8').trim()}`)
@@ -555,19 +556,19 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                   checklist.storage_rpc != 'Timed out; Took longer than 5s' &&
                   checklist.storage_rpc != 'waiting...' &&
                   lastCheck) {
-              // if storage is enabled but not running, wait for it
-              if (pids.runningConfig && pids.runningConfig.storage.enabled && (checklist.storageServer === 'waiting...' || checklist.storage_rpc === 'waiting...')) {
-                // give it 30s more if everything else is fine...
-                if (diff > 1   * 90 * 1000) {
-                  console.log('Storage server start up timeout, likely failed.')
-                  process.exit(1)
-                }
-                setTimeout(areWeRunningYet, 5000)
-                return
-              }
               console.log('Start up successful!')
               if (child) child.removeListener('close', crashHandler)
               process.exit()
+            }
+            // if storage is enabled but not running, wait for it
+            if (pids.runningConfig && pids.runningConfig.storage.enabled && (checklist.storageServer === 'waiting...' || checklist.storage_rpc === 'waiting...')) {
+              // give it 30s more if everything else is fine...
+              if (diff > 1   * 90 * 1000) {
+                console.log('Storage server start up timeout, likely failed.')
+                process.exit(1)
+              }
+              setTimeout(areWeRunningYet, 5000)
+              return
             }
             if (diff > 1   * 60 * 1000) {
               console.log('Start up timeout, likely failed.')
@@ -1012,8 +1013,8 @@ function setUpLokinetHandlers() {
 }
 
 function handleInput(line) {
-  if (line.match(/^lokinet/i)) {
-    var remaining = line.replace(/^lokinet\s*/i, '')
+  if (line.match(/^network/i)) {
+    var remaining = line.replace(/^network\s*/i, '')
     if (remaining.match(/^log/i)) {
       var param = remaining.replace(/^log\s*/i, '')
       //console.log('lokinet log', param)
@@ -1022,6 +1023,20 @@ function handleInput(line) {
       }
       if (param.match(/^on/i)) {
         lokinet.enableLogging()
+      }
+    }
+    return true
+  }
+  if (line.match(/^storage/i)) {
+    var remaining = line.replace(/^storage\s*/i, '')
+    if (remaining.match(/^log/i)) {
+      var param = remaining.replace(/^log\s*/i, '')
+      //console.log('lokinet log', param)
+      if (param.match(/^off/i)) {
+        storageLogging = false
+      }
+      if (param.match(/^on/i)) {
+        storageLogging = true
       }
     }
     return true
