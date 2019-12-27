@@ -116,37 +116,37 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 - 1.0.6
- - made sure network binary is set for fix-perms
- - prequal: inform that quorumnet is not a suggestion but required / grammar fixes
- - only show full status if launcher is running
- - adjust start up process for loki-storage DH and create warning accordingly
- - fix stop race condition message
- - turn off debugging in interactive mode
- - move lokiKey from storage to blockchain
- - decrease port test failure timeout to 10s instead of 60s
- - fix VERSION detection race
- - fix duplicate socket server error logging
- - handle lokinet EPERM condition better
- - various logging clean up
+  - made sure network binary is set for fix-perms
+  - prequal: inform that quorumnet is not a suggestion but required / grammar fixes
+  - only show full status if launcher is running
+  - adjust start up process for loki-storage DH and create warning accordingly
+  - fix stop race condition message
+  - turn off debugging in interactive mode
+  - move lokiKey from storage to blockchain
+  - decrease port test failure timeout to 10s instead of 60s
+  - fix VERSION detection race
+  - fix duplicate socket server error logging
+  - handle lokinet EPERM condition better
+  - various logging clean up
 - 1.0.5
- - enable lokinet 
- - remove service-node-seed / keyPath from lokinet
- - add seedMode to lokinet
- - remove lokinet solo-mode (without blockchain/storage)
- - bind storage server to 0.0.0.0
- - improve prequal
- - interactive mode improvements
- - require new port checks on startup
- - adjust lokinet snode config to be more inline with debs
- - don't use github pre-releases at all
- - add lokinet files to fix-perms
- - set data_dir for lokinet
- - fix-perms handle no user passed and can't lookup user better
- - include (re)start time in status
- - download-binaries make architecture aware
- - make status check storage rpc port
- - check on storage server every hour and restart if rpc does not respond
- - timer adjustments/better cancelations for speed improvements
+  - enable lokinet 
+  - remove service-node-seed / keyPath from lokinet
+  - add seedMode to lokinet
+  - remove lokinet solo-mode (without blockchain/storage)
+  - bind storage server to 0.0.0.0
+  - improve prequal
+  - interactive mode improvements
+  - require new port checks on startup
+  - adjust lokinet snode config to be more inline with debs
+  - don't use github pre-releases at all
+  - add lokinet files to fix-perms
+  - set data_dir for lokinet
+  - fix-perms handle no user passed and can't lookup user better
+  - include (re)start time in status
+  - download-binaries make architecture aware
+  - make status check storage rpc port
+  - check on storage server every hour and restart if rpc does not respond
+  - timer adjustments/better cancelations for speed improvements
 - 1.0.4
   - Add lokid 6.x prequal tests
 - 1.0.3
