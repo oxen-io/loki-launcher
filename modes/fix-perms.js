@@ -157,22 +157,6 @@ function start(user, dir, config) {
         if (fs.existsSync(config.launcher.var_path + '/snode_address')) {
           fs.chownSync(config.launcher.var_path + '/snode_address', uid, 0)
         }
-      }
-
-      // config.storage.data_dir
-      if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
-      if (config.storage.enabled) {
-        if (fs.existsSync(config.launcher.var_path + '/storageServer.version')) {
-          fs.chownSync(config.launcher.var_path + '/storageServer.version', uid, 0)
-        }
-      }
-      if (config.network.enabled) {
-        if (fs.existsSync(config.launcher.var_path + '/lokinet.version')) {
-          fs.chownSync(config.launcher.var_path + '/lokinet.version', uid, 0)
-        }
-        if (fs.existsSync(config.launcher.var_path + '/snode_address')) {
-          fs.chownSync(config.launcher.var_path + '/snode_address', uid, 0)
-        }
         if (os.platform() == 'linux') {
           // not root-like
           exec('getcap ' + config.network.binary_path, function (error, stdout, stderr) {
@@ -186,11 +170,22 @@ function start(user, dir, config) {
                 // are root
                 console.log('going to try to setcap your lokinet binary, so you don\'t need to run as root')
                 exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.network.binary_path, function (error, stdout, stderr) {
-                  console.log('binary permissions upgraded')
+                  if (error) console.error('upgrade failed:', error)
+                  else console.log('binary permissions upgraded')
+                  console.log('fix stdout', stdout)
+                  console.log('fix stderr', stderr)
                 })
               }
             }
           })
+        }
+      }
+
+      // config.storage.data_dir
+      if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
+      if (config.storage.enabled) {
+        if (fs.existsSync(config.launcher.var_path + '/storageServer.version')) {
+          fs.chownSync(config.launcher.var_path + '/storageServer.version', uid, 0)
         }
       }
       // apt will all be owned as root...
