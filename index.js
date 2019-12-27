@@ -25,7 +25,7 @@ function continueStart() {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
       console.error('MacOS requires you start this with sudo, i.e. $ sudo ' + __filename)
-      process.exit()
+      process.exit(1)
     }
   } else {
     // FIXME:
