@@ -454,6 +454,9 @@ function checkBlockchainConfig(config) {
   if (config.blockchain.rpc_ip === undefined) {
     config.blockchain.rpc_ip = '127.0.0.1'
   }
+
+  config.blockchain.lokid_key = getLokiDataDir(config) + '/key'
+  config.blockchain.lokid_edkey = getLokiDataDir(config) + '/key_ed25519'
 }
 
 // should require blockchain to be configured
