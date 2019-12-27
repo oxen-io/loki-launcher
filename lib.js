@@ -313,7 +313,8 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   if (pids.runningConfig.network.enabled || pids.runningConfig.storage.enabled) {
     if (running.lokid) {
       //console.log('lokid_key', config.storage.lokid_key)
-      checklist.lokiKey = fs.existsSync(pids.runningConfig.storage.lokid_key) ? ('found at ' + pids.runningConfig.storage.lokid_key) : offlineMessage
+      checklist.lokiKey = fs.existsSync(pids.runningConfig.blockchain.lokid_key) ? ('found at ' + pids.runningConfig.blockchain.lokid_key) : offlineMessage
+      //checklist.lokiEdKey = fs.existsSync(pids.runningConfig.blockchain.lokid_edkey) ? ('found at ' + pids.runningConfig.blockchain.lokid_edkey) : offlineMessage
     }
   }
 
