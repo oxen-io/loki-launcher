@@ -1121,8 +1121,8 @@ function checkConfig(config) {
           exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
             if (err) console.error('upgrade err', err)
             else log('binary permissions upgraded')
-            console.log('stdout', stdout)
-            console.log('stderr', stderr)
+            //console.log('stdout', stdout)
+            //console.log('stderr', stderr)
           })
         }
       }
