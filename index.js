@@ -9,7 +9,7 @@ let useGitVersion = false
 if (VERSION.match(/git/)) {
   const execSync = require('child_process').execSync
   try {
-  var stdout = execSync('git rev-parse HEAD')
+  var stdout = execSync('git rev-parse HEAD', { stdio: 'ignore' })
   if (stdout && stdout.toString) {
     VERSION = stdout.toString().trim()
     useGitVersion = true
