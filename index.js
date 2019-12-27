@@ -16,7 +16,7 @@ if (VERSION.match(/git/)) {
   }
   } catch(e) {
     // guessing you don't have git installed...
-    console.warn('git is not installed, can\'t determine revision')
+    //console.warn('git is not installed, can\'t determine revision')
     // silently fail
   }
   continueStart()
