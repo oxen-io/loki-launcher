@@ -200,7 +200,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
     }
 
     if (data.length) {
-      console.log('Got a list of', data.length, 'releases, narrowing it down.')
+      //console.log('Got a list of', data.length, 'releases, narrowing it down.')
       var selectedVersion = null
       for(var i in data) {
         const ver = data[i]
@@ -224,7 +224,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
         }
       }
       if (selectedVersion === null) {
-        console.error('Could not find latest release')
+        console.error('Could not find latest release from a list of', data.length)
         if (options.prereleaseOnly) console.log('prerelease only mode')
         if (options.notPrerelease) console.log('release only Mode')
         process.exit(1)
