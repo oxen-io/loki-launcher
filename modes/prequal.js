@@ -223,7 +223,7 @@ module.exports = function(config, debug, timeout) {
                 ' TCP, OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
             }
             console.warn('OpenQuorumNetPort: Failed !')
-            snode_warnings++
+            snode_problems++
           } else {
             console.log('OpenQuorumNetPort: Success !')
           }
