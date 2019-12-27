@@ -334,7 +334,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     //console.log('Lokid is running, checking to make sure it\'s responding')
     //console.log('blockchain', config.blockchain)
     var responded = false
-    setTimeout(function() {
+    var blockchain_rpc_timer = setTimeout(function() {
       if (responded) return
       responded = true
       ref.abort()
@@ -344,6 +344,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     var ref = lokinet.httpGet(url, function(data) {
       if (responded) return
       responded = true
+      clearTimeout(blockchain_rpc_timer)
       if (data === undefined) {
         checklist.blockchain_rpc = offlineMessage
       } else {
@@ -375,7 +376,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
       var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
       process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0 // turn it off for now
       var responded = false
-      setTimeout(function() {
+      var storage_rpc_timer = setTimeout(function() {
         if (responded) return
         responded = true
         ref.abort()
@@ -386,6 +387,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
         process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = oldTLSValue
         if (responded) return
         responded = true
+        clearTimeout(storage_rpc_timer)
         if (data === undefined) {
           checklist.storage_rpc = offlineMessage
         } else {
