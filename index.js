@@ -180,6 +180,7 @@ function continueStart() {
         })
       } else {
         console.log('Launcher is not running')
+        // FIXME: may want to check on child daemons to make sure they're not free floating?
       }
 
       if (running.lokid) {

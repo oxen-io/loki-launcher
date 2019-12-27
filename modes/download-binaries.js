@@ -304,6 +304,8 @@ function start(config) {
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
   console.log('Configured architecture:', process.arch)
 
+  // can't get draft release without authenticating as someone that can see the draft...
+
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
       start_retries = 0
