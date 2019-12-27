@@ -548,24 +548,31 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             }
             var pids = lib.getPids(config) // need to get the config
             // blockchain rpc is now required for SN
-            var lastCheck = checklist.blockchain_rpc != 'waiting...'
+            var blockchainIsFine = pids.runningConfig.blockchain && checklist.blockchain_rpc != 'waiting...'
+            var networkIsFine = !pids.runningConfig.network.enabled || (pids.runningConfig.network)
             if (running.launcher && running.lokid && checklist.socketWorks != 'waiting...' &&
-                  pids.runningConfig && pids.runningConfig.blockchain &&
-                  checklist.blockchain_rpc != 'Timed out; Took longer than 5s' &&
-                  checklist.blockchain_rpc != 'waiting...' &&
-                  checklist.storage_rpc != 'Timed out; Took longer than 5s' &&
-                  checklist.storage_rpc != 'waiting...' &&
-                  lastCheck) {
+                  pids.runningConfig && blockchainIsFine && networkIsFine &&
+                  checklist.storage_rpc != 'waiting...'
+                ) {
               console.log('Start up successful!')
               if (child) child.removeListener('close', crashHandler)
               process.exit()
             }
             // if storage is enabled but not running, wait for it
-            if (pids.runningConfig && pids.runningConfig.storage.enabled && (checklist.storageServer === 'waiting...' || checklist.storage_rpc === 'waiting...')) {
-              // give it 30s more if everything else is fine...
-              if (diff > 1   * 135 * 1000) {
+            if (pids.runningConfig && pids.runningConfig.storage.enabled && checklist.storageServer === 'waiting...' && blockchainIsFine && networkIsFine) {
+              // give it 30s more if everything else is fine... for what?
+              if (diff > 1.5  * 60 * 1000) {
                 console.log('Storage server start up timeout, likely failed.')
                 process.exit(1)
+              }
+              setTimeout(areWeRunningYet, 5000)
+              return
+            }
+            if (pids.runningConfig && pids.runningConfig.storage.enabled && checklist.storage_rpc === 'waiting...' && blockchainIsFine && networkIsFine) {
+              // give it 15s more if everything else is fine... for it's DH generation
+              if (diff > 1.75 * 60 * 1000) {
+                console.log('Storage server rpc timeout, likely DH generation is taking long...')
+                process.exit(0)
               }
               setTimeout(areWeRunningYet, 5000)
               return
