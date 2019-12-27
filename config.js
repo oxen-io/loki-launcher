@@ -206,6 +206,8 @@ function precheckConfig(config, args, debug) {
     config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
     if (config.launcher.var_path === undefined) config.launcher.var_path = config.launcher.prefix + '/var'
     if (config.blockchain.binary_path === undefined) config.blockchain.binary_path = config.launcher.prefix + '/bin/lokid'
+    if (config.storage.binary_path === undefined) config.storage.binary_path = config.launcher.prefix + '/bin/loki-storage'
+    if (config.network.binary_path === undefined) config.network.binary_path = config.launcher.prefix + '/bin/lokinet'
   }
 
   // we do need a var_path set for the all the PID stuff
@@ -455,6 +457,7 @@ function checkBlockchainConfig(config) {
 // should require blockchain to be configured
 function checkNetworkConfig(config) {
   if (!config.network.enabled) return
+  if (config.network.binary_path === undefined) config.network.binary_path = '/opt/loki-launcher/bin/lokinet'
   if (config.network.testnet === undefined) {
     config.network.testnet = config.blockchain.network == "test" || config.blockchain.network == "demo"
   }
