@@ -201,6 +201,8 @@ function getOldBlockchainOptions(args, config, output) {
 function precheckConfig(config, args, debug) {
   if (config.launcher === undefined) config.launcher = { interface: false }
   if (config.blockchain === undefined) config.blockchain = {}
+  if (config.network === undefined) config.network = {}
+  if (config.storage === undefined) config.storage = {}
   // replace any trailing slash before use...
   if (config.launcher.prefix) {
     config.launcher.prefix = config.launcher.prefix.replace(/\/$/, '')
