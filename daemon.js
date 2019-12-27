@@ -489,11 +489,11 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
     }
 
     // see if we need to detach
-    console.log('interactive', interactive)
+    //console.log('interactive', interactive)
     if (!interactive) {
-      console.log('fork check', process.env.__daemon)
+      //console.log('fork check', process.env.__daemon)
       if (!process.env.__daemon || config.launcher.cimode) {
-        console.log('cimode', config.launcher.cimode)
+        //console.log('cimode', config.launcher.cimode)
         let child
         if (!config.launcher.cimode) {
           // first run
