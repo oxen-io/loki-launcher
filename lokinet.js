@@ -608,7 +608,7 @@ function generateINI(config, need, markDone, cb) {
       // can't handle the exits here because we don't know if it's an actual requirements
       // if we need netIf or dnsBind
       if (done.netIf !== undefined || done.dnsBind !== undefined) {
-        process.exit()
+        process.exit(1)
       }
     }
     log('detected outgoing interface ip', ip)
@@ -628,7 +628,7 @@ function generateINI(config, need, markDone, cb) {
         console.error('NETWORK: Cant automatically find an IP to put a lokinet DNS server on')
         // can't handle the exits here because we don't know if it's an actual requirements
         if (need.dnsBind !== undefined) {
-          process.exit()
+          process.exit(1)
         }
       }
       lokinet_free53Ip = free53Ip
@@ -866,7 +866,7 @@ function generateSerivceNodeINI(config, cb) {
       console.error('NETWORK: ERROR! No bootstrap or connects and not in seedMode')
       console.error()
       // should this be shutdown_everything?
-      process.exit()
+      process.exit(1)
     }
 
     // doesn't work
@@ -927,7 +927,7 @@ function generateClientINI(config, cb) {
     // a bootstrap is required, can't have a seed client
     if (!runningConfig.bootstrap && !runningConfig.connect) {
       console.error('no bootstrap or connects for client')
-      process.exit()
+      process.exit(1)
     }
     cb(ini.jsonToINI(runningConfig))
   }
@@ -945,7 +945,7 @@ function preLaunchLokinet(config, cb) {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
       console.error('MacOS requires you start this with sudo')
-      process.exit()
+      process.exit(1)
     }
     // leave the linux commentary for later
     /*
@@ -991,7 +991,7 @@ function launchLokinet(config, instance, cb) {
   var networkConfig = config.network;
   if (!fs.existsSync(networkConfig.ini_file)) {
     log('lokinet config file', networkConfig.ini_file, 'does not exist')
-    process.exit()
+    process.exit(1)
   }
   // command line options
   var cli_options = [networkConfig.ini_file]
@@ -1004,13 +1004,17 @@ function launchLokinet(config, instance, cb) {
   } catch(e) {
     console.error(e)
     // debug EPERM
-    console.log(execSync('ls -la ' + networkConfig.binary_path))
+    console.log('code', e.code)
+    if (e.code === 'EPERM') {
+      console.log('permissions error?')
+    }
+    console.log(execSync('ls -la ' + networkConfig.binary_path).toString())
   }
 
   if (!lokinet) {
-    console.error('failed to start lokinet, exiting...')
+    console.error('failed to start lokinet, failing...')
     // proper shutdown?
-    process.exit()
+    process.exit(1)
   }
   lokinet.startTime = Date.now()
   lokinet.killed = false
@@ -1110,12 +1114,15 @@ function checkConfig(config) {
           console.error('Please run: "sudo loki-launcher fix-perms', os.userInfo().username, '" one time, so we can fix permissions on this binary!')
           console.error('shutting down...')
           console.error('')
-          process.exit()
+          process.exit(1)
         } else {
           // are root
           log('going to try to setcap your binary, so you dont need root')
           exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
-            log('binary permissions upgraded')
+            if (err) console.error('upgrade err', err)
+            else log('binary permissions upgraded')
+            console.log('stdout', stdout)
+            console.log('stderr', stderr)
           })
         }
       }
