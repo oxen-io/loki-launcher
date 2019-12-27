@@ -632,7 +632,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                 var arg = args[i]
                 if (arg == '--ignore-storage-server-port-check') {
                   client.disconnect()
-                  console.log('verification phase complete')
+                  console.log('verification phase complete (ignoring checks)')
                   args.splice(i, 1) // remove this option
                   doStart()
                   return
@@ -654,7 +654,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                     var arg = args[i]
                     if (arg == '--ignore-storage-server-port-check') {
                       client.disconnect()
-                      console.log('verification phase complete')
+                      console.log('verification phase complete (ignoring checks)')
                       args.splice(i, 1) // remove this option
                       doStart()
                       return
@@ -675,7 +675,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                         var arg = args[i]
                         if (arg == '--ignore-storage-server-port-check') {
                           client.disconnect()
-                          console.log('verification phase complete')
+                          console.log('verification phase complete (ignoring checks)')
                           args.splice(i, 1) // remove this option
                           doStart()
                           return
@@ -696,7 +696,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                             var arg = args[i]
                             if (arg == '--ignore-storage-server-port-check') {
                               client.disconnect()
-                              console.log('verification phase complete')
+                              console.log('verification phase complete (ignoring checks)')
                               args.splice(i, 1) // remove this option
                               doStart()
                               return
