@@ -243,19 +243,20 @@ function downloadGithubRepo(github_url, options, config, cb) {
       console.error('Sorry, platform', os.platform(), 'is not currently supported, please let us know you would like us to support this platform by opening an issue on github: https://github.com/loki-project/loki-launcher/issues')
       process.exit(1)
     }
+    var platform = new RegExp(process.arch, 'i')
     var searchRE = new RegExp(search, 'i')
     var found = false // we only need one archive for our platform and we'll figure it out
     options.cb = cb
     for(var i in data.assets) {
       var asset = data.assets[i]
       //console.log(i, 'asset', asset.browser_download_url)
-      if (search == 'linux' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
+      if (search == 'linux' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i) && asset.browser_download_url.match(/-x64-/i)) {
         // linux
         options.ext = '.tar.xz'
         downloadArchive(asset.browser_download_url, config, options)
       }
       // storage server support
-      if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i)) {
+      if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i) && asset.browser_download_url.match(/-x64-/i)) {
         // MacOS
         if (!found) {
           options.ext = '.tar.xz'
@@ -263,7 +264,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
           found = true
         }
       } else
-      if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.zip/i)) {
+      if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.zip/i) && asset.browser_download_url.match(/-x64-/i)) {
         // MacOS
         if (!found) {
           options.ext = '.zip'
@@ -301,6 +302,7 @@ function start(config) {
   // deb support? nope, you use apt to update...
   // FIXME: this force sudo support...
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
+  console.log('Configured architecture:', process.arch)
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
