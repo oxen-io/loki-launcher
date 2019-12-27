@@ -24,7 +24,7 @@ module.exports = function(config, debug) {
   configUtil.prequal(config)
   if (config.launcher.testnet || config.blockchain.network === 'test') {
     console.log('')
-    console.log('in testnet mode, this only checks port for testnet')
+    console.log('in testnet mode, this only checks the ports for testnet')
     console.log('please run outside of testnet mode if you plan to take this node onto the mainnet')
     console.log('')
   }
@@ -228,7 +228,7 @@ module.exports = function(config, debug) {
                 ' TCP, OPEN ON YOUR FIREWALL/ROUTER, because the port was already in-use, please make sure nothing is using this port before running')
             } else {
               log.push('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                ' TCP, OPEN ON YOUR FIREWALL/ROUTER, this is recommended to run a service node')
+                ' TCP, OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
             }
             console.warn('OpenQuorumNetPort: Failed !')
             snode_warnings++
