@@ -116,6 +116,7 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 - 1.0.6
+  - Don't commit to saying started unless lokinet can be started
   - made sure network binary is set for fix-perms
   - prequal: inform that quorumnet is not a suggestion but required / grammar fixes
   - only show full status if launcher is running
