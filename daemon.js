@@ -469,47 +469,68 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
   }
   */
   function doStart() {
+    function startBackgroundCode() {
+      // backgrounded or launched in interactive mode
+      // strip any launcher-specific params we shouldn't need any more
+      for(var i in args) {
+        var arg = args[i]
+        if (arg == '--skip-storage-server-port-check') {
+          args.splice(i, 1) // remove this option
+        } else
+        if (arg == '--ignore-storage-server-port-check') {
+          args.splice(i, 1) // remove this option
+        }
+      }
+      //console.log('backgrounded or launched in interactive mode')
+      g_config = config
+      lib.setStartupLock(config)
+      cb()
+    }
 
     // see if we need to detach
-    //console.log('interactive', interactive)
+    console.log('interactive', interactive)
     if (!interactive) {
-      //console.log('fork check', process.env.__daemon)
-      if (!process.env.__daemon) {
-        // first run
-        process.env.__daemon = true
-        // spawn as child
-        const cp_opt = {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          env: process.env,
-          cwd: process.cwd(),
-          detached: true
+      console.log('fork check', process.env.__daemon)
+      if (!process.env.__daemon || config.launcher.cimode) {
+        console.log('cimode', config.launcher.cimode)
+        let child
+        if (!config.launcher.cimode) {
+          // first run
+          process.env.__daemon = true
+          // spawn as child
+          const cp_opt = {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: process.env,
+            cwd: process.cwd(),
+            detached: true
+          }
+          // this doesn't work like this...
+          //args.push('1>', 'log.out', '2>', 'err.out')
+          console.log('Launching', process.execPath, entryPoint, 'daemon-start', args)
+          child = spawn(process.execPath, [entryPoint, 'daemon-start', '--skip-storage-server-port-check'].concat(args), cp_opt)
+          //console.log('child', child)
+          if (!child) {
+            console.error('Could not spawn detached process')
+            process.exit(1)
+          }
+          // won't accumulate cause we're quitting...
+          var stdout = '', stderr = ''
+          child.stdout.on('data', (data) => {
+            //if (debug) console.log(data.toString())
+            stdout += data.toString()
+          })
+          child.stderr.on('data', (data) => {
+            //if (debug) console.error(data.toString())
+            stderr += data.toString()
+          })
+          //var launcherHasExited = false
+          function crashHandler(code) {
+            console.log('Background launcher died with', code, stdout, stderr)
+            //launcherHasExited = true
+            process.exit(1)
+          }
+          child.on('close', crashHandler)
         }
-        // this doesn't work like this...
-        //args.push('1>', 'log.out', '2>', 'err.out')
-        console.log('Launching', process.execPath, entryPoint, 'daemon-start', args)
-        let child = spawn(process.execPath, [entryPoint, 'daemon-start', '--skip-storage-server-port-check'].concat(args), cp_opt)
-        //console.log('child', child)
-        if (!child) {
-          console.error('Could not spawn detached process')
-          process.exit(1)
-        }
-        // won't accumulate cause we're quitting...
-        var stdout = '', stderr = ''
-        child.stdout.on('data', (data) => {
-          //if (debug) console.log(data.toString())
-          stdout += data.toString()
-        })
-        child.stderr.on('data', (data) => {
-          //if (debug) console.error(data.toString())
-          stderr += data.toString()
-        })
-        //var launcherHasExited = false
-        function crashHandler(code) {
-          console.log('Background launcher died with', code, stdout, stderr)
-          //launcherHasExited = true
-          process.exit(1)
-        }
-        child.on('close', crashHandler)
         // required so we can exit
         var startTime = Date.now()
         console.log('Waiting on start up confirmation...')
@@ -545,7 +566,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                 return
               }
               console.log('Start up successful!')
-              child.removeListener('close', crashHandler)
+              if (child) child.removeListener('close', crashHandler)
               process.exit()
             }
             if (diff > 1   * 60 * 1000) {
@@ -558,27 +579,18 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
           })
         }
         setTimeout(areWeRunningYet, 5000)
-        child.unref()
+        if (child) child.unref()
+        if (config.launcher.cimode) {
+          console.log('continuing foreground startup')
+          startBackgroundCode()
+        }
         return
       }
       // no one sees these
       //console.log('backgrounded')
     }
-    // backgrounded or launched in interactive mode
-    // strip any launcher-specific params we shouldn't need any more
-    for(var i in args) {
-      var arg = args[i]
-      if (arg == '--skip-storage-server-port-check') {
-        args.splice(i, 1) // remove this option
-      } else
-      if (arg == '--ignore-storage-server-port-check') {
-        args.splice(i, 1) // remove this option
-      }
-    }
-    //console.log('backgrounded or launched in interactive mode')
-    g_config = config
-    lib.setStartupLock(config)
-    cb()
+
+    startBackgroundCode()
   }
   function testOpenPorts() {
     // move deterministic behavior than letting the OS decide
