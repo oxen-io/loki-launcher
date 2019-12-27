@@ -48,6 +48,26 @@ function lowerPermissions(user, cb) {
   process.setuid(user)
 }
 
+function shutdown_storage() {
+  if (storageServer && !storageServer.killed) {
+    // FIXME: was killed not set?
+    try {
+      // if this pid isn't running we crash
+      if (lib.isPidRunning(storageServer.pid)) {
+        console.log('LAUNCHER: Requesting storageServer be shutdown.', storageServer.pid)
+        process.kill(storageServer.pid, 'SIGINT')
+      } else {
+        console.log('LAUNCHER: ', storageServer.pid, 'is not running')
+      }
+    } catch(e) {
+    }
+    // mark that we've tried
+    storageServer.killed = true
+    // can't null it if we're using killed property
+    //storageServer = null
+  }
+}
+
 let shuttingDown = false
 let shutDownTimer = null
 function shutdown_everything() {
@@ -55,17 +75,7 @@ function shutdown_everything() {
   //console.trace('shutdown_everything()!')
   shuttingDown = true
   stdin.pause()
-  if (storageServer && !storageServer.killed) {
-    console.log('LAUNCHER: Requesting storageServer be shutdown.', storageServer.pid)
-    // FIXME: if this pid isn't running we crash
-    // FIXME: was killed not set?
-    try {
-      process.kill(storageServer.pid, 'SIGINT')
-    } catch(e) {
-    }
-    storageServer.killed = true
-    //storageServer = null
-  }
+  shutdown_storage()
   // even if not running, yet, stop any attempts at starting it too
   lokinet.stop()
   if (loki_daemon && !loki_daemon.killed) {
@@ -257,12 +267,24 @@ function launcherStorageServer(config, args, cb) {
     stdout = ''
     stderr = ''
   }, 10 * 1000)
+  function checkStorageServer() {
+    lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
+      if (running.storage_rpc === 'offline') {
+        console.log('STORAGE: RPC server not responding, restarting storage server')
+        shutdown_storage()
+      }
+    })
+  }
+  let watchdog = setInterval(checkStorageServer, 60 * 60 * 1000)
+  setTimeout(checkStorageServer, 10 * 1000)
+
   storageServer.on('error', (err) => {
     console.error('STORAGEP_ERR:', JSON.stringify(err))
   })
 
   storageServer.on('close', (code) => {
     clearTimeout(memoryWatcher)
+    clearTimeout(watchdog)
     console.log(`StorageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
@@ -507,6 +529,10 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             var lastCheck = checklist.blockchain_rpc != 'waiting...'
             if (running.launcher && running.lokid && checklist.socketWorks != 'waiting...' &&
                   pids.runningConfig && pids.runningConfig.blockchain &&
+                  checklist.blockchain_rpc != 'Timed out; Took longer than 5s' &&
+                  checklist.blockchain_rpc != 'waiting...' &&
+                  checklist.storage_rpc != 'Timed out; Took longer than 5s' &&
+                  checklist.storage_rpc != 'waiting...' &&
                   lastCheck) {
               // if storage is enabled but not running, wait for it
               if (pids.runningConfig && pids.runningConfig.storage.enabled && checklist.storageServer == 'waiting...') {
