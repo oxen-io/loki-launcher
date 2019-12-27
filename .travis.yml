@@ -30,8 +30,8 @@ before_install:
 
 script:
   # npm upgrade test/status/prequal/systemd/upgrade/start/stop test
-  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status && loki-launcher prequal && loki-launcher check-systemd && loki-launcher download-binaries && loki-launcher fix-perms root && loki-launcher config-view && loki-launcher start --ignore-storage-server-port-check && sleep 30 && loki-launcher status && loki-launcher stop"
-  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status --testnet && loki-launcher prequal-debug --testnet && loki-launcher check-systemd --testnet && loki-launcher download-binaries --testnet && loki-launcher fix-perms root --testnet && loki-launcher config-view --testnet && loki-launcher start --testnet --ignore-storage-server-port-check && sleep 30 && loki-launcher status --testnet && loki-launcher stop --testnet"
+  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status && loki-launcher prequal && loki-launcher check-systemd && loki-launcher download-binaries && loki-launcher fix-perms root && loki-launcher config-view && loki-launcher start-debug --ignore-storage-server-port-check && sleep 30 && loki-launcher status && loki-launcher stop"
+  - docker run loki-project/loki-launcher /bin/sh -c "cd /usr/src/app && npm install -g && loki-launcher status --testnet && loki-launcher prequal-debug --testnet && loki-launcher check-systemd --testnet && loki-launcher download-binaries --testnet && loki-launcher fix-perms root --testnet && loki-launcher config-view --testnet && loki-launcher start-debug --testnet --ignore-storage-server-port-check && sleep 30 && loki-launcher status --testnet && loki-launcher stop --testnet"
 
 #script:
 #  - docker build --pull --cache-from "$IMAGE_NAME" --tag "$IMAGE_NAME" .
