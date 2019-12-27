@@ -5,20 +5,12 @@ const ini = require(__dirname + '/../ini')
 const lib = require(__dirname + '/../lib')
 const configUtil = require(__dirname + '/../config')
 const lokinet = require(__dirname + '/../lokinet') // expects 0.8 used for randomString
-const netWrap = require(__dirname + '/../lets_tcp')
 const networkTest = require(__dirname + '/../lib.networkTest')
 const child_process = require('child_process')
 
-// we're not running it, so there's no output
-//lokinet.disableLogging()
-
-//const VERSION = 0.3
-//console.log('loki snbench version', VERSION, 'registered')
-
 // now can't call this directly
-module.exports = function(config, debug) {
-  //var logo = lib.getLogo('S N B E N C H   v e r s i o n   v version')
-  //console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+module.exports = function(config, debug, timeout) {
+  if (timeout === undefined) timeout = 60 * 1000
 
   // set up config for prequal
   configUtil.prequal(config)
