@@ -72,7 +72,11 @@ function start(user, dir, config) {
     console.log('setting permissions to', user)
     uidGetter.uidNumber(user, function(err, uid, homedir) {
       if (err) {
-        console.error('Username lookup failed: ', err)
+        if (err === '404') {
+          console.error('Username', user, 'does not exist! Please either create the user or double check that you gave us the correct user you intended to.')
+        } else {
+          console.error('Username lookup failed:', err)
+        }
         return
       }
       console.log('user', user, 'uid is', uid, 'homedir is', homedir)
@@ -138,7 +142,12 @@ function start(user, dir, config) {
         if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
       }
       // config.network.data_dir
-      if (config.network.data_dir) fs.chownSync(config.network.data_dir, uid, 0)
+      if (config.network.data_dir) {
+        if (!fs.existsSync(config.network.data_dir)) {
+          lokinet.mkDirByPathSync(config.network.data_dir)
+        }
+        fs.chownSync(config.network.data_dir, uid, 0)
+      }
       // config.network.lokinet_nodedb
       if (config.network.lokinet_nodedb) fs.chownSync(config.network.lokinet_nodedb, uid, 0)
       if (config.network.enabled) {
