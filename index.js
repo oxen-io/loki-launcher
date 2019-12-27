@@ -149,31 +149,39 @@ function continueStart() {
           console.error('error reading file', config.launcher.var_path + '/pids.json', pids.err)
         }
         // update config from pids.json
-        if (pids && !pids.err) {
+        if (pids && !pids.err && pid) {
           console.log('replacing disk config with running config')
           config = pids.runningConfig
         }
       }
-      if (pids.blockchain_startTime) {
-        console.log('Last blockchain (re)start:', new Date(pids.blockchain_startTime))
-      }
-      if (pids.network_startTime) {
-        console.log('Last network    (re)start:', new Date(pids.network_startTime))
-      }
-      if (pids.storage_startTime) {
-        console.log('Last storage    (re)start:', new Date(pids.storage_startTime))
+      //console.log('status pids', pids)
+      //console.log('running', running)
+      // if the launcher is running
+      if (running.launcher) {
+        if (pids.blockchain_startTime) {
+          console.log('Last blockchain (re)start:', new Date(pids.blockchain_startTime))
+        }
+        if (pids.network_startTime) {
+          console.log('Last network    (re)start:', new Date(pids.network_startTime))
+        }
+        if (pids.storage_startTime) {
+          console.log('Last storage    (re)start:', new Date(pids.storage_startTime))
+        }
+
+        // "not running" but too easy to confuse with "running"
+        lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
+          var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+          //console.log('nodeVer', nodeVer)
+          if (nodeVer >= 10) {
+            console.table(checklist)
+          } else {
+            console.log(checklist)
+          }
+        })
+      } else {
+        console.log('Launcher is not running')
       }
 
-      // "not running" but too easy to confuse with "running"
-      lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
-        var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
-        //console.log('nodeVer', nodeVer)
-        if (nodeVer >= 10) {
-          console.table(checklist)
-        } else {
-          console.log(checklist)
-        }
-      })
       if (running.lokid) {
         // read config, run it with status param...
         // spawn out and relay output...
