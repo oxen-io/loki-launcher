@@ -643,7 +643,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             if (debug) console.debug('got startTestingServer qun cb')
             if (results != 'good') {
               if (results == 'inuse') {
-                console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
+                console.error(config.blockchain.qun_port, 'is already in use, please make sure nothing is using the port before trying again')
               } else  {
                 console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
                   ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
