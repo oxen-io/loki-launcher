@@ -788,6 +788,9 @@ function configureLokid(config, args) {
   if (config.blockchain.p2p_port) {
     lokid_options.push('--p2p-bind-port=' + config.blockchain.p2p_port)
   }
+  if (config.blockchain.qun_port) {
+    lokid_options.push('--quorumnet-port=' + config.blockchain.qun_port)
+  }
   if (config.blockchain.data_dir) {
     lokid_options.push('--data-dir=' + config.blockchain.data_dir)
   }
