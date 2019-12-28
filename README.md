@@ -115,6 +115,9 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+- 1.0.7
+  - fix bug with qun_port not getting passed to lokid
+  - Fix trying to load port numbers from loki.conf
 - 1.0.6
   - Don't commit to saying started unless lokinet can be started
   - made sure network binary is set for fix-perms
