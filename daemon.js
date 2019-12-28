@@ -18,7 +18,7 @@ const VERSION = 0.2
 
 let g_config = null
 process.on('uncaughtException', function (err) {
-  console.error('Caught exception: ' + err)
+  console.trace('Caught exception: ' + err)
   let var_path = ''
   if (g_config) var_path = g_config.launcher.var_path
   fs.appendFileSync(var_path + '/launcher_exception.log', JSON.stringify({
