@@ -175,6 +175,23 @@ function loadBlockchainConfigFile(xmrOptions, config, output) {
       setupInitialBlockchainOptions(xmrOptions, config)
     }
   }
+
+  // is our ini loaded by this point?
+
+  // convert .conf to ini options
+  if (xmrOptions['p2p-bind-port']) {
+    config.blockchain.p2p_port = xmrOptions['p2p-bind-port']
+  }
+  if (xmrOptions['rpc-bind-port']) {
+    config.blockchain.rpc_port = xmrOptions['rpc-bind-port']
+  }
+  if (xmrOptions['zmq-rpc-bind-port']) {
+    config.blockchain.zmq_port = xmrOptions['zmq-rpc-bind-port']
+  }
+  if (xmrOptions['quorumnet-port']) {
+    config.blockchain.qun_port = xmrOptions['quorumnet-port']
+  }
+
 }
 
 // some auto config is slow and needs to be done only if we're ready to activate that sub system
