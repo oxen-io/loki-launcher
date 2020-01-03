@@ -548,8 +548,9 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             }
             var pids = lib.getPids(config) // need to get the config
             // blockchain rpc is now required for SN
-            var blockchainIsFine = pids.runningConfig.blockchain && checklist.blockchain_rpc != 'waiting...'
-            var networkIsFine = !pids.runningConfig.network.enabled || (pids.runningConfig.network)
+
+            var blockchainIsFine = pids.runningConfig && pids.runningConfig.blockchain && checklist.blockchain_rpc != 'waiting...'
+            var networkIsFine = !pids.runningConfig.network.enabled || (pids.runningConfig && pids.runningConfig.network)
             if (running.launcher && running.lokid && checklist.socketWorks != 'waiting...' &&
                   pids.runningConfig && blockchainIsFine && networkIsFine &&
                   checklist.storage_rpc != 'waiting...'
@@ -631,14 +632,14 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               */
               console.log('Verification phase complete')
               doStart()
-              return
             } else {
               // retry with a different server
               tryAndConnect()
-              return
             }
+            return
           }
-          if (!configUtil.isBlockchainBinary3X && !configUtil.isBlockchainBinary4Xor5X) {
+          // if 6.x+
+          if (!configUtil.isBlockchainBinary3X(config) && !configUtil.isBlockchainBinary4Xor5X(config)) {
             console.log('Starting open port check on configured blockchain quorumnet server port:', config.blockchain.qun_port)
             client.startTestingServer(config.blockchain.qun_port, debug, function(results, port) {
               if (debug) console.debug('got startTestingServer qun cb')
@@ -855,7 +856,7 @@ function configureLokid(config, args) {
     console.log('3.x blockchain block binary detected')
   }
   // 6.x+
-  if (!configUtil.isBlockchainBinary3X && !configUtil.isBlockchainBinary4Xor5X && config.blockchain.qun_port) {
+  if (!configUtil.isBlockchainBinary3X(config) && !configUtil.isBlockchainBinary4Xor5X(config) && config.blockchain.qun_port) {
     lokid_options.push('--quorumnet-port=' + config.blockchain.qun_port)
   }
 
