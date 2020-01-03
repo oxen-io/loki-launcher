@@ -366,6 +366,11 @@ function createClient(host, port, cb, debug) {
         })
       }
     })
+    if (!tempResponder) {
+      console.error('could not bind to port', port)
+      cb('cantbind', port)
+      return
+    }
     tempResponder.errorHandler = function(err) {
       if (err.code == 'EADDRINUSE') {
         portTestCallback = null // release test lock
@@ -388,9 +393,14 @@ function createClient(host, port, cb, debug) {
       clearTimeout(timeoutTimer)
       clearInterval(intTimer)
       shutdownOk = true
-      tempResponder.letsClose(function() {
+      if (tempResponder.letsClose) {
+        tempResponder.letsClose(function() {
+          cb(results.result, results.code)
+        })
+      } else {
+        console.log('tempResponder doesnt have letsClose', tempResponder)
         cb(results.result, results.code)
-      })
+      }
     })
   }
 
