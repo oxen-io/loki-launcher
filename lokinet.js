@@ -1084,8 +1084,9 @@ function launchLokinet(config, instance, cb) {
   if (cb) cb()
 }
 
+// call in startServiceNode
 function checkConfig(config) {
-  console.trace('lokinet checkConfig')
+  //console.trace('lokinet checkConfig')
   if (config === undefined) config = {}
 
   if (config.auto_config_test_ips === undefined) config.auto_config_test_ips = ['1.1.1.1', '72.21.211.176']
