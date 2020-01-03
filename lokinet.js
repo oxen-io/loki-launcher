@@ -1085,6 +1085,7 @@ function launchLokinet(config, instance, cb) {
 }
 
 function checkConfig(config) {
+  console.trace('lokinet checkConfig')
   if (config === undefined) config = {}
 
   if (config.auto_config_test_ips === undefined) config.auto_config_test_ips = ['1.1.1.1', '72.21.211.176']
@@ -1105,7 +1106,7 @@ function checkConfig(config) {
   // set public_port ?
   if (os.platform() == 'linux') {
     // not root-like
-    exec('getcap ' + config.binary_path, function (error, stdout, stderr) {
+    exec('getcap ' + config.binary_path, function (err, stdout, stderr) {
       //console.log('getcap stdout', stdout)
       // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
       if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
@@ -1119,7 +1120,7 @@ function checkConfig(config) {
         } else {
           // are root
           log('going to try to setcap your binary, so you dont need root')
-          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (error, stdout, stderr) {
+          exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.binary_path, function (err, stdout, stderr) {
             if (err) console.error('upgrade err', err)
             else log('binary permissions upgraded')
             //console.log('stdout', stdout)
