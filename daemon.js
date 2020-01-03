@@ -18,7 +18,7 @@ const VERSION = 0.2
 
 let g_config = null
 process.on('uncaughtException', function (err) {
-  console.trace('Caught exception: ' + err)
+  console.trace('Caught exception:', err)
   let var_path = ''
   if (g_config) var_path = g_config.launcher.var_path
   fs.appendFileSync(var_path + '/launcher_exception.log', JSON.stringify({
@@ -638,28 +638,113 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
               return
             }
           }
-          console.log('Starting open port check on configured blockchain quorumnet server port:', config.blockchain.qun_port)
-          client.startTestingServer(config.blockchain.qun_port, debug, function(results, port) {
-            if (debug) console.debug('got startTestingServer qun cb')
-            if (results != 'good') {
-              if (results == 'inuse') {
-                console.error(config.blockchain.qun_port, 'is already in use, please make sure nothing is using the port before trying again')
-              } else  {
-                console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                  ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-              }
-              for(var i in args) {
-                var arg = args[i]
-                if (arg == '--ignore-storage-server-port-check') {
-                  client.disconnect()
-                  console.log('verification phase complete (ignoring checks)')
-                  args.splice(i, 1) // remove this option
-                  doStart()
-                  return
+          if (!configUtil.isBlockchainBinary3X && !configUtil.isBlockchainBinary4Xor5X) {
+            console.log('Starting open port check on configured blockchain quorumnet server port:', config.blockchain.qun_port)
+            client.startTestingServer(config.blockchain.qun_port, debug, function(results, port) {
+              if (debug) console.debug('got startTestingServer qun cb')
+              if (results != 'good') {
+                if (results == 'inuse') {
+                  console.error(config.blockchain.qun_port, 'is already in use, please make sure nothing is using the port before trying again')
+                } else  {
+                  console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                    ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
                 }
+                for(var i in args) {
+                  var arg = args[i]
+                  if (arg == '--ignore-storage-server-port-check') {
+                    client.disconnect()
+                    console.log('verification phase complete (ignoring checks)')
+                    args.splice(i, 1) // remove this option
+                    doStart()
+                    return
+                  }
+                }
+                process.exit(1)
+              } else {
+                console.log('Starting open port check on configured storage server port:', config.storage.port)
+                client.startTestingServer(config.storage.port, debug, function(results, port) {
+                  if (debug) console.debug('got startTestingServer storage cb')
+                  if (results != 'good') {
+                    if (results == 'inuse') {
+                      console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
+                    } else  {
+                      console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                        ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                    }
+                    for(var i in args) {
+                      var arg = args[i]
+                      if (arg == '--ignore-storage-server-port-check') {
+                        client.disconnect()
+                        console.log('verification phase complete (ignoring checks)')
+                        args.splice(i, 1) // remove this option
+                        doStart()
+                        return
+                      }
+                    }
+                    process.exit(1)
+                  } else {
+                    if (config.network.enabled) {
+                      console.log('Starting open port check on configured network server port:', config.network.public_port)
+                      client.startUDPRecvTestingServer(config.network.public_port, debug, function(results, port) {
+                        if (results != 'good') {
+                          if (results == 'inuse') {
+                            console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
+                          } else  {
+                            console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                          }
+                          for(var i in args) {
+                            var arg = args[i]
+                            if (arg == '--ignore-storage-server-port-check') {
+                              client.disconnect()
+                              console.log('verification phase complete (ignoring checks)')
+                              args.splice(i, 1) // remove this option
+                              doStart()
+                              return
+                            }
+                          }
+                          process.exit(1)
+                        } else {
+                          console.log('Starting outgoing UDP port check on configured network server from UDP port:', config.network.public_port)
+                          client.testUDPSendPort(config.network.public_port, 1090, function(results, port) {
+                            if (results != 'good') {
+                              if (results == 'inuse') {
+                                console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
+                              } else  {
+                                console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
+                                  ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                              }
+                              for(var i in args) {
+                                var arg = args[i]
+                                if (arg == '--ignore-storage-server-port-check') {
+                                  client.disconnect()
+                                  console.log('verification phase complete (ignoring checks)')
+                                  args.splice(i, 1) // remove this option
+                                  doStart()
+                                  return
+                                }
+                              }
+                              process.exit(1)
+                            } else {
+                              console.log('verification phase complete.')
+                              client.disconnect()
+                              doStart()
+                            }
+                          }) // end testUDPSendPort
+                        }
+                      }) // end startUDPRecvTestingServer
+                    } else {
+                      console.log('verification phase complete.')
+                      client.disconnect()
+                      doStart()
+                    }
+                  }
+                }) // end startTestingServer (storage)
               }
-              process.exit(1)
-            } else {
+            }) // end startTestingServer (qun)
+          } else {
+            // 3-5x lokid
+            if (config.storage.enabled) {
               console.log('Starting open port check on configured storage server port:', config.storage.port)
               client.startTestingServer(config.storage.port, debug, function(results, port) {
                 if (debug) console.debug('got startTestingServer storage cb')
@@ -682,60 +767,17 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                   }
                   process.exit(1)
                 } else {
-                  console.log('Starting open port check on configured network server port:', config.network.public_port)
-                  client.startUDPRecvTestingServer(config.network.public_port, debug, function(results, port) {
-                    if (results != 'good') {
-                      if (results == 'inuse') {
-                        console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
-                      } else  {
-                        console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                          ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-                      }
-                      for(var i in args) {
-                        var arg = args[i]
-                        if (arg == '--ignore-storage-server-port-check') {
-                          client.disconnect()
-                          console.log('verification phase complete (ignoring checks)')
-                          args.splice(i, 1) // remove this option
-                          doStart()
-                          return
-                        }
-                      }
-                      process.exit(1)
-                    } else {
-                      console.log('Starting outgoing UDP port check on configured network server from UDP port:', config.network.public_port)
-                      client.testUDPSendPort(config.network.public_port, 1090, function(results, port) {
-                        if (results != 'good') {
-                          if (results == 'inuse') {
-                            console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
-                          } else  {
-                            console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-                          }
-                          for(var i in args) {
-                            var arg = args[i]
-                            if (arg == '--ignore-storage-server-port-check') {
-                              client.disconnect()
-                              console.log('verification phase complete (ignoring checks)')
-                              args.splice(i, 1) // remove this option
-                              doStart()
-                              return
-                            }
-                          }
-                          process.exit(1)
-                        } else {
-                          console.log('verification phase complete.')
-                          client.disconnect()
-                          doStart()
-                        }
-                      }) // end testUDPSendPort
-                    }
-                  }) // end startUDPRecvTestingServer
+                  console.log('verification phase complete.')
+                  client.disconnect()
+                  doStart()
                 }
-              }) // end startTestingServer (storage)
+              })
+            } else {
+              console.log('verification phase complete.')
+              client.disconnect()
+              doStart()
             }
-          }) // end startTestingServer (qun)
-
+          }
         }) // end createClient
       } // end func tryAndConnect
       tryAndConnect()
@@ -788,9 +830,6 @@ function configureLokid(config, args) {
   if (config.blockchain.p2p_port) {
     lokid_options.push('--p2p-bind-port=' + config.blockchain.p2p_port)
   }
-  if (config.blockchain.qun_port) {
-    lokid_options.push('--quorumnet-port=' + config.blockchain.qun_port)
-  }
   if (config.blockchain.data_dir) {
     lokid_options.push('--data-dir=' + config.blockchain.data_dir)
   }
@@ -815,6 +854,11 @@ function configureLokid(config, args) {
   } else {
     console.log('3.x blockchain block binary detected')
   }
+  // 6.x+
+  if (!configUtil.isBlockchainBinary3X && !configUtil.isBlockchainBinary4Xor5X && config.blockchain.qun_port) {
+    lokid_options.push('--quorumnet-port=' + config.blockchain.qun_port)
+  }
+
   // copy CLI options to lokid
   for (var i in args) {
     // should we prevent --non-interactive?
