@@ -164,7 +164,9 @@ module.exports = function(args, config, entryPoint, debug) {
       config.network.profiling_file = config.network.data_dir + '/profiles.dat'
     }
   }
-  lokinet.checkConfig(config.network) // can auto-configure network.binary_path. how?
+  if (!configUtil.isBlockchainBinary3X && !configUtil.isBlockchainBinary4Xor5X && config.network.enabled) {
+    lokinet.checkConfig(config.network) // can auto-configure network.binary_path. how?
+  }
 
   // lokid config and most other configs should be locked into stone by this point
   // (except for lokinet, since we need to copy lokid over to it)
