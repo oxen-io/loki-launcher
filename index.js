@@ -193,6 +193,7 @@ function continueStart() {
       }
     break;
     case 'stop': // official
+      // maybe use the client to see what's taking lokid a while...
       //console.log('Getting launcher state')
       lib.stopLauncher(config)
       function shutdownMonitor() {
