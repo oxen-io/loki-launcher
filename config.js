@@ -681,4 +681,5 @@ module.exports = {
   setupInitialBlockchainOptions: setupInitialBlockchainOptions,
   ensureDirectoriesExist: ensureDirectoriesExist,
   isBlockchainBinary3X: isBlockchainBinary3X,
+  isBlockchainBinary4Xor5X: isBlockchainBinary4Xor5X,
 }
