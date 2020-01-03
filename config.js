@@ -478,6 +478,10 @@ function checkBlockchainConfig(config) {
 
 // should require blockchain to be configured
 function checkNetworkConfig(config) {
+  // configure this even if not enabled, for prequal
+  if (config.network.public_port === undefined) {
+    config.network.public_port = config.network.testnet ? 1666 : 1090
+  }
   if (!config.network.enabled) return
   if (config.network.binary_path === undefined) config.network.binary_path = '/opt/loki-launcher/bin/lokinet'
   if (config.network.testnet === undefined) {
@@ -513,9 +517,6 @@ function checkNetworkConfig(config) {
     }
   }
 
-  if (config.network.public_port === undefined) {
-    config.network.public_port = config.network.testnet ? 1666 : 1090
-  }
   if (config.network.rpc_port === undefined) {
     config.network.rpc_port = 1190
   }
