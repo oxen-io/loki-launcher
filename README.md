@@ -133,7 +133,8 @@ For more indepth details, be sure to check out our weekly [dev reports](https://
   - handle lokinet EPERM condition better
   - various logging clean up
 - 1.0.5*
-  - enable lokinet 
+  - enable lokinet
+  - changed default storage server port from 23023 to 22021 (SO UPDATE YOUR FIREWALLS)
   - remove service-node-seed / keyPath from lokinet
   - add seedMode to lokinet
   - remove lokinet solo-mode (without blockchain/storage)
