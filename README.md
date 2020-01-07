@@ -115,7 +115,9 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
-- 1.0.8
+- 1.0.9
+  - fix bug in port validation when upgrading from 5.x
+- 1.0.8*
   - include storage/network last failure in status
   - check for port conflicts
   - connect to client when stopping the launcher, so you can see what the blockchain is taking so long
