@@ -81,6 +81,33 @@ function start(user, dir, config) {
       }
       console.log('user', user, 'uid is', uid, 'homedir is', homedir)
       homedir = homedir.replace(/\/$/, '')
+
+      // we actually handle this differently later
+      //configUtil.changeHomedir(config, homedir)
+
+      // if this is default, then we'll be the wrong user...
+      if (config.blockchain.data_dir_is_default) {
+        const configUtil = require(__dirname + '/../config')
+        config.blockchain.data_dir = homedir + '/.loki'
+        // adjust for network type
+        config.blockchain.data_dir = configUtil.getLokiDataDir(config)
+      }
+      if (config.storage.data_dir_is_default) {
+        config.storage.data_dir = homedir + '/.loki/storage'
+        if (config.storage.testnet) {
+          config.storage.data_dir += '_testnet'
+        }
+      }
+      if (config.network.data_dir_is_default) {
+        config.network.data_dir = homedir + '/.loki/network'
+        if (config.network.testnet) {
+          config.network.data_dir += '_testnet'
+        }
+      }
+      //console.log('blockchain.data_dir', config.blockchain.data_dir)
+      //console.log('storage.data_dir', config.storage.data_dir)
+      //console.log('network.data_dir', config.network.data_dir)
+
       // binary paths
       if (fs.existsSync(config.blockchain.binary_path)) {
         fs.chownSync(config.blockchain.binary_path, uid, 0)
@@ -114,35 +141,27 @@ function start(user, dir, config) {
           fs.chownSync('/opt/loki-launcher', uid, 0)
         }
       }
+
       // config.blockchain.data_dir
-      // if this is default, then we'll be the wrong user...
-      if (config.blockchain.data_dir_is_default) {
-        const configUtil = require(__dirname + '/../config')
-        config.blockchain.data_dir = homedir + '/.loki'
-        const data_dir = configUtil.getLokiDataDir(config)
+      if (config.storage.data_dir) {
         // create it if needed
-        if (!fs.existsSync(data_dir)) {
-          lokinet.mkDirByPathSync(data_dir)
+        if (!fs.existsSync(config.blockchain.data_dir)) {
+          lokinet.mkDirByPathSync(config.blockchain.data_dir)
         }
         //console.log('default blockchain data_dir is', data_dir)
-        fs.chownSync(data_dir, uid, 0)
-      } else {
-        if (config.blockchain.data_dir) fs.chownSync(config.blockchain.data_dir, uid, 0)
+        fs.chownSync(config.blockchain.data_dir, uid, 0)
       }
       // config.storage.data_dir
-      // if this is default, then we'll be the wrong user...
-      if (config.storage.data_dir_is_default) {
-        config.storage.data_dir = homedir + '/.loki/storage'
+      if (config.storage.data_dir) {
         // create it if needed
         if (!fs.existsSync(config.storage.data_dir)) {
           lokinet.mkDirByPathSync(config.storage.data_dir)
         }
         fs.chownSync(config.storage.data_dir, uid, 0)
-      } else {
-        if (config.storage.data_dir) fs.chownSync(config.storage.data_dir, uid, 0)
       }
       // config.network.data_dir
       if (config.network.data_dir) {
+        // create it if needed
         if (!fs.existsSync(config.network.data_dir)) {
           lokinet.mkDirByPathSync(config.network.data_dir)
         }
