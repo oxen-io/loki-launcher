@@ -193,6 +193,13 @@ function loadBlockchainConfigFile(xmrOptions, config, output) {
     config.blockchain.qun_port = xmrOptions['quorumnet-port']
   }
 
+  if (xmrOptions['p2p-bind-ip']) {
+    config.blockchain.p2p_ip = xmrOptions['p2p-bind-ip']
+  }
+  if (xmrOptions['zmq-rpc-bind-ip']) {
+    config.blockchain.zmq_ip = xmrOptions['zmq-rpc-bind-ip']
+  }
+
   if (xmrOptions['rpc-bind-ip']) {
     config.blockchain.rpc_ip = xmrOptions['rpc-bind-ip']
   }
@@ -579,22 +586,134 @@ function postcheckConfig(config) {
   }
 }
 
+// doesn't work because of the ip bind scope...
+function isPortUsed(port, skip) {
+  if (skip !== 'blockchain.rpc_port' && config.blockchain.rpc_port == port) return true
+  if (skip !== 'blockchain.p2p_port' && config.blockchain.p2p_port == port) return true
+  if (skip !== 'blockchain.zmq_port' && config.blockchain.zmq_port == port) return true
+  if (skip !== 'blockchain.qun_port' && config.blockchain.qun_port == port) return true
+
+  if (skip !== 'network.rpc_port' && config.network.rpc_port == port) return true
+  if (skip !== 'network.dns_port' && config.network.dns_port == port) return true
+
+  if (skip !== 'storage.port' && config.storage.port == port) return true
+
+  return false
+}
+
 function portChecks(config) {
   prequal(config) // set up all the ports
   // track by localhost, all_zeros
-  // config.blockchain.rpc_port
-  // config.blockchain.p2p_port
-  // config.blockchain.zmq_port
-  // config.blockchain.qun_port
+  const localhosts = []
+  const alls = []
+  const ips = []
 
-  // these are udp, so probably can't conflict
-  // config.network.public_port
-  // config.network.internal_port
-  // these are tcp
-  // config.network.rpc_port
-  // config.network.dns_port
+  function addPort(ip, port, type) {
+    const obj = {
+      type: type,
+      ip: ip,
+      port: port
+    }
+    if (ip === '127.0.0.1') {
+      localhosts.push(obj)
+    } else if (ip === '0.0.0.0') {
+      alls.push(obj)
+    } else {
+      // not fully thought out...
+      ips.push(obj)
+    }
+  }
 
-  // config.storage.port
+  if (config.blockchain.p2p_ip === undefined) {
+    config.blockchain.p2p_ip = '0.0.0.0'
+  }
+  // rpc_ip can be configured
+  if (config.blockchain.rpc_ip === undefined) {
+    config.blockchain.rpc_ip = '127.0.0.1'
+  }
+  if (config.blockchain.zmq_ip === undefined) {
+    config.blockchain.zmq_ip = '127.0.0.1'
+  }
+  if (config.blockchain.qun_ip === undefined) {
+    config.blockchain.qun_ip = '' // your public ip
+  }
+
+  if (config.storage.ip === undefined) {
+    config.storage.ip = '0.0.0.0'
+  }
+
+  if (config.network.rpc_ip === undefined) {
+    config.network.rpc_ip = '127.0.0.1'
+  }
+  if (config.network.dns_ip === undefined) {
+    config.network.dns_ip = '127.3.2.1' // your public ip
+  }
+
+
+  addPort(config.blockchain.p2p_ip, config.blockchain.p2p_port, 'blockchain.p2p')
+  addPort(config.blockchain.rpc_ip, config.blockchain.rpc_port, 'blockchain.rpc')
+  addPort(config.blockchain.zmq_ip, config.blockchain.zmq_port, 'blockchain.zmq')
+  addPort(config.blockchain.qun_ip, config.blockchain.qun_port, 'blockchain.qun')
+
+  addPort(config.network.rpc_ip, config.network.rpc_port, 'network.rpc')
+  addPort(config.network.dns_ip, config.network.dns_port, 'network.dns')
+
+  addPort(config.storage.ip, config.storage.port, 'storage.port')
+
+  const conflicts = []
+
+  localhosts.forEach(obj => {
+    if (alls.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+    if (localhosts.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+  })
+
+  ips.forEach(obj => {
+    if (alls.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+    if (ips.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+  })
+
+  alls.forEach(obj => {
+    if (alls.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+    if (localhosts.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+    if (ips.some(test => test.port == obj.port && test.type != obj.type)) {
+      // localhosts.filter(test => test.port == obj.port)
+      //console.log('found conflict with', obj)
+      if (conflicts.indexOf(obj) === -1) conflicts.push(obj)
+    }
+  })
+
+  if (conflicts.length) {
+    console.log('configuration port conflicts:')
+    conflicts.forEach(con => {
+      console.log('configuration item', con.type, 'uses port', con.port, 'on', con.ip)
+    })
+    console.log('please make sure they are all unique values')
+    process.exit()
+  }
 }
 
 /*
@@ -666,6 +785,7 @@ function checkConfig(config, args, debug) {
   checkNetworkConfig(config)
   checkStorageConfig(config)
   postcheckConfig(config)
+  portChecks(config) // will exit if not ok
 }
 
 // need blockchain.p2pport, blockchain.qun_port, network.public_port
