@@ -373,13 +373,13 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   if (pids.runningConfig.storage.enabled && running.storageServer) {
     need.storage_rpc = false
     if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_test) {
-      checklist.storage_last_failure_blockchain_test = new Date(pids.storage_blockchain_failures.last_blockchain_test)
+      checklist.storage_last_failure_blockchain_test = new Date(pids.storage_blockchain_failures.last_blockchain_test)+''
     }
     if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_ping) {
-      checklist.storage_last_failure_blockchain_ping = new Date(pids.storage_blockchain_failures.last_blockchain_ping)
+      checklist.storage_last_failure_blockchain_ping = new Date(pids.storage_blockchain_failures.last_blockchain_ping)+''
     }
     if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_tick) {
-      checklist.storage_last_failure_blockchain_tick = new Date(pids.storage_blockchain_failures.last_blockchain_tick)
+      checklist.storage_last_failure_blockchain_tick = new Date(pids.storage_blockchain_failures.last_blockchain_tick)+''
     }
     checklist.storage_rpc = 'Checking...'
     function runTest() {
@@ -453,13 +453,13 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
 
   if (pids.runningConfig.network.enabled) {
     if (pids.network_blockchain_failures && pids.network_blockchain_failures.last_blockchain_ping) {
-      checklist.network_last_failure_blockchain_ping = new Date(pids.storage_blockchain_failures.last_blockchain_ping)
+      checklist.network_last_failure_blockchain_ping = new Date(pids.network_blockchain_failures.last_blockchain_ping)+''
     }
     if (pids.network_blockchain_failures && pids.network_blockchain_failures.last_blockchain_identity) {
-      checklist.network_last_failure_blockchain_test = new Date(pids.storage_blockchain_failures.last_blockchain_identity)
+      checklist.network_last_failure_blockchain_test = new Date(pids.network_blockchain_failures.last_blockchain_identity)+''
     }
     if (pids.network_blockchain_failures && pids.network_blockchain_failures.last_blockchain_snode) {
-      checklist.network_last_failure_blockchain_snode = new Date(pids.storage_blockchain_failures.last_blockchain_snode)
+      checklist.network_last_failure_blockchain_snode = new Date(pids.network_blockchain_failures.last_blockchain_snode)+''
     }
 
     // if lokinet rpc is enabled...
