@@ -115,10 +115,26 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
-- 1.0.7
+- 1.0.8
+  - include storage/network last failure in status
+  - check for port conflicts
+  - connect to client when stopping the launcher, so you can see what the blockchain is taking so long
+  - fix-perms fix network data_dir permissions fix
+  - fix network status
+  - add ifname validation
+  - add p2p/zmq bind-ip processing
+  - change definition of start up success (require storage_rpc, storageServer, network)
+  - fix ECONNREFUSED exception in client mode
+  - fix setcap exceptions in checkConfig
+  - prequal can't bind fix
+  - set network.public_port even in pre 6.x
+  - if cimode exit
+  - fix git rev output parsing
+  - various pre 6.x support fixes (only passing quorumnet-port in 6.x)
+- 1.0.7*
   - fix bug with qun_port not getting passed to lokid
   - Fix trying to load port numbers from loki.conf
-- 1.0.6
+- 1.0.6*
   - Don't commit to saying started unless lokinet can be started
   - made sure network binary is set for fix-perms
   - prequal: inform that quorumnet is not a suggestion but required / grammar fixes
