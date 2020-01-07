@@ -263,8 +263,8 @@ function continueStart() {
             console.log('FROM SOCKET:', stripped)
           })
           client.on('end', () => {
-            console.log('Disconnected from server.')
-            process.exit()
+            console.log('Disconnected from socket server...')
+            //process.exit()
           })
         }
 
