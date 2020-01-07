@@ -712,7 +712,7 @@ function portChecks(config) {
       console.log('configuration item', con.type, 'uses port', con.port, 'on', con.ip)
     })
     console.log('please make sure they are all unique values')
-    process.exit()
+    process.exit(1)
   }
 }
 
@@ -785,7 +785,13 @@ function checkConfig(config, args, debug) {
   checkNetworkConfig(config)
   checkStorageConfig(config)
   postcheckConfig(config)
+  // this means no prequal, fix-perm, etc...
   portChecks(config) // will exit if not ok
+  // also check ifname
+  if (config.network.ifname && config.network.ifname.length > 16) {
+    console.error('Your network.ifname "' + config.network.ifname + '" is too long, is', config.network.ifname.length, 'characters long, need to be 16 or less.')
+    process.exit(1)
+  }
 }
 
 // need blockchain.p2pport, blockchain.qun_port, network.public_port
