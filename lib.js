@@ -218,6 +218,7 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
     obj.storage_startTime = storageServer.startTime
     obj.storage_spawn_file = storageServer.spawnfile
     obj.storage_spawn_args = storageServer.spawnargs
+    obj.storage_blockchain_failures = storageServer.blockchainFailures
   }
   var lokinetPID = lokinet.getPID()
   if (lokinetPID) {
@@ -226,6 +227,7 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
     obj.network_startTime = lokinet_daemon.startTime
     obj.network_spawn_file = lokinet_daemon.spawnfile
     obj.network_spawn_args = lokinet_daemon.spawnargs
+    obj.network_blockchain_failures = lokinet_daemon.blockchainFailures
   }
   fs.writeFileSync(config.launcher.var_path + '/pids.json', JSON.stringify(obj))
 }
@@ -268,6 +270,7 @@ function getProcessState(config) {
     //console.log("LAUNCHER: old lokid is still running", pids.lokid)
     running.lokid = pids.lokid
   }
+  // console.log('network', config.network.enabled, 'lokinet', pids.lokinet)
   if (config.network.enabled) {
     if (pids.lokinet && isPidRunning(pids.lokinet)) {
       //console.log("LAUNCHER: old lokinet is still running", pids.lokinet)
@@ -369,6 +372,15 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
 
   if (pids.runningConfig.storage.enabled && running.storageServer) {
     need.storage_rpc = false
+    if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_test) {
+      checklist.storage_last_failure_blockchain_test = new Date(pids.storage_blockchain_failures.last_blockchain_test)
+    }
+    if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_ping) {
+      checklist.storage_last_failure_blockchain_ping = new Date(pids.storage_blockchain_failures.last_blockchain_ping)
+    }
+    if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_tick) {
+      checklist.storage_last_failure_blockchain_tick = new Date(pids.storage_blockchain_failures.last_blockchain_tick)
+    }
     checklist.storage_rpc = 'Checking...'
     function runTest() {
       var url = 'https://' + pids.runningConfig.storage.ip + ':' + pids.runningConfig.storage.port + '/get_stats/v1'
@@ -440,6 +452,16 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
 
 
   if (pids.runningConfig.network.enabled) {
+    if (pids.network_blockchain_failures && pids.network_blockchain_failures.last_blockchain_ping) {
+      checklist.network_last_failure_blockchain_ping = new Date(pids.storage_blockchain_failures.last_blockchain_ping)
+    }
+    if (pids.network_blockchain_failures && pids.network_blockchain_failures.last_blockchain_identity) {
+      checklist.network_last_failure_blockchain_test = new Date(pids.storage_blockchain_failures.last_blockchain_identity)
+    }
+    if (pids.network_blockchain_failures && pids.network_blockchain_failures.last_blockchain_snode) {
+      checklist.network_last_failure_blockchain_snode = new Date(pids.storage_blockchain_failures.last_blockchain_snode)
+    }
+
     // if lokinet rpc is enabled...
     //need.network_rpc = true
     // checkDone('network_rpc')
