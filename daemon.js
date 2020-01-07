@@ -1125,11 +1125,12 @@ function lokinet_onMessageSockerHandler(data) {
     sendToClients('NETWORK: ' + data + '\n')
   }
   const tline = data
+  const lokinetProc = lokinet.isRunning()
   // blockchain ping
   if (tline.match(/invalid result from lokid ping, not an object/) || tline.match(/invalid result from lokid ping, no result/) ||
       tline.match(/invalid result from lokid ping, status not an string/) || tline.match(/lokid ping failed:/) ||
       tline.match(/Failed to ping lokid/)) {
-    lokinet.blockchainFailures.last_blockchain_ping = Date.now()
+    lokinetProc.blockchainFailures.last_blockchain_ping = Date.now()
     // communicate this out
     lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
   }
@@ -1137,18 +1138,17 @@ function lokinet_onMessageSockerHandler(data) {
   if (tline.match(/lokid gave no identity key/) || tline.match(/lokid gave invalid identity key/) ||
       tline.match(/lokid gave bogus identity key/) || tline.match(/Bad response from lokid:/) ||
       tline.match(/failed to get identity keys/) || tline.match(/failed to init curl/)) {
-    lokinet.blockchainFailures.last_blockchain_identity = Date.now()
+    lokinetProc.blockchainFailures.last_blockchain_identity = Date.now()
     // communicate this out
     lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
   }
   // blockchain get servide node
   if (tline.match(/Invalid result: not an object/) || tline.match(/Invalid result: no service_node_states member/) ||
       tline.match(/Invalid result: service_node_states is not an array/)) {
-    lokinet.blockchainFailures.last_blockchain_snode = Date.now()
+    lokinetProc.blockchainFailures.last_blockchain_snode = Date.now()
     // communicate this out
     lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
   }
-
 }
 function lokinet_onErrorSockerHandler(data) {
   console.log(`lokineterr: ${data}`)
