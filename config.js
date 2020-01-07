@@ -176,7 +176,8 @@ function loadBlockchainConfigFile(xmrOptions, config, output) {
     }
   }
 
-  // is our ini loaded by this point?
+  // our ini loaded by this point
+  // network and data_dir handled in setupInitialBlockchainOptions() earlier
 
   // convert .conf to ini options
   if (xmrOptions['p2p-bind-port']) {
@@ -190,6 +191,19 @@ function loadBlockchainConfigFile(xmrOptions, config, output) {
   }
   if (xmrOptions['quorumnet-port']) {
     config.blockchain.qun_port = xmrOptions['quorumnet-port']
+  }
+
+  if (xmrOptions['rpc-bind-ip']) {
+    config.blockchain.rpc_ip = xmrOptions['rpc-bind-ip']
+  }
+  if (xmrOptions['rpc-login']) {
+    if (xmrOptions['rpc-login'].match(/:/)) {
+      var parts = xmrOptions['rpc-login'].split(/:/)
+      config.blockchain.rpc_user = parts[0]
+      config.blockchain.rpc_pass = parts[1]
+    } else {
+      config.blockchain.rpc_user = xmrOptions['rpc-login']
+    }
   }
 
 }
@@ -235,7 +249,6 @@ function precheckConfig(config, args, debug) {
   // we need data_dir and testnet
   // if we're not specifying the data_dir
   if (!config.blockchain.data_dir) {
-    const os = require('os')
     //console.log('using default data_dir, network', config.blockchain.network)
     // FIXME: really should be left alone and we should have a getter
     config.blockchain.data_dir = os.homedir() + '/.loki'
@@ -496,7 +509,6 @@ function checkNetworkConfig(config) {
   }
   // putting all files required for migration into ~/.loki/network
   if (config.network.data_dir === undefined) {
-    const os = require('os')
     // FIXME: really should be left alone and we should have a getter
     //console.log('default network server path, blockchain is', config.blockchain.data_dir)
     //config.network.data_dir = getLokiDataDir(config) + '/network'
@@ -537,7 +549,6 @@ function checkStorageConfig(config) {
   }
 
   if (config.storage.data_dir === undefined) {
-    const os = require('os')
     // FIXME: really should be left alone and we should have a getter
     //console.log('default storage server path, blockchain is', config.blockchain.data_dir)
     //config.storage.data_dir = getLokiDataDir(config) + '/storage'
@@ -567,6 +578,44 @@ function postcheckConfig(config) {
     config.launcher.var_path = config.launcher.var_path.replace(/\/$/, '')
   }
 }
+
+function portChecks(config) {
+  prequal(config) // set up all the ports
+  // track by localhost, all_zeros
+  // config.blockchain.rpc_port
+  // config.blockchain.p2p_port
+  // config.blockchain.zmq_port
+  // config.blockchain.qun_port
+
+  // these are udp, so probably can't conflict
+  // config.network.public_port
+  // config.network.internal_port
+  // these are tcp
+  // config.network.rpc_port
+  // config.network.dns_port
+
+  // config.storage.port
+}
+
+/*
+function changeHomedir(config, homedir) {
+  if (config.blockchain.data_dir_is_default) {
+    config.blockchain.data_dir = homedir + '/.loki'
+  }
+  if (config.network.data_dir_is_default) {
+    config.network.data_dir = homedir + '/.loki/network'
+    if (config.network.testnet) {
+      config.network.data_dir += '_testnet'
+    }
+  }
+  if (config.storage.data_dir_is_default) {
+    config.storage.data_dir = homedir + '/.loki/storage'
+    if (config.storage.testnet) {
+      config.storage.data_dir += '_testnet'
+    }
+  }
+}
+*/
 
 // the desired user matters
 // hopefully running as the right user
