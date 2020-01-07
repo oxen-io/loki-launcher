@@ -618,10 +618,10 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             // blockchain rpc is now required for SN
 
             var blockchainIsFine = pids.runningConfig && pids.runningConfig.blockchain && checklist.blockchain_rpc != 'waiting...'
-            var networkIsFine = !pids.runningConfig.network.enabled || (pids.runningConfig && pids.runningConfig.network)
+            var networkIsFine = !pids.runningConfig.network.enabled || (pids.runningConfig && pids.runningConfig.network && checklist.network != 'waiting...')
             if (running.launcher && running.lokid && checklist.socketWorks != 'waiting...' &&
                   pids.runningConfig && blockchainIsFine && networkIsFine &&
-                  checklist.storage_rpc != 'waiting...'
+                  checklist.storageServer != 'waiting...'
                 ) {
               console.log('Start up successful!')
               if (child) child.removeListener('close', crashHandler)
