@@ -70,9 +70,14 @@ function shutdown_storage() {
 
 let shuttingDown = false
 let shutDownTimer = null
+let lokinetPidwatcher = false
 function shutdown_everything() {
   //console.log('shutdown_everything()!')
   //console.trace('shutdown_everything()!')
+  if (lokinetPidwatcher !== false) {
+    clearInterval(lokinetPidwatcher)
+    lokinetPidwatcher = false
+  }
   shuttingDown = true
   stdin.pause()
   shutdown_storage()
@@ -109,6 +114,18 @@ function shutdown_everything() {
         // lokid on macos may need a kill -9 after a couple failed 15
         // lets say 50s of not stopping -15 then wait 30s if still run -9
         stop = false
+      } else {
+        if (server) {
+          console.log('SOCKET: Closing socket server.')
+          disconnectAllClients()
+          server.close()
+          server.unref()
+          if (fs.existsSync(module.exports.config.launcher.var_path + '/launcher.socket')) {
+            console.log('SOCKET: Cleaning socket.')
+            fs.unlinkSync(module.exports.config.launcher.var_path + '/launcher.socket')
+          }
+          server = false
+        }
       }
       let lokinetState = lokinet.isRunning()
       if (lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)) {
@@ -155,16 +172,6 @@ function shutdown_everything() {
     }, 5000)
   }
 
-  if (server) {
-    console.log('SOCKET: Closing socket server.')
-    disconnectAllClients()
-    server.close()
-    server.unref()
-  }
-  if (fs.existsSync(module.exports.config.launcher.var_path + '/launcher.socket')) {
-    console.log('SOCKET: Cleaning socket.')
-    fs.unlinkSync(module.exports.config.launcher.var_path + '/launcher.socket')
-  }
   // don't think we need, seems to handle itself
   //console.log('should exit?')
   //process.exit()
@@ -224,6 +231,7 @@ function launcherStorageServer(config, args, cb) {
   }
   storageServer.killed = false
   storageServer.startTime = Date.now()
+  storageServer.blockchainFailures = {}
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
   // copy the output to stdout
@@ -231,9 +239,10 @@ function launcherStorageServer(config, args, cb) {
   let stdout = '', stderr = '', collectData = true
   storageServer.stdout
     .on('data', (data) => {
-      if (storageLogging) console.log(`STORAGE: ${data.toString('utf8').trim()}`)
+      var str = data.toString('utf8').trim()
+      if (storageLogging) console.log(`STORAGE: ${str}`)
       if (collectData) {
-        const lines = data.toString().split(/\n/)
+        const lines = str.split(/\n/)
         for(let i in lines) {
           const tline = lines[i].trim()
           if (tline.match('Loki Storage Server v')) {
@@ -247,6 +256,35 @@ function launcherStorageServer(config, args, cb) {
         }
         stdout += data
       }
+      // blockchain test
+      if (str.match(/Could not send blockchain request to Lokid/)) {
+        if (storageLogging) console.log(`STORAGE: blockchain test failure`)
+        storageServer.blockchainFailures.last_blockchain_test = Date.now()
+        //communicate this out
+        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      }
+      // blockchain ping
+      if (str.match(/Empty body on Lokid ping/) || str.match(/Could not ping Lokid. Status: {}/) ||
+          str.match(/Could not ping Lokid: bad json in response/) || str.match(/Could not ping Lokid/)) {
+        if (storageLogging) console.log(`STORAGE: blockchain ping failure`)
+        storageServer.blockchainFailures.last_blockchain_ping = Date.now()
+        //communicate this out
+        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      }
+      // swarm_tick communication error
+      if (str.match(/Failed to contact local Lokid/) || str.match(/Exception caught on swarm update/)) {
+        if (storageLogging) console.log(`STORAGE: blockchain tick failure`)
+        storageServer.blockchainFailures.last_blockchain_tick = Date.now()
+        //communicate this out
+        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      }
+      // could be testing a remote node
+      if (str.match(/Could not report node status: bad json in response/)) {
+      } else if (str.match(/Could not report node status/)) {
+      }
+      if (str.match(/Empty body on Lokid report node status/)) {
+      }
+      // end remote node
     })
     .on('error', (err) => {
       console.error(`Storage Server stdout error: ${err.toString('utf8').trim()}`)
@@ -329,7 +367,7 @@ function launcherStorageServer(config, args, cb) {
 }
 
 let waitForLokiKeyTimer = null
-// FIXME: lokinet key check...
+// as of 6.x storage and network not get their key via rpc call
 function waitForLokiKey(config, timeout, start, cb) {
   if (start === undefined) start = Date.now()
   if (config.storage.lokid_key === undefined) {
@@ -422,32 +460,62 @@ function startStorageServer(config, args, cb) {
 }
 
 function startLokinet(config, args, cb) {
+  // we no longer need to wait for LokiKey before starting network/storage
   // waitForLokiKey(config, timeout, start, cb)
-  if (config.storage.lokid_key === undefined) {
-    if (config.storage.enabled) {
-      console.error('Storage server enabled but no key location given.')
-      process.exit(1)
-    }
-    if (config.network.enabled) {
-      lokinet.startServiceNode(config, function () {
-        startStorageServer(config, args, cb)
-      })
-    } else {
-      //console.log('no storage key configured')
-      if (cb) cb(true)
-    }
-    return
-  }
-  console.log('DAEMON: Waiting for loki key at', config.storage.lokid_key)
-  waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
-    if (!haveKey) {
-      console.error('DAEMON: Timeout waiting for loki key.')
-      // FIXME: what do?
+  if (configUtil.isBlockchainBinary3X(config) || configUtil.isBlockchainBinary4Xor5X(config)) {
+    // 3.x-5.x, we need the key
+    if (config.storage.lokid_key === undefined) {
+      if (config.storage.enabled) {
+        console.error('Storage server enabled but no key location given.')
+        process.exit(1)
+      }
+      if (config.network.enabled) {
+        lokinet.startServiceNode(config, function () {
+          startStorageServer(config, args, cb)
+        })
+      } else {
+        //console.log('no storage key configured')
+        if (cb) cb(true)
+      }
       return
     }
-    console.log('DAEMON: Got Loki key!')
+    console.log('DAEMON: Waiting for loki key at', config.storage.lokid_key)
+    waitForLokiKey(config, 30 * 1000, undefined, function(haveKey) {
+      if (!haveKey) {
+        console.error('DAEMON: Timeout waiting for loki key.')
+        // FIXME: what do?
+        return
+      }
+      console.log('DAEMON: Got Loki key!')
+      if (config.network.enabled) {
+        lokinet.startServiceNode(config, function () {
+          startStorageServer(config, args, cb)
+        })
+      } else {
+        if (config.storage.enabled) {
+          startStorageServer(config, args, cb)
+        } else {
+          if (cb) cb(true)
+        }
+      }
+    })
+  } else {
+    // 6.x, not key needed
     if (config.network.enabled) {
       lokinet.startServiceNode(config, function () {
+        lokinetPidwatcher = setInterval(function() {
+          // read pids.json
+          var pids = lib.getPids(config)
+          var lokinetProc = lokinet.isRunning()
+          if (lokinetProc) {
+            console.log('lokinet pid is', lokinetProc.pid, 'json is', pids.lokinet)
+            if (lokinetProc.pid != pids.lokinet) {
+              console.warn('Lokinet pid got out of sync!')
+            }
+          } else {
+            console.log('no lokinet pid', lokinet)
+          }
+        }, 30 * 1000)
         startStorageServer(config, args, cb)
       })
     } else {
@@ -457,7 +525,7 @@ function startLokinet(config, args, cb) {
         if (cb) cb(true)
       }
     }
-  })
+  }
 }
 
 function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
@@ -1056,6 +1124,31 @@ function lokinet_onMessageSockerHandler(data) {
     console.log(`lokinet: ${data}`)
     sendToClients('NETWORK: ' + data + '\n')
   }
+  const tline = data
+  // blockchain ping
+  if (tline.match(/invalid result from lokid ping, not an object/) || tline.match(/invalid result from lokid ping, no result/) ||
+      tline.match(/invalid result from lokid ping, status not an string/) || tline.match(/lokid ping failed:/) ||
+      tline.match(/Failed to ping lokid/)) {
+    lokinet.blockchainFailures.last_blockchain_ping = Date.now()
+    // communicate this out
+    lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
+  }
+  // blockchain identity
+  if (tline.match(/lokid gave no identity key/) || tline.match(/lokid gave invalid identity key/) ||
+      tline.match(/lokid gave bogus identity key/) || tline.match(/Bad response from lokid:/) ||
+      tline.match(/failed to get identity keys/) || tline.match(/failed to init curl/)) {
+    lokinet.blockchainFailures.last_blockchain_identity = Date.now()
+    // communicate this out
+    lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
+  }
+  // blockchain get servide node
+  if (tline.match(/Invalid result: not an object/) || tline.match(/Invalid result: no service_node_states member/) ||
+      tline.match(/Invalid result: service_node_states is not an array/)) {
+    lokinet.blockchainFailures.last_blockchain_snode = Date.now()
+    // communicate this out
+    lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
+  }
+
 }
 function lokinet_onErrorSockerHandler(data) {
   console.log(`lokineterr: ${data}`)
