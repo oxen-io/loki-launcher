@@ -603,6 +603,7 @@ function isPortUsed(port, skip) {
 }
 
 function portChecks(config) {
+  // only sets p2p port
   prequal(config) // set up all the ports
   // track by localhost, all_zeros
   const localhosts = []
@@ -611,7 +612,10 @@ function portChecks(config) {
 
   function addPort(ip, port, type) {
     // if the port isn't set, don't check the conflicts on it
-    if (port === undefined) return
+    if (port === undefined) {
+      console.trace(type, 'was passed as undefined')
+      return
+    }
     const obj = {
       type: type,
       ip: ip,
@@ -641,27 +645,32 @@ function portChecks(config) {
     config.blockchain.qun_ip = '' // your public ip
   }
 
-  if (config.storage.ip === undefined) {
-    config.storage.ip = '0.0.0.0'
-  }
-
-  if (config.network.rpc_ip === undefined) {
-    config.network.rpc_ip = '127.0.0.1'
-  }
-  if (config.network.dns_ip === undefined) {
-    config.network.dns_ip = '127.3.2.1' // your public ip
-  }
-
-
   addPort(config.blockchain.p2p_ip, config.blockchain.p2p_port, 'blockchain.p2p')
   addPort(config.blockchain.rpc_ip, config.blockchain.rpc_port, 'blockchain.rpc')
-  addPort(config.blockchain.zmq_ip, config.blockchain.zmq_port, 'blockchain.zmq')
+  if (config.blockchain.zmq_port) {
+    addPort(config.blockchain.zmq_ip, config.blockchain.zmq_port, 'blockchain.zmq')
+  }
   addPort(config.blockchain.qun_ip, config.blockchain.qun_port, 'blockchain.qun')
 
-  addPort(config.network.rpc_ip, config.network.rpc_port, 'network.rpc')
-  addPort(config.network.dns_ip, config.network.dns_port, 'network.dns')
+  if (config.network.enabled) {
+    if (config.network.rpc_ip === undefined) {
+      config.network.rpc_ip = '127.0.0.1'
+    }
+    if (config.network.dns_ip === undefined) {
+      config.network.dns_ip = '127.3.2.1' // your public ip
+    }
+    addPort(config.network.rpc_ip, config.network.rpc_port, 'network.rpc')
+    if (config.network.dns_port) {
+      addPort(config.network.dns_ip, config.network.dns_port, 'network.dns')
+    }
+  }
 
-  addPort(config.storage.ip, config.storage.port, 'storage.port')
+  if (config.storage.enabled) {
+    if (config.storage.ip === undefined) {
+      config.storage.ip = '0.0.0.0'
+    }
+    addPort(config.storage.ip, config.storage.port, 'storage.port')
+  }
 
   const conflicts = []
 
