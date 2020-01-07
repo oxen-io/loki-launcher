@@ -10,6 +10,10 @@ const VERSION = 0.2
 
 function clientConnect(config) {
   var socketPath = config.launcher.var_path + '/launcher.socket'
+  if (!fs.existsSync(socketPath)) {
+    console.warn('No socket file, socket server is not likely running: ', socketPath)
+    process.exit()
+  }
   console.log('Trying to connect to', socketPath)
   // FIXME: file exist check
   const client = net.createConnection({ path: socketPath }, () => {
@@ -22,7 +26,7 @@ function clientConnect(config) {
     if (err.code == 'ECONNREFUSED') {
       console.error('Socket is stale, launcher socket server is not running.')
       fs.unlinkSync(socketPath)
-      server.listen(socketPath)
+      // server.listen(socketPath)
       process.exit(1)
     } else
     if (err.code == 'EPERM') {
