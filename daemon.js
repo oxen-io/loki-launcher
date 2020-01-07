@@ -27,6 +27,10 @@ process.on('uncaughtException', function (err) {
     msg: err.message,
     trace: err.stack.split("\n")
   }) + "\n")
+  // if we're in cimode, throw up red flag
+  if (savePidConfig.config && savePidConfig.config.launcher.cimode) {
+    process.exit(1)
+  }
 })
 
 let connections = []
