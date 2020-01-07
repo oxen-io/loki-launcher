@@ -588,6 +588,7 @@ function postcheckConfig(config) {
 
 // doesn't work because of the ip bind scope...
 function isPortUsed(port, skip) {
+
   if (skip !== 'blockchain.rpc_port' && config.blockchain.rpc_port == port) return true
   if (skip !== 'blockchain.p2p_port' && config.blockchain.p2p_port == port) return true
   if (skip !== 'blockchain.zmq_port' && config.blockchain.zmq_port == port) return true
@@ -609,6 +610,8 @@ function portChecks(config) {
   const ips = []
 
   function addPort(ip, port, type) {
+    // if the port isn't set, don't check the conflicts on it
+    if (port === undefined) return
     const obj = {
       type: type,
       ip: ip,
