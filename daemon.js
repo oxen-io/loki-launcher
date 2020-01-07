@@ -508,7 +508,7 @@ function startLokinet(config, args, cb) {
           var pids = lib.getPids(config)
           var lokinetProc = lokinet.isRunning()
           if (lokinetProc) {
-            console.log('lokinet pid is', lokinetProc.pid, 'json is', pids.lokinet)
+            // console.log('lokinet pid is', lokinetProc.pid, 'json is', pids.lokinet)
             if (lokinetProc.pid != pids.lokinet) {
               console.warn('Lokinet pid got out of sync!')
             }
@@ -617,11 +617,11 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             var pids = lib.getPids(config) // need to get the config
             // blockchain rpc is now required for SN
 
-            var blockchainIsFine = pids.runningConfig && pids.runningConfig.blockchain && checklist.blockchain_rpc != 'waiting...'
-            var networkIsFine = !pids.runningConfig.network.enabled || (pids.runningConfig && pids.runningConfig.network && checklist.network != 'waiting...')
-            if (running.launcher && running.lokid && checklist.socketWorks != 'waiting...' &&
+            var blockchainIsFine = pids.runningConfig && pids.runningConfig.blockchain && checklist.blockchain_rpc !== 'waiting...'
+            var networkIsFine = (!pids.runningConfig.network) || (!pids.runningConfig.network.enabled) || (pids.runningConfig && pids.runningConfig.network && checklist.network !== 'waiting...')
+            if (running.launcher && running.lokid && checklist.socketWorks !== 'waiting...' &&
                   pids.runningConfig && blockchainIsFine && networkIsFine &&
-                  checklist.storageServer != 'waiting...'
+                  checklist.storageServer !== 'waiting...'
                 ) {
               console.log('Start up successful!')
               if (child) child.removeListener('close', crashHandler)
