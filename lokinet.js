@@ -998,7 +998,7 @@ function launchLokinet(config, instance, cb) {
   if (networkConfig.verbose) {
     cli_options.push('-v')
   }
-  console.log('NETWORK: launching', networkConfig.binary_path, cli_options.join(' '))
+  log('launching', networkConfig.binary_path, cli_options.join(' '))
   try {
     lokinet = spawn(networkConfig.binary_path, cli_options)
   } catch(e) {
@@ -1017,6 +1017,8 @@ function launchLokinet(config, instance, cb) {
     // proper shutdown?
     process.exit(1)
   }
+  // log('started as', lokinet.pid)
+  lokinet.blockchainFailures = {}
   lokinet.startTime = Date.now()
   lokinet.killed = false
   lokinet.stdout.on('data', (data) => {
@@ -1042,7 +1044,10 @@ function launchLokinet(config, instance, cb) {
         fs.writeFileSync(config.launcher.var_path + '/snode_address', lokinet_snode + "\n")
       }
     }
-    lines.pop()
+    const last = lines.pop()
+    if (0 && last.trim()) {
+      console.log('lokinet.js onData - stripping [' + last + ']')
+    }
     data = lines.join('\n')
     if (module.exports.onMessage) {
       module.exports.onMessage(data)
@@ -1134,24 +1139,25 @@ function checkConfig(config) {
 }
 
 function waitForUrl(url, cb) {
+  // console.log('lokinet.js - waiting for', url)
   httpGet(url, function (data) {
     //console.log('rpc data', data)
     // will be undefined if down (ECONNREFUSED)
     // if success
     // <html><head><title>Unauthorized Access</title></head><body><h1>401 Unauthorized</h1></body></html>
     if (data) {
-      cb()
-    } else {
-      // no data could me 404
-      if (shuttingDown) {
-        //if (cb) cb()
-        log('not going to start lokinet, shutting down')
-        return
-      }
-      setTimeout(function () {
-        waitForUrl(url, cb)
-      }, 1000)
+      // console.log(url, 'is active')
+      return cb()
     }
+    // no data could me 404
+    if (shuttingDown) {
+      //if (cb) cb()
+      log('not going to start lokinet, shutting down')
+      return
+    }
+    setTimeout(function () {
+      waitForUrl(url, cb)
+    }, 1000)
   })
 }
 
