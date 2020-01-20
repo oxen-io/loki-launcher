@@ -50,6 +50,25 @@ function falsish(val) {
   return false
 }
 
+function pidUser(pid) {
+  const ps = spawnSync('ps', ['-fp', pid])
+  if (ps.status != '0') {
+    // can't find pid
+    //console.warn('ps and kill -0 disagree. ps.status:', ps.status, 'expected 0', ps.stdout.toString(), ps.stderr.toString())
+    // usually a race, and has already quit...
+    return 'unknown'
+  }
+  const lines = ps.output.toString().split(/\n/)
+  if (lines.length != 3) {
+    console.log('pidUser ps lines', lines.length, 'not 2')
+    return 'unknown'
+  }
+  lines.shift() // bye bye first line
+  const lastLines = lines[0].split(/\W+/)
+  const user = lastLines[0]
+  return user
+}
+
 function isPidRunning(pid) {
   if (pid === undefined) {
     console.trace('isPidRunning was passed undefined, reporting not running')
@@ -538,6 +557,7 @@ module.exports = {
   setStartupLock: setStartupLock,
 
   isPidRunning: isPidRunning,
+  pidUser: pidUser,
   getPids: getPids,
   savePids: savePids,
   clearPids: clearPids,
