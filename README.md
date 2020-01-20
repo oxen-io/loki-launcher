@@ -22,6 +22,7 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - [npm](https://www.npmjs.com/get-npm) usually installed with nodejs
 - Linux (though macos does works and Windows kind of works)
 - xz (xz-utils apt package) to be able to download and extract updated Linux binaries
+- setcap (libcap2-bin) to be enable lokinet to not need to run as root on Linux
 
 # How to do a fresh service node install
 
