@@ -29,7 +29,7 @@ function clientConnect(config) {
       // server.listen(socketPath)
       process.exit(1)
     } else
-    if (err.code == 'EPERM') {
+    if (err.code == 'EPERM' || err.code == 'EACCES') {
       console.error('It seems user', process.getuid(), 'does not have the required permissions.')
       process.exit(1)
     } else
@@ -57,6 +57,10 @@ function clientConnect(config) {
     stripped = stripped.replace(
       /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').trim()
     if (!stripped) return // don't echo empty lines...
+    if (stripped.match(/^Connection successful/)) {
+      console.log('Server ready.')
+      return
+    }
 
     // why does this work?
     /*
@@ -119,7 +123,8 @@ module.exports = function(config) {
     */
     process.exit(1)
   } else {
-    console.log('Located launcher daemon at', pid)
+    const user = lib.pidUser(pid)
+    console.log('Located launcher daemon at', pid, 'running as', user)
     clientConnect(config)
   }
 }
