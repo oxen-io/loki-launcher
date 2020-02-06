@@ -17,8 +17,8 @@ const VERSION = 0.3
 let xenial_hack = false
 
 function getFileSizeSync(path) {
-  const stats = fs.statSync(path);
-  return stats.size;
+  const stats = fs.statSync(path)
+  return stats.size
 }
 
 function downloadGithubFile(dest, url, cb) {
@@ -55,7 +55,7 @@ function downloadGithubFile(dest, url, cb) {
   }, (resp) => {
     //log('httpGet setting up handlers')
     clearInterval(watchdog)
-    if (resp.statusCode == 302) {
+    if (resp.statusCode === 302 || resp.statusCode === 301) {
       if (debug) console.debug('Got redirect to', resp.headers.location)
       downloadGithubFile(dest, resp.headers.location, cb)
       return
@@ -76,7 +76,7 @@ function downloadGithubFile(dest, url, cb) {
         lastPer = tenPer
       }
     })
-    resp.pipe(file);
+    resp.pipe(file)
     file.on('finish', function() {
       //console.log('File download ', downloaded, '/', len, 'bytes of', url, 'complete')
       if (downloaded < len) {
@@ -311,7 +311,7 @@ function start(config) {
       start_retries = 0
       downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
         start_retries = 0
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
       })
     })
   } else {
@@ -323,7 +323,7 @@ function start(config) {
           console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
           downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
         } else {
-          downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+          downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
         }
       })
     })
