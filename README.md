@@ -116,6 +116,8 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+- 1.0.10
+  - loki repo rename to loki-core support
 - 1.0.9
   - fix bug in port validation when upgrading from 5.x
 - 1.0.8*
