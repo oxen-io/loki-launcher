@@ -141,6 +141,7 @@ function httpGet(url, cb) {
     })
     // The whole response has been received. Print out the result.
     resp.on('end', () => {
+      // warn if not perfect
       if (resp.statusCode != 200) {
         log('httpGet result code', resp.statusCode)
       }
@@ -148,9 +149,27 @@ function httpGet(url, cb) {
         // we already called back
         return
       }
-      if (resp.statusCode == 404 || resp.statusCode == 403) {
-        if (resp.statusCode == 403) console.error('NETWORK:', url, 'is forbidden')
-        if (resp.statusCode == 404) console.error('NETWORK:', url, 'is not found')
+      // hijack 300s
+      if (resp.statusCode === 301 || resp.statusCode === 302) {
+        if (resp.headers.location) {
+          let loc = resp.headers.location
+          if (!loc.match(/^http/)) {
+            if (loc.match(/^\//)) {
+              // absolute path
+              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
+            } else {
+              // relative path
+              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
+            }
+          }
+          console.log('NETWORK: httpGet Redirecting to', loc)
+          return httpGet(loc, cb)
+        }
+      }
+      // fail on 400s
+      if (resp.statusCode === 404 || resp.statusCode === 403) {
+        if (resp.statusCode === 403) console.error('NETWORK:', url, 'is forbidden')
+        if (resp.statusCode === 404) console.error('NETWORK:', url, 'is not found')
         cb()
         return
       }
@@ -871,7 +890,7 @@ function generateSerivceNodeINI(config, cb) {
 
     // doesn't work
     //runningConfig.network['type'] = 'null' // disable exit
-    //runningConfig.network['enabled'] = true;
+    //runningConfig.network['enabled'] = true
     cb(ini.jsonToINI(runningConfig))
   }
   generateINI(config, done, markDone, cb)
