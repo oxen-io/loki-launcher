@@ -263,6 +263,10 @@ function launcherStorageServer(config, args, cb) {
       // blockchain test
       if (str.match(/Could not send blockchain request to Lokid/)) {
         if (storageLogging) console.log(`STORAGE: blockchain test failure`)
+        if (!storageServer) {
+          console.log('storageServer is unset, yet getting output', str)
+          return
+        }
         storageServer.blockchainFailures.last_blockchain_test = Date.now()
         //communicate this out
         lib.savePids(config, args, loki_daemon, lokinet, storageServer)
@@ -271,6 +275,10 @@ function launcherStorageServer(config, args, cb) {
       if (str.match(/Empty body on Lokid ping/) || str.match(/Could not ping Lokid. Status: {}/) ||
           str.match(/Could not ping Lokid: bad json in response/) || str.match(/Could not ping Lokid/)) {
         if (storageLogging) console.log(`STORAGE: blockchain ping failure`)
+        if (!storageServer) {
+          console.log('storageServer is unset, yet getting output:', str)
+          return
+        }
         storageServer.blockchainFailures.last_blockchain_ping = Date.now()
         //communicate this out
         lib.savePids(config, args, loki_daemon, lokinet, storageServer)
@@ -278,6 +286,10 @@ function launcherStorageServer(config, args, cb) {
       // swarm_tick communication error
       if (str.match(/Failed to contact local Lokid/) || str.match(/Exception caught on swarm update/)) {
         if (storageLogging) console.log(`STORAGE: blockchain tick failure`)
+        if (!storageServer) {
+          console.log('storageServer is unset, yet getting output', str)
+          return
+        }
         storageServer.blockchainFailures.last_blockchain_tick = Date.now()
         //communicate this out
         lib.savePids(config, args, loki_daemon, lokinet, storageServer)
@@ -1352,6 +1364,7 @@ var handlersSetup = false
 function setupHandlers() {
   if (handlersSetup) return
   process.on('SIGHUP', () => {
+    console.log('got SIGHUP!')
     if (savePidConfig.config) {
       console.log('updating pids file', savePidConfig.config.launcher.var_path + '/pids.json')
       lib.savePids(savePidConfig.config, savePidConfig.args, loki_daemon, lokinet, storageServer)
