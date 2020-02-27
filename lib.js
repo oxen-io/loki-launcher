@@ -1,8 +1,9 @@
 // no npm!
-const fs = require('fs')
+const fs  = require('fs')
+const cp  = require('child_process')
 const net = require('net')
-const { execSync } = require('child_process')
-const { spawnSync } = require('child_process');
+const execSync = cp.execSync
+const spawnSync = cp.spawnSync
 
 //
 // common functions for client and daemon
@@ -75,7 +76,9 @@ function isPidRunning(pid) {
     return false
   }
   try {
-    //console.log('checking', pid)
+    // trim any trailing whitespace (using echo > to create does this)
+    if (pid.trim) pid = pid.trim()
+    //console.log(`checking [${pid}]`)
     process.kill(pid, 0)
     // node 10.16.0 ignores kill 0 (maybe only in lxc but it does)
     // so we're try a SIGHUP
@@ -109,7 +112,7 @@ function isPidRunning(pid) {
       // we're don't have enough permissions to signal this process
       return true
     }
-    console.log(pid, 'isRunning', e.code)
+    console.log(pid, 'isRunning', e.code, e.message)
     return false
   }
   return false
@@ -131,6 +134,8 @@ function areWeRunning(config) {
     // can be deleted between these two points...
     try {
       pid = fs.readFileSync(config.launcher.var_path + '/launcher.pid', 'utf8')
+      // trim any trailing whitespace (using echo > to create does this)
+      if (pid.trim) pid = pid.trim()
     } catch(e) {
       return 0
     }
@@ -548,6 +553,291 @@ function waitForLauncherStop(config, cb) {
   cb()
 }
 
+// from https://github.com/yibn2008/find-process/blob/master/lib/find_pid.js (MIT)
+const UNIT_MB = 1024 * 1024
+const utils = {
+  /**
+   * exec command with maxBuffer size
+   */
+  exec (cmd, callback) {
+    cp.exec(cmd, {
+      maxBuffer: 2 * UNIT_MB,
+      windowsHide: true
+    }, callback)
+  },
+  /**
+   * spawn command
+   */
+  spawn (cmd, args, options) {
+    return cp.spawn(cmd, args, options)
+  },
+  /**
+   * Strip top lines of text
+   *
+   * @param  {String} text
+   * @param  {Number} num
+   * @return {String}
+   */
+  stripLine (text, num) {
+    let idx = 0
+
+    while (num-- > 0) {
+      let nIdx = text.indexOf('\n', idx)
+      if (nIdx >= 0) {
+        idx = nIdx + 1
+      }
+    }
+
+    return idx > 0 ? text.substring(idx) : text
+  },
+
+  /**
+   * Split string and stop at max parts
+   *
+   * @param  {Number} line
+   * @param  {Number} max
+   * @return {Array}
+   */
+  split (line, max) {
+    let cols = line.trim().split(/\s+/)
+
+    if (cols.length > max) {
+      cols[max - 1] = cols.slice(max - 1).join(' ')
+    }
+
+    return cols
+  },
+
+  /**
+   * Extract columns from table text
+   *
+   * Example:
+   *
+   * ```
+   * extractColumns(text, [0, 2], 3)
+   * ```
+   *
+   * From:
+   * ```
+   * foo       bar        bar2
+   * valx      valy       valz
+   * ```
+   *
+   * To:
+   * ```
+   * [ ['foo', 'bar2'], ['valx', 'valz'] ]
+   * ```
+   *
+   * @param  {String} text  raw table text
+   * @param  {Array} idxes  the column index list to extract
+   * @param  {Number} max   max column number of table
+   * @return {Array}
+   */
+  extractColumns (text, idxes, max) {
+    let lines = text.split(/(\r\n|\n|\r)/)
+    let columns = []
+
+    if (!max) {
+      max = Math.max.apply(null, idxes) + 1
+    }
+
+    lines.forEach(line => {
+      let cols = utils.split(line, max)
+      let column = []
+
+      idxes.forEach(idx => {
+        column.push(cols[idx] || '')
+      })
+
+      columns.push(column)
+    })
+
+    return columns
+  },
+
+  /**
+   * parse table text to array
+   *
+   * From:
+   * ```
+   * Header1   Header2    Header3
+   * foo       bar        bar2
+   * valx      valy       valz
+   * ```
+   *
+   * To:
+   * ```
+   * [{ Header1: 'foo', Header2: 'bar', Header3: 'bar2' }, ...]
+   * ```
+   *
+   * @param  {String} data raw table data
+   * @return {Array}
+   */
+  parseTable (data) {
+    let lines = data.split(/(\r\n|\n|\r)/).filter(line => {
+      return line.trim().length > 0
+    })
+
+    let matches = lines.shift().trim().match(/(\w+\s*)/g)
+    if (!matches) {
+      return []
+    }
+    let ranges = []
+    let headers = matches.map((col, i) => {
+      let range = []
+
+      if (i === 0) {
+        range[0] = 0
+        range[1] = col.length
+      } else {
+        range[0] = ranges[i - 1][1]
+        range[1] = range[0] + col.length
+      }
+
+      ranges.push(range)
+
+      return col.trim()
+    })
+    ranges[ranges.length - 1][1] = Infinity
+
+    return lines.map(line => {
+      let row = {}
+      ranges.forEach((r, i) => {
+        let key = headers[i]
+        let value = line.substring(r[0], r[1]).trim()
+
+        row[key] = value
+      })
+
+      return row
+    })
+  }
+}
+
+const finders = {
+  darwin (port) {
+    return new Promise((resolve, reject) => {
+      utils.exec('netstat -anv -p TCP && netstat -anv -p UDP', function (err, stdout, stderr) {
+        if (err) {
+          reject(err)
+        } else {
+          err = stderr.toString().trim()
+          if (err) {
+            reject(err)
+            return
+          }
+
+          // replace header
+          let data = utils.stripLine(stdout.toString(), 2)
+          let found = utils.extractColumns(data, [0, 3, 8], 10)
+            .filter(row => {
+              return !!String(row[0]).match(/^(udp|tcp)/)
+            })
+            .find(row => {
+              let matches = String(row[1]).match(/\.(\d+)$/)
+              if (matches && matches[1] === String(port)) {
+                return true
+              }
+            })
+
+          if (found && found[2].length) {
+            resolve(parseInt(found[2], 10))
+          } else {
+            reject(new Error(`pid of port (${port}) not found`))
+          }
+        }
+      })
+    })
+  },
+  freebsd: 'darwin',
+  sunos: 'darwin',
+  linux (port) {
+    return new Promise((resolve, reject) => {
+      let cmd = 'netstat -tunlp'
+
+      utils.exec(cmd, function (err, stdout, stderr) {
+        if (err) {
+          reject(err)
+        } else {
+          const warn = stderr.toString().trim()
+          if (warn) {
+            // netstat -p ouputs warning if user is no-root
+            console.warn(warn)
+          }
+
+          // replace header
+          let data = utils.stripLine(stdout.toString(), 2)
+          let columns = utils.extractColumns(data, [3, 6], 7).find(column => {
+            let matches = String(column[0]).match(/:(\d+)$/)
+            if (matches && matches[1] === String(port)) {
+              return true
+            }
+          })
+
+          if (columns && columns[1]) {
+            let pid = columns[1].split('/', 1)[0]
+
+            if (pid.length) {
+              resolve(parseInt(pid, 10))
+            } else {
+              reject(new Error(`pid of port (${port}) not found`))
+            }
+          } else {
+            reject(new Error(`pid of port (${port}) not found`))
+          }
+        }
+      })
+    })
+  },
+  win32 (port) {
+    return new Promise((resolve, reject) => {
+      utils.exec('netstat -ano', function (err, stdout, stderr) {
+        if (err) {
+          reject(err)
+        } else {
+          err = stderr.toString().trim()
+          if (err) {
+            reject(err)
+            return
+          }
+
+          // replace header
+          let data = utils.stripLine(stdout.toString(), 4)
+          let columns = utils.extractColumns(data, [1, 4], 5).find(column => {
+            let matches = String(column[0]).match(/:(\d+)$/)
+            if (matches && matches[1] === String(port)) {
+              return true
+            }
+          })
+
+          if (columns && columns[1].length && parseInt(columns[1], 10) > 0) {
+            resolve(parseInt(columns[1], 10))
+          } else {
+            reject(new Error(`pid of port (${port}) not found`))
+          }
+        }
+      })
+    })
+  },
+}
+
+function findPidByPort(port) {
+  let platform = process.platform
+
+  return new Promise((resolve, reject) => {
+    if (!(platform in finders)) {
+      return reject(new Error(`platform ${platform} is unsupported`))
+    }
+
+    let findPid = finders[platform]
+    if (typeof findPid === 'string') {
+      findPid = finders[findPid]
+    }
+
+    findPid(port).then(resolve, reject)
+  })
+}
+
 module.exports = {
   getLogo: getLogo,
   //  args: args,
@@ -561,6 +851,7 @@ module.exports = {
   getPids: getPids,
   savePids: savePids,
   clearPids: clearPids,
+  findPidByPort: findPidByPort,
 
   falsish: falsish,
   getProcessState: getProcessState,
