@@ -137,9 +137,11 @@ function continueStart() {
     const lokinet = require('./lokinet')
     var running = lib.getProcessState(config)
     var pids = lib.getPids(config)
+
     if (running.lokid === undefined) {
       //console.log('no pids...')
       var pid = lib.areWeRunning(config)
+      // if no pids.json and somehow we're running? (pids.json got deleted)
       if (pids.err == 'noFile'  && pid) {
         console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
         process.kill(pid, 'SIGHUP')
@@ -151,6 +153,25 @@ function continueStart() {
         console.log('replacing disk config with running config')
         config = pids.runningConfig
       }
+
+      // if no launcher, check for the port...
+      if (!pid) {
+        lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, function(portFree) {
+          if (!portFree) {
+            console.log('')
+            console.log('There\'s a lokid that we\'re not tracking using our configuration (rpc_port is already in use). You likely will want to confirm and manually stop it before start using the launcher again.');
+            // Exiting...
+            console.log('')
+            if (pids.err == 'noFile') {
+              // could attach and track...
+            } else {
+              // noFile explains why we know lokid isn't running...
+            }
+          }
+        });
+      }
+      // if we have a launcher, then ofc the port SHOULD be in use...
+
     }
     //console.log('status pids', pids)
     //console.log('running', running)
@@ -228,6 +249,23 @@ function continueStart() {
         } else {
           console.log('Successfully shutdown.')
         }
+      }
+
+      var pid = lib.areWeRunning(config)
+      if (!pid) {
+        // launcher isn't running but asking for stop...
+        const lokinet = require('./lokinet')
+        // TODO: lokinet running? can't check udp. loki-storage port running?
+        // TODO: launcher actually running somewhere?
+        // and is it locked up? webserver port?
+        lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, async function(portFree) {
+          if (!portFree) {
+            const portPid = await lib.findPidByPort(config.blockchain.rpc_port)
+            console.log('')
+            console.log(`There's a lokid on ${portPid} that we're not tracking using our configuration (rpc_port is already in use). You likely will want to confirm and manually stop it before start using the launcher again.`);
+            console.log('')
+          }
+        })
       }
 
       var running = lib.getProcessState(config)
