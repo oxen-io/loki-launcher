@@ -133,84 +133,9 @@ function continueStart() {
 
   let statusWatcher = false
 
-  function status() {
-    const lokinet = require('./lokinet')
-    var running = lib.getProcessState(config)
-    var pids = lib.getPids(config)
-
-    if (running.lokid === undefined) {
-      //console.log('no pids...')
-      var pid = lib.areWeRunning(config)
-      // if no pids.json and somehow we're running? (pids.json got deleted)
-      if (pids.err == 'noFile'  && pid) {
-        console.log('Launcher is running with no', config.launcher.var_path + '/pids.json, giving it a little nudge, please run status again, current results maybe incorrect')
-        process.kill(pid, 'SIGHUP')
-      } else if (pids.err && pids.err != 'noFile') {
-        console.error('error reading file', config.launcher.var_path + '/pids.json', pids.err)
-      }
-      // update config from pids.json
-      if (pids && !pids.err && pid) {
-        console.log('replacing disk config with running config')
-        config = pids.runningConfig
-      }
-
-      // if no launcher, check for the port...
-      if (!pid) {
-        lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, function(portFree) {
-          if (!portFree) {
-            console.log('')
-            console.log('There\'s a lokid that we\'re not tracking using our configuration (rpc_port is already in use). You likely will want to confirm and manually stop it before start using the launcher again.');
-            // Exiting...
-            console.log('')
-            if (pids.err == 'noFile') {
-              // could attach and track...
-            } else {
-              // noFile explains why we know lokid isn't running...
-            }
-          }
-        });
-      }
-      // if we have a launcher, then ofc the port SHOULD be in use...
-
-    }
-    //console.log('status pids', pids)
-    //console.log('running', running)
-    // if the launcher is running
-    if (running.launcher) {
-    } else {
-      console.log('Launcher is not running')
-      // FIXME: may want to check on child daemons to make sure they're not free floating?
-    }
-    // launcher will always be imperfect
-    // show info IF we have it
-    // processes may be broken/zombies
-    if (pids.blockchain_startTime) {
-      console.log('Last blockchain (re)start:', new Date(pids.blockchain_startTime))
-    }
-    if (pids.network_startTime) {
-      console.log('Last network    (re)start:', new Date(pids.network_startTime))
-    }
-    if (pids.storage_startTime) {
-      console.log('Last storage    (re)start:', new Date(pids.storage_startTime))
-    }
-
-    // "not running" but too easy to confuse with "running"
-    lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
-      var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
-      //console.log('nodeVer', nodeVer)
-      if (nodeVer >= 10) {
-        console.table(checklist)
-      } else {
-        console.log(checklist)
-      }
-    })
-
-    if (running.lokid) {
-      // read config, run it with status param...
-      // spawn out and relay output...
-      // could also use the socket to issue a print_sn_status
-    }
-  }
+  const statusSystem = require(__dirname + '/modes/status')
+  statusSystem.start(config)
+  const status = statusSystem.status
 
   console.log('Running', mode)
   switch(mode) {
@@ -222,6 +147,20 @@ function continueStart() {
     break;
     case 'status': // official
       status()
+      var type = findFirstArgWithoutDash()
+      if (type) {
+        switch(type) {
+          case 'blockchain':
+            statusSystem.checkBlockchain();
+          break;
+          case 'storage':
+            statusSystem.checkStorage();
+          break;
+          case 'network':
+            statusSystem.checkNetwork();
+          break;
+        }
+      }
     break;
     case 'stop': // official
       // maybe use the client to see what's taking lokid a while...
@@ -322,6 +261,14 @@ function continueStart() {
       process.env.__daemon = true
       if (debugMode) {
         statusWatcher = setInterval(status, 30*1000)
+        process.on('SIGUSR1', function () {
+          console.log('Disabling statusWatcher')
+          clearInterval(statusWatcher)
+        })
+        process.on('SIGUSR2', function () {
+          console.log('Enabling statusWatcher')
+          statusWatcher = setInterval(status, 30*1000)
+        })
         process.on('SIGINT', function () {
           if (statusWatcher) {
             clearInterval(statusWatcher)
