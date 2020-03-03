@@ -52,6 +52,44 @@ function lowerPermissions(user, cb) {
   process.setuid(user)
 }
 
+function blockchain_running() {
+  return loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)
+}
+function storage_running() {
+  return storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)
+}
+function network_running() {
+  let lokinetState = lokinet.isRunning()
+  return lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)
+}
+
+function waitfor_blockchain_shutdown(cb) {
+  setTimeout(function() {
+    if (!blockchain_running()) {
+      cb()
+    } else {
+      waitfor_blockchain_shutdown(cb)
+    }
+  }, 1000)
+}
+
+function shutdown_blockchain() {
+  if (loki_daemon) {
+    if (loki_daemon.outputFlushTimer) {
+      clearInterval(loki_daemon.outputFlushTimer)
+      loki_daemon.outputFlushTimer = null
+    }
+  }
+  if (loki_daemon && !loki_daemon.killed) {
+    console.log('LAUNCHER: Requesting lokid be shutdown.', loki_daemon.pid)
+    try {
+      process.kill(loki_daemon.pid, 'SIGINT')
+    } catch(e) {
+    }
+    loki_daemon.killed = true
+  }
+}
+
 function shutdown_storage() {
   if (storageServer && !storageServer.killed) {
     // FIXME: was killed not set?
@@ -87,14 +125,7 @@ function shutdown_everything() {
   shutdown_storage()
   // even if not running, yet, stop any attempts at starting it too
   lokinet.stop()
-  if (loki_daemon && !loki_daemon.killed) {
-    console.log('LAUNCHER: Requesting lokid be shutdown.', loki_daemon.pid)
-    try {
-      process.kill(loki_daemon.pid, 'SIGINT')
-    } catch(e) {
-    }
-    loki_daemon.killed = true
-  }
+  shutdown_blockchain()
   // clear our start up lock (if needed, will crash if not there)
   lib.clearStartupLock(module.exports.config)
   // FIXME: should we be savings pids as we shutdown? probably
@@ -103,17 +134,18 @@ function shutdown_everything() {
   if (shutDownTimer === null) {
     shutDownTimer = setInterval(function () {
       let stop = true
-      if (storageServer && storageServer.pid && lib.isPidRunning(storageServer.pid)) {
+      if (storage_running()) {
         console.log('LAUNCHER: Storage server still running.')
         stop = false
       }
       if (loki_daemon) {
         if (loki_daemon.outputFlushTimer) {
-          clearInterval(loki_daemon.outputFlushTimer)
-          loki_daemon.outputFlushTimer = null
+          console.log('Should never hit me')
+          // clearInterval(loki_daemon.outputFlushTimer)
+          // loki_daemon.outputFlushTimer = null
         }
       }
-      if (loki_daemon && loki_daemon.pid && lib.isPidRunning(loki_daemon.pid)) {
+      if (blockchain_running()) {
         console.log('LAUNCHER: lokid still running.')
         // lokid on macos may need a kill -9 after a couple failed 15
         // lets say 50s of not stopping -15 then wait 30s if still run -9
@@ -131,8 +163,8 @@ function shutdown_everything() {
           server = false
         }
       }
-      let lokinetState = lokinet.isRunning()
-      if (lokinetState && lokinetState.pid && lib.isPidRunning(lokinetState.pid)) {
+      const lokinetState = lokinet.isRunning()
+      if (network_running()) {
         console.log('LAUNCHER: lokinet still running.')
         stop = false
       }
@@ -143,7 +175,8 @@ function shutdown_everything() {
         // race between the pid dying and registering of the exit
         storageServer = null
         loki_daemon = null
-        lokinetState = null
+        // FIXME: make sure lokinet.js handles this
+        // lokinetState = null
         lib.clearPids(module.exports.config)
         /*
         if (fs.existsSync(config.launcher.var_path + '/pids.json')) {
@@ -183,6 +216,9 @@ function shutdown_everything() {
 
 let storageServer
 var storageLogging = true
+// you get one per sec... so how many seconds to do you give lokid to recover?
+// 120s
+var last120lokidContactFailures = []
 function launcherStorageServer(config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
@@ -285,6 +321,15 @@ function launcherStorageServer(config, args, cb) {
       }
       // swarm_tick communication error
       if (str.match(/Failed to contact local Lokid/) || str.match(/Exception caught on swarm update/)) {
+        var ts = Date.now()
+        last120lokidContactFailures.push(ts)
+        last120lokidContactFailures.splice(-120)
+        console.log('last120lokidContactFailures', last120lokidContactFailures.length)
+        // if the oldest one is not more than 180s ago
+        if (ts - last120lokidContactFailures[0] < 180 * 1000) {
+          console.log('we should restart lokid');
+          requestBlockchainRestart();
+        }
         if (storageLogging) console.log(`STORAGE: blockchain tick failure`)
         if (!storageServer) {
           console.log('storageServer is unset, yet getting output', str)
@@ -343,7 +388,10 @@ function launcherStorageServer(config, args, cb) {
     console.log(`StorageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
+      // these seem to be empty
       console.log(stdout, 'stderr', stderr)
+      // also now can be a storage server crash
+      // we can use a port to check to make sure...
       console.log('')
       console.warn('StorageServer bind port could be in use, please check to make sure.', config.binary_path, 'is not already running on port', config.port)
       // we could want to issue one kill just to make sure
@@ -353,7 +401,8 @@ function launcherStorageServer(config, args, cb) {
       //
       // we could exit, or prevent a restart
       storageServer = null // it's already dead
-      shutdown_everything()
+      // we can no longer shutdown here, if storage server crashes, we do need to restart it...
+      //return shutdown_everything()
     }
     // code null means clean shutdown
     if (!shuttingDown) {
@@ -1010,11 +1059,13 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     shutdown_everything()
     return
   }
+
   loki_daemon.on('error', (err) => {
     console.error('BLOCKCHAINP_ERR:', JSON.stringify(err))
   })
 
   loki_daemon.startTime = Date.now()
+  loki_daemon.startedOptions = lokid_options
   savePidConfig = {
     config: config,
     args: args,
@@ -1125,6 +1176,26 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   if (cb) cb()
 }
 
+var requestBlockchainRestartLock = false
+function requestBlockchainRestart(config, cb) {
+  if (requestBlockchainRestartLock) {
+    console.log('LAUNCHER: already restarting blockchain')
+    return
+  }
+  requestBlockchainRestartLock = true
+  var oldVal = config.blockchain.restart
+  var obj = getPids(config)
+  config.blockchain.restart = 1
+  console.log('LAUNCHER: requesting blockchain restart')
+  shutdown_blockchain()
+  waitfor_blockchain_shutdown(function() {
+    console.log('BLOCKCHAIN: Restarting lokid.')
+    launchLokid(config.blockchain.binary_path, obj.blockchain_startedOptions, config.launcher.interactive, config, obj.arg)
+    requestBlockchainRestartLock = false
+    config.blockchain.restart = oldVal
+  })
+}
+
 function sendToClients(data) {
   if (server) {
     // broadcast
@@ -1205,6 +1276,7 @@ function handleInput(line) {
     }
     return true
   }
+  // FIXME: it'd be nice to disable the periodic status report msgs in interactive too
   return false
 }
 
