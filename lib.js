@@ -2,8 +2,14 @@
 const fs  = require('fs')
 const cp  = require('child_process')
 const net = require('net')
+const path = require('path')
+const http = require('http')
+const https = require('https')
+const urlparser = require('url')
 const execSync = cp.execSync
 const spawnSync = cp.spawnSync
+
+const VERSION = 0.1
 
 //
 // common functions for client and daemon
@@ -233,13 +239,14 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
   }
   if (loki_daemon && !loki_daemon.killed && loki_daemon.pid) {
     obj.lokid = loki_daemon.pid
-    obj.blockchain_startTime = loki_daemon.startTime
-    obj.blockchain_spawn_file = loki_daemon.spawnfile
-    obj.blockchain_spawn_args = loki_daemon.spawnargs
+    obj.blockchain_startTime      = loki_daemon.startTime
+    obj.blockchain_startedOptions = loki_daemon.startedOptions
+    obj.blockchain_spawn_file     = loki_daemon.spawnfile
+    obj.blockchain_spawn_args     = loki_daemon.spawnargs
   }
   if (storageServer && !storageServer.killed && storageServer.pid) {
-    obj.storageServer = storageServer.pid
-    obj.storage_startTime = storageServer.startTime
+    obj.storageServer      = storageServer.pid
+    obj.storage_startTime  = storageServer.startTime
     obj.storage_spawn_file = storageServer.spawnfile
     obj.storage_spawn_args = storageServer.spawnargs
     obj.storage_blockchain_failures = storageServer.blockchainFailures
@@ -247,8 +254,8 @@ function savePids(config, args, loki_daemon, lokinet, storageServer) {
   var lokinetPID = lokinet.getPID()
   if (lokinetPID) {
     var lokinet_daemon = lokinet.getLokinetDaemonObj()
-    obj.lokinet = lokinetPID
-    obj.network_startTime = lokinet_daemon.startTime
+    obj.lokinet            = lokinetPID
+    obj.network_startTime  = lokinet_daemon.startTime
     obj.network_spawn_file = lokinet_daemon.spawnfile
     obj.network_spawn_args = lokinet_daemon.spawnargs
     obj.network_blockchain_failures = lokinet_daemon.blockchainFailures
@@ -308,6 +315,72 @@ function getProcessState(config) {
     }
   }
   return running
+}
+
+function runBlockchainRPCTest(config, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: "0",
+    method: "get_info"
+  }
+  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+    cb(json)
+  })
+}
+
+function runStorageRPCTest(lokinet, config, cb) {
+  var url = 'https://' + config.storage.ip + ':' + config.storage.port + '/get_stats/v1'
+  //console.log('Storage server is running, checking to make sure it\'s responding')
+  //console.log('storage', config.storage)
+  //console.log('asking', url)
+  var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
+  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0 // turn it off for now
+  var responded = false
+  var ref = {
+    abort: function () {
+      console.log('runStorageRPCTest abort: never called httpGet?')
+    }
+  }
+  var storage_rpc_timer = setTimeout(function() {
+    if (responded) return
+    responded = true
+    ref.abort()
+    cb()
+  }, 5000)
+  ref = lokinet.httpGet(url, function(data) {
+    process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = oldTLSValue
+    clearTimeout(storage_rpc_timer)
+    if (responded) return
+    responded = true
+    cb(data)
+  })
+}
+
+function runNetworkRPCTest(config, cb) {
+  var useIp = config.network.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.network.rpc_port + '/'
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: "0",
+    method: "llarp.version"
+  }
+  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+    console.log('json', json)
+    // 0.6.x support
+    if (json === 'bad json object') {
+      cb(true)
+    } else {
+      cb(false)
+    }
+    //var data = JSON.parse(json)
+    //console.log('result', data.result)
+    // get_block_count
+    // console.log('block count', data.result.count)
+  })
 }
 
 // won't take longer than 5s
@@ -406,26 +479,8 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
       checklist.storage_last_failure_blockchain_tick = new Date(pids.storage_blockchain_failures.last_blockchain_tick)+''
     }
     checklist.storage_rpc = 'Checking...'
-    function runTest() {
-      var url = 'https://' + pids.runningConfig.storage.ip + ':' + pids.runningConfig.storage.port + '/get_stats/v1'
-      //console.log('Storage server is running, checking to make sure it\'s responding')
-      //console.log('storage', config.storage)
-      //console.log('asking', url)
-      var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
-      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0 // turn it off for now
-      var responded = false
-      var storage_rpc_timer = setTimeout(function() {
-        if (responded) return
-        responded = true
-        ref.abort()
-        checklist.storage_rpc = offlineMessage
-        checkDone('storage_rpc')
-      }, 5000)
-      var ref = lokinet.httpGet(url, function(data) {
-        process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = oldTLSValue
-        if (responded) return
-        responded = true
-        clearTimeout(storage_rpc_timer)
+    function runStorageTest() {
+      runStorageRPCTest(lokinet, pids.runningConfig, function(data) {
         if (data === undefined) {
           checklist.storage_rpc = offlineMessage
         } else {
@@ -441,16 +496,16 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
       // just need a list of interfaces...
       if (pids.runningConfig.launcher.publicIPv4) {
         pids.runningConfig.storage.ip = pids.runningConfig.launcher.publicIPv4
-        return runTest()
+        return runStorageTest()
       }
       lokinet.checkConfig() // set up test config for getNetworkIP
       lokinet.getNetworkIP(function(err, localIP) {
         if (err) console.error('lib::getLauncherStatus - lokinet.getNetworkIP', err)
         pids.runningConfig.storage.ip = localIP
-        runTest()
+        runStorageTest()
       })
     } else {
-      runTest()
+      runStorageTest()
     }
   }
 
@@ -838,6 +893,94 @@ function findPidByPort(port) {
   })
 }
 
+function httpPost(url, postdata, cb) {
+  const urlDetails = urlparser.parse(url)
+  var protoClient = http
+  if (urlDetails.protocol == 'https:') {
+    protoClient = https
+  }
+  // well somehow this can get hung on macos
+  var abort = false
+  var watchdog = setInterval(function () {
+    if (shuttingDown) {
+      //if (cb) cb()
+      // [', url, ']
+      console.log('LIB: hung httpPost but have shutdown request, calling back early and setting abort flag')
+      clearInterval(watchdog)
+      abort = true
+      cb()
+      return
+    }
+  }, 5000)
+  // console.log('url', url, 'postdata', postdata)
+  const req = protoClient.request({
+    hostname: urlDetails.hostname,
+    protocol: urlDetails.protocol,
+    port: urlDetails.port,
+    path: urlDetails.path,
+    method: 'POST',
+    timeout: 5000,
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': postdata.length,
+      'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
+    }
+  }, function (resp) {
+    clearInterval(watchdog)
+
+    resp.setEncoding('binary')
+    let data = ''
+    // A chunk of data has been recieved.
+    resp.on('data', (chunk) => {
+      data += chunk
+    })
+    // The whole response has been received. Print out the result.
+    resp.on('end', () => {
+      // warn if not perfect
+      if (resp.statusCode != 200) {
+        console.log('LIB: httpPost result code', resp.statusCode)
+      }
+      if (abort) {
+        // we already called back
+        return
+      }
+      // hijack 300s
+      if (resp.statusCode === 301 || resp.statusCode === 302) {
+        if (resp.headers.location) {
+          let loc = resp.headers.location
+          if (!loc.match(/^http/)) {
+            if (loc.match(/^\//)) {
+              // absolute path
+              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
+            } else {
+              // relative path
+              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
+            }
+          }
+          console.log('LIB: httpGet Redirecting to', loc)
+          return httpGet(loc, cb)
+        }
+      }
+      // fail on 400s
+      if (resp.statusCode === 404 || resp.statusCode === 403) {
+        if (resp.statusCode === 403) console.error('LIB:', url, 'is forbidden')
+        if (resp.statusCode === 404) console.error('LIB:', url, 'is not found')
+        cb()
+        return
+      }
+      cb(data)
+    })
+  }).on("error", (err) => {
+    console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
+    clearInterval(watchdog)
+    //console.log('err', err)
+    cb()
+  })
+  req.write(postdata)
+  req.end()
+  return req
+}
+
 module.exports = {
   getLogo: getLogo,
   //  args: args,
@@ -859,4 +1002,7 @@ module.exports = {
 
   stopLauncher: stopLauncher,
   waitForLauncherStop: waitForLauncherStop,
+
+  httpPost: httpPost,
+  runStorageRPCTest: runStorageRPCTest,
 }
