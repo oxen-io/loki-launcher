@@ -1,11 +1,11 @@
 const fs = require('fs')
 const os = require('os')
-const http = require('http')
+const http  = require('http')
 const https = require('https')
 const urlparser = require('url')
-const pathUtil = require('path')
-const lib = require(__dirname + '/../lib')
-const lokinet = require(__dirname + '/../lokinet')
+const pathUtil  = require('path')
+const lib       = require(__dirname + '/../lib')
+const lokinet   = require(__dirname + '/../lokinet')
 //const configUtil = require(__dirname + '/../config')
 
 const debug = false
