@@ -51,6 +51,7 @@ COPY modes/client.js modes/
 COPY modes/download-binaries.js modes/
 COPY modes/fix-perms.js modes/
 COPY modes/prequal.js modes/
+COPY modes/status.js modes/
 COPY lokinet.js .
 COPY start.js .
 COPY uid.js .
