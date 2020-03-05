@@ -393,7 +393,7 @@ function launcherStorageServer(config, args, cb) {
       // also now can be a storage server crash
       // we can use a port to check to make sure...
       console.log('')
-      console.warn('StorageServer bind port could be in use, please check to make sure.', config.binary_path, 'is not already running on port', config.port)
+      console.warn('StorageServer bind port could be in use, please check to make sure.', config.storage.binary_path, 'is not already running on port', config.storage.port)
       // we could want to issue one kill just to make sure
       // however since we don't know the pid, we won't know if it's ours
       // or meant be running by another copy of the launcher
