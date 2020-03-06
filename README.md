@@ -117,11 +117,11 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 - 1.0.11
-  - Fix storage server watchdog
-  - Make storage server watchdog run every 10mins instead of 60mins
-  - Handle storage server exit code 1 exits better (restart instead of exit) as crash can also cause code 1
-  - Now attempts lokid restart if storage server fails to communicate with it for 2-3 mins
-  - Handle storage server not being set better
+  - fix storage server watchdog
+  - make storage server watchdog run every 10mins instead of 60mins
+  - handle storage server exit code 1 exits better (restart instead of exit) as crash can also cause code 1
+  - now attempts lokid restart if storage server fails to communicate with it for 2-3 mins
+  - handle storage server not being set better
   - always chomp pid file to make testing easier
   - status: if launcher isnn't running, always check to see if lokid's rpc port is in use or not
   - interactive-debug mode: SIGUSR1 hides, SIGUSR2 shows peridotic status reports
