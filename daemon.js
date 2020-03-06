@@ -368,14 +368,23 @@ function launcherStorageServer(config, args, cb) {
     stderr = ''
   }, 10 * 1000)
   function checkStorageServer() {
+    console.log('STORAGE: checking for deadlock')
     lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
-      if (running.storage_rpc === 'offline') {
+      if (checklist.storage_rpc === undefined) {
+        console.log('STORAGE: weird, no status', running, checklist)
+      } else {
+        console.log('STORAGE: status', checklist.storage_rpc)
+      }
+      if (!running.storageServer) {
+        console.log('STORAGE: storage server is not running')
+      }
+      if (checklist.storage_rpc === 'offline') {
         console.log('STORAGE: RPC server not responding, restarting storage server')
         shutdown_storage()
       }
     })
   }
-  let watchdog = setInterval(checkStorageServer, 60 * 60 * 1000)
+  let watchdog = setInterval(checkStorageServer, 10 * 60 * 1000)
   setTimeout(checkStorageServer, 10 * 1000)
 
   storageServer.on('error', (err) => {
