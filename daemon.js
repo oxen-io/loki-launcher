@@ -261,6 +261,7 @@ function launcherStorageServer(config, args, cb) {
   console.log('STORAGE: Launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
   // ip and port must be first
   storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
+  //storageServer = spawn('/usr/bin/valgrind', ['--leak-check=yes', config.storage.binary_path, config.storage.ip, config.storage.port, '--log-level=trace', ...optionals])
   // , { stdio: 'inherit' })
 
   //console.log('storageServer', storageServer)
@@ -359,41 +360,43 @@ function launcherStorageServer(config, args, cb) {
       console.error(`Storage Server stderr error: ${err.toString('utf8').trim()}`)
     })
 
-
-  // don't hold up the exit too much
-  let memoryWatcher = setTimeout(function() {
-    console.log('Turning off storage server start up watcher.')
-    collectData = false
-    stdout = ''
-    stderr = ''
-  }, 10 * 1000)
-  function checkStorageServer() {
-    console.log('STORAGE: checking for deadlock')
-    lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
-      if (checklist.storage_rpc === undefined) {
-        console.log('STORAGE: weird, no status', running, checklist)
-      } else {
-        console.log('STORAGE: status', checklist.storage_rpc)
-      }
-      if (!running.storageServer) {
-        console.log('STORAGE: storage server is not running')
-      }
-      if (checklist.storage_rpc === 'offline') {
+  function watchdogCheck() {
+    // console.log('STORAGE: checking for deadlock')
+    lib.runStorageRPCTest(lokinet, config, function(data) {
+      if (data === undefined) {
         console.log('STORAGE: RPC server not responding, restarting storage server')
         shutdown_storage()
       }
     })
   }
-  let watchdog = setInterval(checkStorageServer, 10 * 60 * 1000)
-  setTimeout(checkStorageServer, 10 * 1000)
+
+  function startupComplete() {
+    console.log('STORAGE: Turning off storage server start up watcher, starting watchdog')
+    collectData = false
+    stdout = ''
+    stderr = ''
+    clearInterval(memoryWatcher)
+    memoryWatcher = null
+    watchdog = setInterval(watchdogCheck, 10 * 60 * 1000)
+  }
+
+  // don't hold up the exit too much
+  let watchdog = null
+  let memoryWatcher = setInterval(function() {
+    lib.runStorageRPCTest(lokinet, config, function(data) {
+      if (data !== undefined) {
+        startupComplete()
+      }
+    })
+  }, 10 * 1000)
 
   storageServer.on('error', (err) => {
     console.error('STORAGEP_ERR:', JSON.stringify(err))
   })
 
   storageServer.on('close', (code) => {
-    clearTimeout(memoryWatcher)
-    clearTimeout(watchdog)
+    if (memoryWatcher !== null) clearInterval(memoryWatcher)
+    if (watchdog !== null) clearInterval(watchdog)
     console.log(`StorageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
