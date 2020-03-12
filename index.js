@@ -125,9 +125,16 @@ function continueStart() {
 
   function warnRunAsRoot() {
     if (os.platform() != 'darwin') {
-      if (process.getuid() == 0) {
+      if (process.getuid() === 0) {
         console.error('Its not recommended you run this as root unless the guide otherwise says to do so')
       }
+    }
+  }
+
+  function requireRoot() {
+    if (process.getuid() !== 0) {
+      console.error('This now requires to be ran with sudo (or as root)')
+      process.exit()
     }
   }
 
@@ -269,7 +276,17 @@ function continueStart() {
           console.log('Enabling statusWatcher')
           statusWatcher = setInterval(status, 30*1000)
         })
+        // lokid exit seems fine...
+        // ctrl-c seems fine too
+        process.on('SIGTERM', function () {
+          console.log('interactive SIGTERM')
+          if (statusWatcher) {
+            clearInterval(statusWatcher)
+            statusWatcher = false
+          }
+        })
         process.on('SIGINT', function () {
+          console.log('interactive SIGINT')
           if (statusWatcher) {
             clearInterval(statusWatcher)
             statusWatcher = false
@@ -364,6 +381,7 @@ function continueStart() {
     break;
     case 'donwload-binaries': // official
     case 'download-binaries': // official
+      requireRoot()
       require(__dirname + '/modes/download-binaries').start(config)
     break;
     case 'version':
