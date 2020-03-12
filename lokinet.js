@@ -1108,6 +1108,19 @@ function launchLokinet(config, instance, cb) {
   if (cb) cb()
 }
 
+// from (MIT) https://github.com/springernature/hasbin/blob/master/lib/hasbin.js
+function getPaths(bin) {
+  var envPath = (process.env.PATH || '')
+  var envExt = (process.env.PATHEXT || '')
+  return envPath.replace(/["]+/g, '').split(path.delimiter).map(function (chunk) {
+    return envExt.split(path.delimiter).map(function (ext) {
+      return path.join(chunk, bin + ext)
+    })
+  }).reduce(function (a, b) {
+    return a.concat(b)
+  })
+}
+
 // call in startServiceNode
 function checkConfig(config) {
   //console.trace('lokinet checkConfig')
@@ -1131,6 +1144,20 @@ function checkConfig(config) {
   // set public_port ?
   if (os.platform() == 'linux') {
     // not root-like
+    const paths = getPaths('getcap')
+    var found = false
+    for(const path of paths) {
+      if (fs.statSync(path).isFile()) {
+        found = path
+        break
+      }
+    }
+    //console.log('found getcap at', found)
+    if (!found) {
+      console.log('You do not have getcap (and likely missing setcap too), if you are on a debian-based OS, please install the libcap2-bin package')
+      console.warn('lokinet will not work as a non-root user without this utility')
+      return
+    }
     exec('getcap ' + config.binary_path, function (err, stdout, stderr) {
       //console.log('getcap stdout', stdout)
       // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
