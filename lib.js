@@ -2,7 +2,6 @@
 const fs  = require('fs')
 const cp  = require('child_process')
 const net = require('net')
-const path = require('path')
 const http = require('http')
 const https = require('https')
 const urlparser = require('url')
