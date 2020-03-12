@@ -893,6 +893,19 @@ function findPidByPort(port) {
   })
 }
 
+// from (MIT) https://github.com/springernature/hasbin/blob/master/lib/hasbin.js
+function getPaths(bin) {
+  var envPath = (process.env.PATH || '')
+  var envExt = (process.env.PATHEXT || '')
+  return envPath.replace(/["]+/g, '').split(path.delimiter).map(function (chunk) {
+    return envExt.split(path.delimiter).map(function (ext) {
+      return path.join(chunk, bin + ext)
+    })
+  }).reduce(function (a, b) {
+    return a.concat(b)
+  })
+}
+
 function httpPost(url, postdata, cb) {
   const urlDetails = urlparser.parse(url)
   var protoClient = http
@@ -1005,4 +1018,5 @@ module.exports = {
 
   httpPost: httpPost,
   runStorageRPCTest: runStorageRPCTest,
+  getPaths: getPaths,
 }
