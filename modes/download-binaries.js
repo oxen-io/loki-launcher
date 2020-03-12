@@ -309,22 +309,30 @@ function start(config) {
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
       start_retries = 0
+      lokinet.checkConfig(config) // setcap
       downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
         start_retries = 0
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config, function() {
+
+        })
       })
     })
   } else {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
       start_retries = 0
+      lokinet.checkConfig(config) // setcap
       downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
         start_retries = 0
+        /*
         if (xenial_hack) {
           console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
           downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
         } else {
-          downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
-        }
+        */
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config, function() {
+          // can't run fix-perms without knowing the user
+        })
+        //}
       })
     })
   }
