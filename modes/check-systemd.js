@@ -3,6 +3,7 @@ const fs = require('fs')
 const cp = require('child_process')
 const execSync = cp.execSync
 const lib = require(__dirname + '/../lib')
+const lokinet = require(__dirname + '/../lokinet')
 
 function rewriteServiceFile(serviceFile, entrypoint) {
   console.log('detected', serviceFile)
@@ -49,7 +50,12 @@ function rewriteServiceFile(serviceFile, entrypoint) {
       console.log('updating lokid.service')
       var newBytes = nLines.join("\n")
       fs.writeFileSync(serviceFile, newBytes)
-      execSync('systemctl daemon-reload')
+      const found = lokinet.getBinaryPath('getcap')
+      if (found) {
+        execSync('systemctl daemon-reload')
+      } else {
+        console.log('You may need to run: systemctl daemon-reload')
+      }
       return true
     }
   }
