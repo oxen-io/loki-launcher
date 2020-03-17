@@ -133,7 +133,7 @@ function continueStart() {
 
   function requireRoot() {
     if (process.getuid() !== 0) {
-      console.error('This now requires to be ran with sudo (or as root, currentUID:', process.getuid(), ')')
+      console.error('This now requires to be ran as root (currentUID: ', process.getuid(), ', expected 0), try running the command with "sudo " in front')
       process.exit()
     }
   }
