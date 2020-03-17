@@ -253,14 +253,14 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.data_dir) {
     optionals.push('--data-dir', config.storage.data_dir)
   }
+  if (config.storage.lokid_rpc_port) {
+    optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
+  }
   if (!configUtil.isStorageBinary2X(config)) {
     // 1.0.x
     // this was required, we'll stop supporting it in 2x (tho 2.0 still accepts it)
     if (config.storage.lokid_key) {
       optionals.push('--lokid-key', config.storage.lokid_key)
-    }
-    if (config.storage.lokid_rpc_port) {
-      optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
     }
   } else {
     // 2.x
