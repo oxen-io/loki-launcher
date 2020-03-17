@@ -8,7 +8,9 @@ const lib = require(__dirname + '/lib')
 const lokinet = require(__dirname + '/lokinet')
 const configUtil = require(__dirname + '/config')
 const networkTest = require(__dirname + '/lib.networkTest')
-const { spawn } = require('child_process')
+const cp  = require('child_process')
+const spawn = cp.spawn
+const execSync = cp.execSync
 const stdin = process.openStdin()
 
 //const longjohn = require('longjohn')
@@ -19,7 +21,7 @@ const VERSION = 0.2
 let g_config = null
 process.on('uncaughtException', function (err) {
   console.trace('Caught exception:', err)
-  let var_path = ''
+  let var_path = '.'
   if (g_config) var_path = g_config.launcher.var_path
   fs.appendFileSync(var_path + '/launcher_exception.log', JSON.stringify({
     err: err,
@@ -125,6 +127,7 @@ function shutdown_everything() {
   shutdown_storage()
   // even if not running, yet, stop any attempts at starting it too
   lokinet.stop()
+  lib.stop()
   shutdown_blockchain()
   // clear our start up lock (if needed, will crash if not there)
   lib.clearStartupLock(module.exports.config)
@@ -233,18 +236,16 @@ function launcherStorageServer(config, args, cb) {
     return
   }
   */
+
   // set storage port default
   if (!config.storage.port) {
     config.storage.port = 8080
   }
   // configure command line parameters
-  let optionals = []
+  const optionals = []
+  const requireds = []
   if (config.storage.testnet) {
     optionals.push('--testnet')
-  }
-  // this was required
-  if (config.storage.lokid_key) {
-    optionals.push('--lokid-key', config.storage.lokid_key)
   }
   if (config.storage.log_level) {
     optionals.push('--log-level', config.storage.log_level)
@@ -252,20 +253,37 @@ function launcherStorageServer(config, args, cb) {
   if (config.storage.data_dir) {
     optionals.push('--data-dir', config.storage.data_dir)
   }
-  if (config.storage.lokid_rpc_port) {
-    optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
+  if (!configUtil.isStorageBinary2X(config)) {
+    // 1.0.x
+    // this was required, we'll stop supporting it in 2x (tho 2.0 still accepts it)
+    if (config.storage.lokid_key) {
+      optionals.push('--lokid-key', config.storage.lokid_key)
+    }
+    if (config.storage.lokid_rpc_port) {
+      optionals.push('--lokid-rpc-port', config.storage.lokid_rpc_port)
+    }
+  } else {
+    // 2.x
+    requireds.push('--lmq-port', config.storage.lmq_port)
   }
   if (config.storage.force_start) {
     optionals.push('--force-start')
   }
-  console.log('STORAGE: Launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals].join(' '))
+  console.log('STORAGE: Launching', config.storage.binary_path, [config.storage.ip, config.storage.port, ...requireds, ...optionals].join(' '))
+  /*
   // ip and port must be first
-  storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...optionals])
+  var p1 = '"' + (['ulimit', '-n', '16384 ; ', config.storage.binary_path, config.storage.ip, config.storage.port, ...requireds, ...optionals].join(' ')) + '"'
+  console.log('p1', p1)
+  storageServer = spawn('/bin/bash', ['-c', p1], {
+  })
+  */
+  storageServer = spawn(config.storage.binary_path, [config.storage.ip, config.storage.port, ...requireds, ...optionals])
+
   //storageServer = spawn('/usr/bin/valgrind', ['--leak-check=yes', config.storage.binary_path, config.storage.ip, config.storage.port, '--log-level=trace', ...optionals])
   // , { stdio: 'inherit' })
 
   //console.log('storageServer', storageServer)
-  if (!storageServer.stdout) {
+  if (!storageServer.stdout || !storageServer.pid) {
     console.error('storageServer failed?')
     if (cb) cb(false)
     return
@@ -274,6 +292,36 @@ function launcherStorageServer(config, args, cb) {
   storageServer.startTime = Date.now()
   storageServer.blockchainFailures = {}
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+
+  function getPidLimit(pid) {
+    // linux only
+    const currentLimit = execSync(`grep 'open file' /proc/${pid}/limits`)
+    const lines = currentLimit.toString().split('\n')
+    const parts = lines[0].split(/\s{2,}/)
+    //console.log('lines', lines)
+    //console.log('parts', parts)
+    return [ parts[1], parts[2]]
+  }
+
+
+  if (configUtil.isStorageBinary2X(config)) {
+    var limits = getPidLimit(storageServer.pid)
+    if (limits[0] < 16384 || limits[1] < 16384) {
+      console.error('')
+      var ourlimits = getPidLimit(process.pid)
+      console.log('node limits', ourlimits, 'soft limit', limits[0], 'hard limit', limits[1])
+      console.error('')
+      console.error('Not enough file descriptors to run loki-storage, shutting down')
+      console.error("put LimitNOFILE=16384 in your [Service] section of /etc/systemd/system/lokid.service")
+      shutdown_everything()
+    }
+  }
+
+  //var fixResult = execSync(`prlimit --pid ${storageServer.pid} --nofile=16384:16384`)
+  //var fixResult = execSync(`python3 -c "import resource; resource.prlimit(${storageServer.pid}, resource.RLIMIT_NOFILE, (2048, 16384))"`)
+  //console.log('fixResult', fixResult.toString())
+
+  //console.log('after', getPidLimit())
 
   // copy the output to stdout
   let storageServer_version = 'unknown'
@@ -489,6 +537,11 @@ function startStorageServer(config, args, cb) {
       console.log('STORAGE: Not going to start storageServer, shutting down.')
       return
     }
+    // runStorageRPCTest(lokinet, config, function(data) {
+    //   if (data !== undefined) {
+    //     return cb()
+    //   }
+    //})
     lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, function(portFree) {
       if (!portFree) {
         cb()
@@ -764,7 +817,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
         */
         console.log('Trying to connect to', server)
         addresses.splice(idx, 1) // remove it
-        networkTest.createClient(server, 3000, function(client) {
+        networkTest.createClient(server, 3000, async function(client) {
           //console.log('client', client)
           if (debug) console.debug('got createClient cb')
           if (client === false) {
@@ -783,124 +836,101 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             }
             return
           }
-          // if 6.x+
+
+          // select your tests
+          const ourTests = []
           if (!configUtil.isBlockchainBinary3X(config) && !configUtil.isBlockchainBinary4Xor5X(config)) {
-            console.log('Starting open port check on configured blockchain quorumnet server port:', config.blockchain.qun_port)
-            client.startTestingServer(config.blockchain.qun_port, debug, function(results, port) {
-              if (debug) console.debug('got startTestingServer qun cb')
-              if (results != 'good') {
-                if (results == 'inuse') {
-                  console.error(config.blockchain.qun_port, 'is already in use, please make sure nothing is using the port before trying again')
-                } else  {
-                  console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                    ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-                }
-                for(var i in args) {
-                  var arg = args[i]
-                  if (arg == '--ignore-storage-server-port-check') {
-                    client.disconnect()
-                    console.log('verification phase complete (ignoring checks)')
-                    args.splice(i, 1) // remove this option
-                    doStart()
-                    return
-                  }
-                }
-                process.exit(1)
-              } else {
-                console.log('Starting open port check on configured storage server port:', config.storage.port)
-                client.startTestingServer(config.storage.port, debug, function(results, port) {
-                  if (debug) console.debug('got startTestingServer storage cb')
-                  if (results != 'good') {
-                    if (results == 'inuse') {
-                      console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
-                    } else  {
-                      console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                        ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-                    }
-                    for(var i in args) {
-                      var arg = args[i]
-                      if (arg == '--ignore-storage-server-port-check') {
-                        client.disconnect()
-                        console.log('verification phase complete (ignoring checks)')
-                        args.splice(i, 1) // remove this option
-                        doStart()
-                        return
-                      }
-                    }
-                    process.exit(1)
-                  } else {
-                    if (config.network.enabled) {
-                      console.log('Starting open port check on configured network server port:', config.network.public_port)
-                      client.startUDPRecvTestingServer(config.network.public_port, debug, function(results, port) {
-                        if (results != 'good') {
-                          if (results == 'inuse') {
-                            console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
-                          } else  {
-                            console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                              ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-                          }
-                          for(var i in args) {
-                            var arg = args[i]
-                            if (arg == '--ignore-storage-server-port-check') {
-                              client.disconnect()
-                              console.log('verification phase complete (ignoring checks)')
-                              args.splice(i, 1) // remove this option
-                              doStart()
-                              return
-                            }
-                          }
-                          process.exit(1)
-                        } else {
-                          console.log('Starting outgoing UDP port check on configured network server from UDP port:', config.network.public_port)
-                          client.testUDPSendPort(config.network.public_port, 1090, function(results, port) {
-                            if (results != 'good') {
-                              if (results == 'inuse') {
-                                console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
-                              } else  {
-                                console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                                  ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
-                              }
-                              for(var i in args) {
-                                var arg = args[i]
-                                if (arg == '--ignore-storage-server-port-check') {
-                                  client.disconnect()
-                                  console.log('verification phase complete (ignoring checks)')
-                                  args.splice(i, 1) // remove this option
-                                  doStart()
-                                  return
-                                }
-                              }
-                              process.exit(1)
-                            } else {
-                              console.log('verification phase complete.')
-                              client.disconnect()
-                              doStart()
-                            }
-                          }) // end testUDPSendPort
-                        }
-                      }) // end startUDPRecvTestingServer
-                    } else {
-                      console.log('verification phase complete.')
-                      client.disconnect()
-                      doStart()
-                    }
-                  }
-                }) // end startTestingServer (storage)
-              }
-            }) // end startTestingServer (qun)
+            ourTests.push({
+              name: 'blockchain quorumnet',
+              shortName: 'OpenQuorumNetPort',
+              type: 'tcp',
+              outgoing: false,
+              recommended: false,
+              port: config.blockchain.qun_port
+            },
+            {
+              name: 'storage server',
+              shortName: 'OpenStoragePort',
+              type: 'tcp',
+              outgoing: false,
+              recommended: false,
+              port: config.storage.port
+            })
+            if (configUtil.isBlockchainBinary7X(config)) {
+              ourTests.push({
+                name: 'storage server LMQ',
+                shortName: 'OpenStorageLMQPort',
+                type: 'tcp',
+                outgoing: false,
+                recommended: false,
+                port: config.storage.lmq_port
+              })
+            }
+            if (config.network.enabled) {
+              ourTests.push({
+                name: 'network incoming',
+                shortName: 'OpenNetworkRecvPort',
+                type: 'udp',
+                outgoing: false,
+                recommended: false,
+                port: config.network.public_port
+              },
+              {
+                name: 'network outgoing',
+                shortName: 'OpenNetworkSendPort',
+                type: 'udp',
+                outgoing: true,
+                recommended: false,
+                port: config.network.public_port
+              })
+            }
           } else {
-            // 3-5x lokid
             if (config.storage.enabled) {
-              console.log('Starting open port check on configured storage server port:', config.storage.port)
-              client.startTestingServer(config.storage.port, debug, function(results, port) {
-                if (debug) console.debug('got startTestingServer storage cb')
+              ourTests.push({
+                name: 'storage server',
+                shortName: 'OpenStoragePort',
+                type: 'tcp',
+                outgoing: false,
+                recommended: false,
+                port: config.storage.port
+              })
+            }
+          }
+
+          function runTest(test) {
+            return new Promise((resolve, rej) => {
+              console.log('Starting open port check on configured ', test.name, (test.type === 'tcp' ? 'TCP':'UDP'), 'port:', test.port)
+              p2 = debug
+              testName = 'startTestingServer'
+              if (test.type === 'udp') {
+                if (test.outgoing) {
+                  testName = 'testUDPSendPort'
+                  p2 = 1090
+                } else {
+                  testName = 'startUDPRecvTestingServer'
+                }
+              }
+              client[testName](test.port, p2, function(results, port) {
                 if (results != 'good') {
-                  if (results == 'inuse') {
-                    console.error(config.storage.port, 'is already in use, please make sure nothing is using the port before trying again')
-                  } else  {
-                    console.error('WE COULD NOT VERIFY THAT YOU HAVE PORT ' + port +
-                      ', OPEN ON YOUR FIREWALL/ROUTER, this is now required to run a service node')
+                  if (results === 'inuse') {
+                    console.error((test.type === 'udp' ? 'UDP' : 'TCP') + ' PORT ' + port +
+                      ' ' + (test.outgoing?'OUTGOING':'INCOMING') +
+                      ' is already in use, please make sure nothing is using the port before trying again')
+                  } else {
+                    let wasTimeout = false
+                    if (port === 'ETIMEDOUT') {
+                      port = test.port
+                      wasTimeout = true
+                    }
+                    console.error('WE COULD NOT VERIFY THAT YOU HAVE ' +
+                      (test.type === 'udp' ? 'UDP' : 'TCP') + ' PORT ' + port +
+                      ' ' + (test.outgoing?'OUTGOING':'INCOMING') +
+                      ', OPEN ON YOUR FIREWALL/ROUTER, this is ' + (test.recommended?'recommended':'required') + ' to run a service node')
+                    if (wasTimeout) {
+                      console.warn('There was a timeout, please retry')
+                    }
                   }
+
                   for(var i in args) {
                     var arg = args[i]
                     if (arg == '--ignore-storage-server-port-check') {
@@ -912,18 +942,19 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
                     }
                   }
                   process.exit(1)
-                } else {
-                  console.log('verification phase complete.')
-                  client.disconnect()
-                  doStart()
                 }
+                resolve()
               })
-            } else {
-              console.log('verification phase complete.')
-              client.disconnect()
-              doStart()
-            }
+            })
           }
+
+          for(test of ourTests) {
+            await runTest(test)
+          }
+          console.log('verification phase complete.')
+          client.disconnect()
+          doStart()
+
         }) // end createClient
       } // end func tryAndConnect
       tryAndConnect()
