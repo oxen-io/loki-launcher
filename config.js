@@ -2,7 +2,6 @@ const fs = require('fs')
 const os = require('os')
 const ini = require(__dirname + '/ini')
 const lib = require(__dirname + '/lib')
-const { execFileSync } = require('child_process')
 
 // only defaults we can save to disk
 // disk config is loaded over this...
@@ -282,16 +281,17 @@ function precheckConfig(config, args, debug) {
 
 var binary3xCache = null
 var binary4Xor5XCache = null
+var binary7xCache = null
 
 function getLokidVersion(config) {
   if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
     try {
-      var stdout = execFileSync(config.blockchain.binary_path, ['--version'])
-      var lokid_version = stdout.toString().trim()
+      var lokid_version = lib.getBlockchainVersion(config)
       //console.log('lokid_version', lokid_version)
       binary3xCache = lokid_version.match(/v3\.0/)?true:false
       binary4Xor5XCache = lokid_version.match(/v[54]\./)?true:false
-      return binary3xCache
+      binary7xCache = lokid_version.match(/v7\./)?true:false
+      return lokid_version
     } catch(e) {
       console.error('Cant detect lokid version', e)
       // can't hurt to retry I guess, maybe it is a temp problem
@@ -300,7 +300,9 @@ function getLokidVersion(config) {
   } else {
     binary3xCache = undefined
     binary4Xor5XCache = undefined
+    binary7xCache = undefined
   }
+  return false;
 }
 
 function isBlockchainBinary3X(config) {
@@ -315,6 +317,16 @@ function isBlockchainBinary4Xor5X(config) {
   return binary4Xor5XCache
 }
 
+function isBlockchainBinary7X(config) {
+  if (binary7xCache !== null) return binary7xCache
+  getLokidVersion(config)
+  return binary7xCache
+}
+
+function isStorageBinary2X(config) {
+  const binaryVersion = lib.getStorageVersion(config)
+  return binaryVersion.match(/v2/)
+}
 
 function checkLauncherConfig(config) {
   if (config.network === undefined) config.network = {}
@@ -572,6 +584,9 @@ function checkStorageConfig(config) {
   if (!config.storage.port) {
     config.storage.port = config.storage.testnet ? 38155 : 22021
   }
+  if (!config.storage.lmq_port) {
+    config.storage.lmq_port = config.storage.testnet ? 38154 : 22020
+  }
   // storage server auto config
   if (config.storage.lokid_key === undefined) {
     config.storage.lokid_key = getLokiDataDir(config) + '/key'
@@ -598,6 +613,7 @@ function isPortUsed(port, skip) {
   if (skip !== 'network.dns_port' && config.network.dns_port == port) return true
 
   if (skip !== 'storage.port' && config.storage.port == port) return true
+  if (skip !== 'storage.lmq_port' && config.storage.lmq_port == port) return true
 
   return false
 }
@@ -670,6 +686,7 @@ function portChecks(config) {
       config.storage.ip = '0.0.0.0'
     }
     addPort(config.storage.ip, config.storage.port, 'storage.port')
+    addPort(config.storage.ip, config.storage.lmq_port, 'storage.lmq_port')
   }
 
   const conflicts = []
@@ -870,4 +887,6 @@ module.exports = {
   ensureDirectoriesExist: ensureDirectoriesExist,
   isBlockchainBinary3X: isBlockchainBinary3X,
   isBlockchainBinary4Xor5X: isBlockchainBinary4Xor5X,
+  isBlockchainBinary7X: isBlockchainBinary7X,
+  isStorageBinary2X: isStorageBinary2X,
 }
