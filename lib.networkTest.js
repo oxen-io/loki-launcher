@@ -103,10 +103,10 @@ function createClient(host, port, cb, debug) {
 
   var timeoutTimer = null
   function startPortTest(client, port) {
-    //console.log('starting port test for', port)
+    if (debug) console.log('startPortTest requesting remote port test for', port)
     client.send('port ' + port)
     timeoutTimer = setTimeout(function() {
-      //console.warn('port test timed out')
+      if (debug) console.warn('startPortTest port test timed out')
       if (portTestCallback) {
         var callMe = portTestCallback
         portTestCallback = null
@@ -164,7 +164,7 @@ function createClient(host, port, cb, debug) {
         stopTest()
       break
       case 'report':
-        //console.log('got report')
+        if (debug) console.log('got report', pkt, portTestCallback)
         clearTimeout(timeoutTimer)
         clearInterval(intTimer)
         if (portTestCallback) {
@@ -174,6 +174,8 @@ function createClient(host, port, cb, debug) {
             code: parts[2]
           })
           portTestCallback = null
+        } else {
+          console.warn('networkTest: got report but no handler', portTestCallback)
         }
       break
       default:
@@ -227,8 +229,9 @@ function createClient(host, port, cb, debug) {
         startDownloadTest(client)
       },
       testPort: function(port, cb) {
+        if (debug) console.log('publicClient testPort setting callback')
         if (portTestCallback) {
-          console.log('a test is already running')
+          console.log('a port test is already running')
           return
         }
         portTestCallback = cb
@@ -236,14 +239,15 @@ function createClient(host, port, cb, debug) {
       },
       testUDPRecvPort: function(port, cb) {
         if (portTestCallback) {
-          console.log('a test is already running')
+          console.log('a port test is already running')
           return
         }
+        if (debug) console.log('publicClient testUDPRecvPort setting callback')
         // set lock
         portTestCallback = cb
         // create failure case
         timeoutTimer = setTimeout(function() {
-          //console.warn('port test timed out')
+          if (debug) console.warn('testUDPRecvPort port test timed out')
           clearInterval(intTimer)
           if (portTestCallback) {
             var callMe = portTestCallback
@@ -262,7 +266,7 @@ function createClient(host, port, cb, debug) {
       },
       testUDPSendPort: function(localPort, destPort, cb) {
         if (portTestCallback) {
-          console.log('a test is already running')
+          console.log('a port test is already running')
           return
         }
         const safeLocalPort = parseInt(localPort)
@@ -271,7 +275,14 @@ function createClient(host, port, cb, debug) {
           console.error('invalid destination port', safeDestPort)
           return
         }
+        if (debug) console.log('publicClient testUDPRecvPort setting callback')
         portTestCallback = function(res) {
+          if (intTimer) clearInterval(intTimer)
+          if (timeoutTimer) clearTimeout(timeoutTimer)
+          // bounding, automatically can trigger this
+          if (debug) console.log('testUDPSendPort clearing portTestCallback')
+          portTestCallback = null
+          //console.log('testUDPSendPort portTestCallbacked')
           udpClient.close() // close server
           cb(res.result, res.code)
         }
@@ -279,11 +290,14 @@ function createClient(host, port, cb, debug) {
         const message = Buffer.from('Some bytes')
         // 1090 here is a destination port
         udpClient.bind(safeLocalPort, function() {
+          //console.log('testUDPSendPort bound')
           timeoutTimer = setTimeout(function() {
+            if (debug) console.log('testUDPSendPort timed out, stopping send')
             //console.warn('port test timed out')
             clearInterval(intTimer)
             if (portTestCallback) {
               var callMe = portTestCallback
+              if (debug) console.log('testUDPSendPort clearing portTestCallback')
               portTestCallback = null
               callMe({
                 ip: '127.0.0.1',
@@ -292,6 +306,7 @@ function createClient(host, port, cb, debug) {
               })
             }
           }, 5 * 1000)
+
           intTimer = setInterval(function() {
             udpClient.send(message, safeDestPort, host, function() {
               // done sending...
@@ -323,6 +338,7 @@ function createClient(host, port, cb, debug) {
 
   // open port test by starting a network server on specified port
   function startTestingServer(port, networkTester, debug, cb) {
+    if (debug) console.debug('startTestingServer start')
     // FIXME: make sure port isn't already taken
     var code = lokinet.randomString(96)
     var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
@@ -330,6 +346,7 @@ function createClient(host, port, cb, debug) {
       // request shutdown of the tcp connection from server side
       //incomingConnection.send('quit ' + code + ' ' + Date.now())
     })
+    if (debug) console.debug('startTestingServer open')
     tempResponder.errorHandler = function(err) {
       if (err.code == 'EADDRINUSE') {
         tempResponder.letsClose(function() {
@@ -356,7 +373,8 @@ function createClient(host, port, cb, debug) {
       var str = message.toString()
       //console.log('message', str)
       if (str === 'Some bytes') {
-        if (debug) console.debug('port verified')
+        // if (debug) console.debug('port verified')
+        if (debug) console.log('startUDPRecvTestingServer port verified, clearing callback')
         clearTimeout(timeoutTimer)
         clearInterval(intTimer)
         portTestCallback = null // release test lock
@@ -373,6 +391,7 @@ function createClient(host, port, cb, debug) {
     }
     tempResponder.errorHandler = function(err) {
       if (err.code == 'EADDRINUSE') {
+        console.log('startUDPRecvTestingServer port in use, clearing callback')
         portTestCallback = null // release test lock
         clearTimeout(timeoutTimer)
         clearInterval(intTimer)
@@ -388,6 +407,7 @@ function createClient(host, port, cb, debug) {
 
     // set up test, and ask servers to hit us
     networkTester.testUDPRecvPort(port, function(results) {
+      if (debug) console.log('startUDPRecvTestingServer clearing callback')
       // only called on timeout
       portTestCallback = null // release lock (points to this function actually)
       clearTimeout(timeoutTimer)
