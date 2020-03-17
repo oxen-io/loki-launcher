@@ -1147,7 +1147,7 @@ function checkConfig(config) {
     const paths = getPaths('getcap')
     var found = false
     for(const path of paths) {
-      if (fs.statSync(path).isFile()) {
+      if (fs.existsSync(path)) {
         found = path
         break
       }
