@@ -397,7 +397,8 @@ function continueStart() {
     case 'download-chain': // official
       //
     break;
-    case 'version':
+    case 'versions':
+    case 'version': // official
       showVersions()
     break
     case 'help': // official
