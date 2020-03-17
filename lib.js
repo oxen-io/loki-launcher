@@ -7,6 +7,7 @@ const https = require('https')
 const urlparser = require('url')
 const execSync = cp.execSync
 const spawnSync = cp.spawnSync
+const execFileSync = cp.execFileSync
 
 const VERSION = 0.1
 
@@ -20,7 +21,7 @@ function hereDoc(f) {
     replace(/\*\/[^\/]+$/, '')
 }
 
-var logo = hereDoc(function () {/*!
+const logo = hereDoc(function () {/*!
         .o0l.
        ;kNMNo.
      ;kNMMXd'
@@ -54,6 +55,65 @@ function falsish(val) {
   if (val.toLowerCase() === 'no') return true
   if (val.toLowerCase() === 'off') return true
   return false
+}
+
+let blockchainVersion = null
+function getBlockchainVersion(config) {
+  if (blockchainVersion !== null) return blockchainVersion
+  if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
+    try {
+      const stdout = execFileSync(config.blockchain.binary_path, ['--version'])
+      blockchainVersion = stdout.toString().trim()
+      //console.log('lokid_version', lokid_version)
+      // Loki 'Nimble Nerthus' (v6.1.4-6f78319d0)
+      return blockchainVersion
+    } catch(e) {
+      console.error('Cant detect blockchain version', e)
+      // can't hurt to retry I guess, maybe it is a temp problem
+    }
+  }
+  return false;
+}
+
+let storageVersion = null
+function getStorageVersion(config) {
+  if (storageVersion !== null) return storageVersion
+  if (config.storage.binary_path && fs.existsSync(config.storage.binary_path)) {
+    try {
+      const stdout = execFileSync(config.storage.binary_path, ['-v'])
+      const storage_version = stdout.toString().trim()
+      const lines = storage_version.split(/\n/)
+      //console.log('storage_version', storage_version)
+      // [2020-03-12 07:53:16.940] [info] [print_version] Loki Storage Server v1.0.10
+      if (lines[3].match(/Loki Storage Server v/)) {
+        storageVersion = lines[3].replace(' [info] [print_version]', '')
+        return storageVersion
+      }
+      return storage_version
+    } catch(e) {
+      console.error('Cant detect storage version', e)
+      // can't hurt to retry I guess, maybe it is a temp problem
+    }
+  }
+  return false;
+}
+
+let networkVersion = null
+function getNetworkVersion(config) {
+  if (networkVersion !== null) return networkVersion
+  if (config.network.binary_path && fs.existsSync(config.network.binary_path)) {
+    try {
+      const stdout = execFileSync(config.network.binary_path, ['--version'])
+      networkVersion = stdout.toString().trim()
+      //console.log('network_version', network_version)
+      // lokinet-0.7.0-50514d55b
+      return networkVersion
+    } catch(e) {
+      console.error('Cant detect network version', e)
+      // can't hurt to retry I guess, maybe it is a temp problem
+    }
+  }
+  return false;
 }
 
 function pidUser(pid) {
@@ -133,7 +193,7 @@ function clearStartupLock(config) {
 const TO_MB = 1024 * 1024
 
 function areWeRunning(config) {
-  var pid = 0 // default is not running
+  let pid = 0 // default is not running
   if (fs.existsSync(config.launcher.var_path + '/launcher.pid')) {
     // we are already running
     // can be deleted between these two points...
@@ -148,8 +208,9 @@ function areWeRunning(config) {
     if (pid && isPidRunning(pid)) {
       // pid is correct, syslog could take this spot, verify the name
       //console.log('our process name', process.title)
+      let stdout = ''
       try {
-        var stdout = execSync('ps -p ' + pid + ' -ww -o pid,ppid,uid,gid,args', {
+        stdout = execSync('ps -p ' + pid + ' -ww -o pid,ppid,uid,gid,args', {
           maxBuffer: 2 * TO_MB,
           windowsHide: true
         })
@@ -158,18 +219,18 @@ function areWeRunning(config) {
         return 0
       }
       //console.log('stdout', typeof(stdout), stdout)
-      var lines = stdout.toString().split(/\n/)
-      var labels = lines.shift().trim().split(/( |\t)+/)
+      const lines = stdout.toString().split(/\n/)
+      const labels = lines.shift().trim().split(/( |\t)+/)
       //console.log(0, labels)
       // 0PID, 2PPID, 4UID, 6GID, 8ARGS
-      var verifiedPid = false
-      var foundPid = false
+      let verifiedPid = false
+      let foundPid = false
       for(var i in lines) {
-        var tLine = lines[i].trim().split(/( |\t)+/)
+        const tLine = lines[i].trim().split(/( |\t)+/)
         //console.log(i, tLine)
-        var firsts = tLine.splice(0, 8)
-        var thisPid = firsts[0]
-        var cmd = tLine.join(' ')
+        const firsts = tLine.splice(0, 8)
+        const thisPid = firsts[0]
+        const cmd = tLine.join(' ')
         if (thisPid == pid) {
           foundPid = true
           // /usr/local/bin/node   /Users/admin/Sites/loki-daemon-launcher/index.js ...
@@ -192,10 +253,10 @@ function areWeRunning(config) {
         // well clear the pid file
         // is it just the launcher running?
         console.warn('Could not verify that pid', pid, 'is actually the launcher by process title')
-        var pids = getPids(config)
-        var blockchainIsRunning = pids.lokid && isPidRunning(pids.lokid)
-        var networkIsRunning = config.network.enabled && pids.lokinet && isPidRunning(pids.lokinet)
-        var storageIsRunning = config.storage.enabled && pids.storageServer && isPidRunning(pids.storageServer)
+        const pids = getPids(config)
+        const blockchainIsRunning = pids.lokid && isPidRunning(pids.lokid)
+        const networkIsRunning = config.network.enabled && pids.lokinet && isPidRunning(pids.lokinet)
+        const storageIsRunning = config.storage.enabled && pids.storageServer && isPidRunning(pids.storageServer)
         if (!blockchainIsRunning && !networkIsRunning && !storageIsRunning) {
           console.log('Subprocess are not found, will request fresh start')
           //clearStartupLock(config)
@@ -892,6 +953,7 @@ function findPidByPort(port) {
   })
 }
 
+let shuttingDown = false
 function httpPost(url, postdata, cb) {
   const urlDetails = urlparser.parse(url)
   var protoClient = http
@@ -980,6 +1042,13 @@ function httpPost(url, postdata, cb) {
   return req
 }
 
+// FIXME: consider shutdown hooks system
+// should that use events?
+// statusWatcher in interactive-debug needs shutdown hooks too
+function stop() {
+  shuttingDown = true
+}
+
 module.exports = {
   getLogo: getLogo,
   //  args: args,
@@ -1004,4 +1073,8 @@ module.exports = {
 
   httpPost: httpPost,
   runStorageRPCTest: runStorageRPCTest,
+  stop: stop,
+  getBlockchainVersion: getBlockchainVersion,
+  getStorageVersion: getStorageVersion,
+  getNetworkVersion: getNetworkVersion,
 }
