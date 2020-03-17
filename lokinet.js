@@ -1108,17 +1108,28 @@ function launchLokinet(config, instance, cb) {
   if (cb) cb()
 }
 
-// from (MIT) https://github.com/springernature/hasbin/blob/master/lib/hasbin.js
-function getPaths(bin) {
-  var envPath = (process.env.PATH || '')
-  var envExt = (process.env.PATHEXT || '')
-  return envPath.replace(/["]+/g, '').split(path.delimiter).map(function (chunk) {
-    return envExt.split(path.delimiter).map(function (ext) {
-      return path.join(chunk, bin + ext)
+function getBinaryPath(bin) {
+  // from (MIT) https://github.com/springernature/hasbin/blob/master/lib/hasbin.js
+  function getPaths(bin) {
+    var envPath = (process.env.PATH || '')
+    var envExt = (process.env.PATHEXT || '')
+    return envPath.replace(/["]+/g, '').split(path.delimiter).map(function (chunk) {
+      return envExt.split(path.delimiter).map(function (ext) {
+        return path.join(chunk, bin + ext)
+      })
+    }).reduce(function (a, b) {
+      return a.concat(b)
     })
-  }).reduce(function (a, b) {
-    return a.concat(b)
-  })
+  }
+  const paths = getPaths(bin)
+  var found = false
+  for(const path of paths) {
+    if (fs.existsSync(path)) {
+      found = path
+      break
+    }
+  }
+  return found
 }
 
 // call in startServiceNode
@@ -1144,14 +1155,7 @@ function checkConfig(config) {
   // set public_port ?
   if (os.platform() == 'linux') {
     // not root-like
-    const paths = getPaths('getcap')
-    var found = false
-    for(const path of paths) {
-      if (fs.existsSync(path)) {
-        found = path
-        break
-      }
-    }
+    const found = getBinaryPath('getcap')
     //console.log('found getcap at', found)
     if (!found) {
       console.log('You do not have getcap (and likely missing setcap too), if you are on a debian-based OS, please install the libcap2-bin package')
@@ -1454,4 +1458,5 @@ module.exports = {
   onError: function (data) {
     console.log(`lokineterr: ${data}`)
   },
+  getBinaryPath: getBinaryPath,
 }
