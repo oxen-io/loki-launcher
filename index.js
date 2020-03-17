@@ -133,7 +133,7 @@ function continueStart() {
 
   function requireRoot() {
     if (process.getuid() !== 0) {
-      console.error('This now requires to be ran with sudo (or as root)')
+      console.error('This now requires to be ran with sudo (or as root, currentUID:', process.getuid(), ')')
       process.exit()
     }
   }
@@ -144,6 +144,13 @@ function continueStart() {
   statusSystem.start(config)
   const status = statusSystem.status
 
+  // this just show's what's installed not running
+  function showVersions() {
+    console.log('blockchain installed version', lib.getBlockchainVersion(config))
+    console.log('storage    installed version', lib.getStorageVersion(config))
+    console.log('network    installed version', lib.getNetworkVersion(config))
+  }
+
   console.log('Running', mode)
   switch(mode) {
     case 'strt':
@@ -152,6 +159,8 @@ function continueStart() {
       warnRunAsRoot()
       require(__dirname + '/start')(args, config, __filename, false)
     break;
+    case 'stauts':
+    case 'statsu':
     case 'status': // official
       status()
       var type = findFirstArgWithoutDash()
@@ -291,6 +300,7 @@ function continueStart() {
             clearInterval(statusWatcher)
             statusWatcher = false
           }
+          process.exit();
         })
       }
       require(__dirname + '/start')(args, config, __filename, debugMode)
@@ -379,13 +389,16 @@ function continueStart() {
       console.log('in :', process.argv)
       console.log('out:', args)
     break;
-    case 'donwload-binaries': // official
+    case 'donwload-binaries':
     case 'download-binaries': // official
       requireRoot()
       require(__dirname + '/modes/download-binaries').start(config)
     break;
-    case 'version':
+    case 'download-chain': // official
       //
+    break;
+    case 'version':
+      showVersions()
     break
     case 'help': // official
     case 'hlep':
