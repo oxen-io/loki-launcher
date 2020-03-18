@@ -311,9 +311,11 @@ function launcherStorageServer(config, args, cb) {
       var ourlimits = getPidLimit(process.pid)
       console.log('node limits', ourlimits, 'soft limit', limits[0], 'hard limit', limits[1])
       console.error('')
-      console.error('Not enough file descriptors to run loki-storage, shutting down')
-      console.error("put LimitNOFILE=16384 in your [Service] section of /etc/systemd/system/lokid.service")
-      shutdown_everything()
+      console.error('There maybe not enough file descriptors to run loki-storage, you may want to look at increasing it')
+      console.error('')
+      // console.error('Not enough file descriptors to run loki-storage, shutting down')
+      // console.error("put LimitNOFILE=16384 in your [Service] section of /etc/systemd/system/lokid.service")
+      // shutdown_everything()
     }
   }
 
