@@ -33,6 +33,8 @@ The goal of the launcher is to make it easier to run a service node, however the
 - Interactive client sessions, so you don't have lokid start up delays for each command you want to run
 - Unified subsystem reporting, get the status or versions of all 3 subsystems (blockchain, storage, network) from one command
 
+Launcher is maintained at cost of the Loki Foundation and if it's not found to be of use, maybe unfunded. Please consider supporting this great tool by using it.
+
 # How to do a fresh service node install
 
 This will use npm to install the launcher
