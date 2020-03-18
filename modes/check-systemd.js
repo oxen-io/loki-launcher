@@ -54,6 +54,9 @@ function rewriteServiceFile(serviceFile, entrypoint) {
       if (found) {
         try {
           execSync('systemctl daemon-reload')
+          // FIXME also run:
+          // systemctl enable lokid
+          // systemctl start lokid? no, we reboot on fresh install
         } catch(e) {
           console.warn('(Error when trying to reload: ', e.message, ') You may need to run: systemctl daemon-reload')
         }
