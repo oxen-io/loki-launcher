@@ -28,6 +28,7 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 The goal of the launcher is to make it easier to run a service node, however the DEBs installation and upgrade process can be much easier if you're running a debian-based OS. However we do have some additional advantages:
 - Safer, we have additional checks in configuration, like to make sure you don't create port conflicts. We also have other checks that can detect unwanted patterns of behavior between apps and be able to take action
 - Easier config management, one config file to manage all 3 binaries, also reduces the chance of you having to resolve config conflicts during upgrades
+- NAT support: Launcher automatically configures your outgoing interface. DEBs you have to manually set up your network interface
 - Prequal tool, know for sure your situation meets our minimum requirements
 - Diveristy of the network, if debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective
 - Interactive client sessions, so you don't have lokid start up delays for each command you want to run
