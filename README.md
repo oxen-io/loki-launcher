@@ -127,6 +127,8 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+- 1.0.13
+  - lower storage file descriptor requirement to just a warning instead of exiting
 - 1.0.12
   - NEW storage lmq_port port (22020) must be open to the public
   - storage NOW required 16384 available file descriptors, check-systemd should upgrade this for you
