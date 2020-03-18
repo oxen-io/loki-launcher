@@ -25,12 +25,13 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - setcap (libcap2-bin) to be enable lokinet to not need to run as root on Linux
 
 # Why use the launcher over DEBs
+The goal of the launcher is to make it easier to run a service node.
 - Safer, we have additional checks in configuration, like to make sure you don't create port conflicts. We also have other checks that can detect unwanted patterns of behavior between apps and be able to take action
 - Easier config management, one config file to manage all 3 binaries, also reduces the chance of you having to resolve config conflicts during upgrades
 - Prequal tool, know for sure your situation meets our minimum requirements
 - Diveristy of the network, if debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective
 - Interactive client sessions, so you don't have lokid start up delays for each command you want to run
-- Unified status reporting, get the status of all subsystems from one command
+- Unified subsystem reporting, get the status or versions of all 3 subsystems (blockchain, storage, network) from one command
 
 # How to do a fresh service node install
 
