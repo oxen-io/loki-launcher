@@ -29,8 +29,8 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - Easier config management, one config file to manage all 3 binaries, also reduces the chance of you having to resolve config conflicts during upgrades
 - Prequal tool, know for sure your situation meets our minimum requirements
 - Diveristy of the network, if debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective
-- Interactive client sessions: so you don't have lokid start up delays for each command you want to run
-- Unified status reporting: get the status of all subsystems from one command
+- Interactive client sessions, so you don't have lokid start up delays for each command you want to run
+- Unified status reporting, get the status of all subsystems from one command
 
 # How to do a fresh service node install
 
