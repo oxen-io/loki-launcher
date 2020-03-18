@@ -19,10 +19,21 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 # Requirements
 
 - [nodejs](https://nodejs.org/en/) versions 8.x to 12.x are supported
-- [npm](https://www.npmjs.com/get-npm) usually installed with nodejs
+- [npm](https://www.npmjs.com/get-npm) usually installed with nodejs (only for distribution and easy install of this software, we do not use ANY external NPMs for security reasons)
 - Linux (though macos does works and Windows kind of works)
 - xz (xz-utils apt package) to be able to download and extract updated Linux binaries
 - setcap (libcap2-bin) to be enable lokinet to not need to run as root on Linux
+
+# Why use the launcher over DEBs
+The goal of the launcher is to make it easier to run a service node, however the DEBs installation and upgrade process can be much easier if you're running a debian-based OS. However we do have some additional advantages:
+- Safer, we have additional checks in configuration, like to make sure you don't create port conflicts. We also have other checks that can detect unwanted patterns of behavior between apps and be able to take action
+- Easier config management, one config file to manage all 3 binaries, also reduces the chance of you having to resolve config conflicts during upgrades
+- Prequal tool, know for sure your situation meets our minimum requirements
+- Diveristy of the network, if debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective
+- Interactive client sessions, so you don't have lokid start up delays for each command you want to run
+- Unified subsystem reporting, get the status or versions of all 3 subsystems (blockchain, storage, network) from one command
+
+Launcher is maintained at cost of the Loki Foundation and if it's not found to be of use, maybe unfunded. Please consider supporting this great tool by using it.
 
 # How to do a fresh service node install
 
@@ -48,7 +59,7 @@ you can also ask it to download the Loki binaries if you don't already have them
 
 `loki-launcher start`
 
-Running it once should start the suite of services into the background or give you a message why it can't
+Running it once should start the suite of services into the background or give you a message why it can't. This isn't recommended for long term uses as there is nothing to restart launcher if it dies/exits.
 
 Running `loki-launcher client`, will give you an interactive terminal to lokid (the copy running from the current directory if you have multiple).
 `exit` will stop your service node. If you just want to exit the interactive terminal, please use `ctrl-c`.
@@ -116,6 +127,16 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+- 1.0.12
+  - NEW storage lmq_port port (22020) must be open to the public
+  - storage NOW required 16384 available file descriptors, check-systemd should upgrade this for you
+  - download-binaries now requires root, so it can always fix the capabilities on lokinet
+  - you will be suggested to install libcap2-bin if you don't have getcap in your path
+  - remove immediate storage watchdog check on start up
+  - write exception logs to /tmp instead of / so it's always writable
+  - check-systemd now runs daemon-reload for you and detect and warn about a conflicting DEBs install
+  - refactor all the testing calling to remove callback hell
+  - added all binaries versions to "version" mode
 - 1.0.11
   - fix storage server watchdog
   - make storage server watchdog run every 10mins instead of 60mins
