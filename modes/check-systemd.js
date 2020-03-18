@@ -52,7 +52,11 @@ function rewriteServiceFile(serviceFile, entrypoint) {
       fs.writeFileSync(serviceFile, newBytes)
       const found = lokinet.getBinaryPath('getcap')
       if (found) {
-        execSync('systemctl daemon-reload')
+        try {
+          execSync('systemctl daemon-reload')
+        } catch(e) {
+          console.warn('(Error when trying to reload: ', e.message, ') You may need to run: systemctl daemon-reload')
+        }
       } else {
         console.log('You may need to run: systemctl daemon-reload')
       }
