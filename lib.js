@@ -80,7 +80,7 @@ function getStorageVersion(config) {
   if (storageVersion !== null) return storageVersion
   if (config.storage.binary_path && fs.existsSync(config.storage.binary_path)) {
     try {
-      const stdout = execFileSync(config.storage.binary_path, ['-v'])
+      const stdout = execFileSync(config.storage.binary_path, ['--data-dir', '/tmp', '-v'])
       const storage_version = stdout.toString().trim()
       const lines = storage_version.split(/\n/)
       //console.log('storage_version', storage_version)
