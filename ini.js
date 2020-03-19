@@ -13,7 +13,7 @@ function iniToJSON(data) {
 
     // check for section
     if (line[0] == '[' && line[line.length - 1] == ']') {
-      section = line.substring(1, line.length - 1)
+      section = line.substring(1, line.length - 1).toLowerCase()
       //console.log('found section', section)
       continue
     }
