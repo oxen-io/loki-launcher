@@ -295,12 +295,17 @@ function launcherStorageServer(config, args, cb) {
 
   function getPidLimit(pid) {
     // linux only
-    const currentLimit = execSync(`grep 'open file' /proc/${pid}/limits`)
-    const lines = currentLimit.toString().split('\n')
-    const parts = lines[0].split(/\s{2,}/)
-    //console.log('lines', lines)
-    //console.log('parts', parts)
-    return [ parts[1], parts[2]]
+    try {
+      const currentLimit = execSync(`grep 'open file' /proc/${pid}/limits`)
+      const lines = currentLimit.toString().split('\n')
+      const parts = lines[0].split(/\s{2,}/)
+      //console.log('lines', lines)
+      //console.log('parts', parts)
+      return [ parts[1], parts[2]]
+    } catch(e) {
+      console.error('getPidLimit error', e.code, e.message)
+      return [ 0, 0 ]
+    }
   }
 
 
