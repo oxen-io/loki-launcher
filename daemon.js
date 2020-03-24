@@ -906,7 +906,7 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
 
           function runTest(test) {
             return new Promise((resolve, rej) => {
-              console.log('Starting open port check on configured ', test.name, (test.type === 'tcp' ? 'TCP':'UDP'), 'port:', test.port)
+              console.log('Starting open port check on configured', test.name, (test.type === 'tcp' ? 'TCP':'UDP'), 'port:', test.port)
               p2 = debug
               testName = 'startTestingServer'
               if (test.type === 'udp') {
