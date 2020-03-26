@@ -31,7 +31,7 @@ The goal of the launcher is to make it easier to run a service node, however the
 - Firewall Notification, lets you know if you're blocking any required ports. DEBs will open them in ufw but this won't help if you're using an different or external firewall. 
 - NAT support, Launcher automatically configures your outgoing interface and public IP. DEBs you have to manually set up your network interface and public ip. Neither will help you set up port forwarding though.
 - Prequal tool, know for sure your situation meets our minimum requirements
-- Diveristy of the network, if debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective
+- Diveristy of the network, in the highly unlikely event that Debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective. Being able to support multiple operating systems is good for the Loki ecosystem.
 - Interactive client sessions, so you don't have lokid start up delays for each command you want to run
 - Unified subsystem reporting, get the status or versions of all 3 subsystems (blockchain, storage, network) from one command
 
