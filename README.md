@@ -32,6 +32,7 @@ The goal of the launcher is to make it easier to run a service node, however the
 - NAT support, Launcher automatically configures your outgoing interface and public IP. DEBs you have to manually set up your network interface and public ip. Neither will help you set up port forwarding though.
 - Prequal tool, know for sure your situation meets our minimum requirements
 - Diveristy of the network, in the highly unlikely event that Debian ever gets a serious bug, we want the service node network to be diverse enough to not be largely effective. Being able to support multiple operating systems is good for the Loki ecosystem.
+- Robust distribution system: Launcher relies on Microsoft/GitHub infrastructure, the DEBs are ran by our developer on his server. You could argue Microsoft/GitHub has more people keeping an eye on security and availability of their system. (And while we use NPM to distribute loki-launcher we do not use any NPM modules in this project)
 - Interactive client sessions, so you don't have lokid start up delays for each command you want to run
 - Unified subsystem reporting, get the status or versions of all 3 subsystems (blockchain, storage, network) from one command
 
