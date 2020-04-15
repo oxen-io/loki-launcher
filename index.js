@@ -421,7 +421,11 @@ async function continueStart() {
     case 'downlaod-binaries':
     case 'download-binaries': // official
       requireRoot()
-      require(__dirname + '/modes/download-binaries').start(config)
+      const opt1 = findFirstArgWithoutDash()
+      const options = {
+        forceDownload: (opt1 === 'force')
+      }
+      require(__dirname + '/modes/download-binaries').start(config, options)
     break;
     case 'download-chain': // official
       //
