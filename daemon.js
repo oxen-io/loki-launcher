@@ -1,6 +1,6 @@
 // no npm!
 const fs = require('fs')
-//const os = require('os')
+const os = require('os')
 const net = require('net')
 const dns = require('dns')
 const path = require('path')
@@ -220,6 +220,7 @@ function shutdown_everything() {
 let storageServer
 var storageLogging = true
 // you get one per sec... so how many seconds to do you give lokid to recover?
+// you don't get one per sec
 // 120s
 var last120lokidContactFailures = []
 function launcherStorageServer(config, args, cb) {
@@ -1030,6 +1031,12 @@ function configureLokid(config, args) {
   if (config.blockchain.network == "staging") {
     lokid_options.push('--stagenet')
   }
+
+  // logical core count
+  if (os.cpus().length > 16) {
+    lokid_options.push('--max-concurrency=16')
+  }
+
   // not 3.x
   if (!configUtil.isBlockchainBinary3X(config)) {
     // 4.x+
@@ -1391,7 +1398,6 @@ function startLokid(config, args) {
         if (c.connected) {
           c.write('SOCKETERR: ' + JSON.stringify(err))
         } else {
-          console.log('Not connected, SOCKETERR:', JSON.stringify(err))
           if (err.code === 'ECONNRESET' || err.code === 'ERR_STREAM_DESTROYED') {
             // make sure we remove ourself from broadcasts (lokid stdout writes)...
             var idx = connections.indexOf(c)
@@ -1399,6 +1405,10 @@ function startLokid(config, args) {
               connections.splice(idx, 1)
             }
             // leave it to the client to reconnect
+            // I don't think we need to log this
+            // FIXME: don't CONNRESET when ctrl-c disconnecting the client...
+          } else {
+            console.log('Not connected, SOCKETERR:', JSON.stringify(err))
           }
         }
       })
