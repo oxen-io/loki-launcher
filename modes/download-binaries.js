@@ -204,7 +204,7 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
       var selectedVersion = null
       for(var i in data) {
         const ver = data[i]
-        // tag_name, name
+
         if (options.prereleaseOnly) {
           if (ver.prerelease) {
             selectedVersion = ver
@@ -234,18 +234,22 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
       console.log('selecting', data.name)
     }
 
-    var thisVer = data.tag_name.replace(/^v/, '')
-    //console.log('looking at version', thisVer, '==', curVerStr)
-    if (curVerStr && curVerStr.match(thisVer)) {
-      console.log('seems', thisVer, 'is the latest and you have', curVerStr + '! skipping')
-      // no one reads the return code
-      // but lets stay consistent
-      return cb(true)
+    if (!config.forceDownload) {
+      // since there's no commit rev in the data
+      // FIXME: compare created_at / published_at against our dates
+      // our dates should be newer
+      //console.log('data', data)
+      // tag_name, name
+      var thisVer = data.tag_name.replace(/^v/, '')
+      //console.log('looking at version', thisVer, '==', curVerStr)
+      if (curVerStr && curVerStr.match(thisVer)) {
+        console.log('seems', thisVer, 'is the latest and you have', curVerStr + '! skipping')
+        // no one reads the return code
+        // but lets stay consistent
+        return cb(true)
+      }
     }
 
-
-    // FIXME: compare against version we have downloaded...
-    // FIXME: how can we get the version of a binary?
     var search = 'UNKNOWN'
     if (os.platform() == 'darwin') search = 'osx'
     else
@@ -257,6 +261,7 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
     var platform = new RegExp(process.arch, 'i')
     var searchRE = new RegExp(search, 'i')
     var found = false // we only need one archive for our platform and we'll figure it out
+    // FIXME do a final version check
     options.cb = cb
     for(var i in data.assets) {
       var asset = data.assets[i]
@@ -289,7 +294,7 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
 
 // FIXME: move into options
 var start_retries = 0
-function start(config) {
+function start(config, options) {
   /*
   const { exec } = require('child_process')
   exec('lsb_release -c', (err, stdout, stderr) => {
@@ -316,6 +321,10 @@ function start(config) {
   console.log('Configured architecture:', process.arch)
 
   // can't get draft release without authenticating as someone that can see the draft...
+
+  if (options.forceDownload) {
+    config.forceDownload = options.forceDownload
+  }
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
     downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, lib.getNetworkVersion(config), function() {
