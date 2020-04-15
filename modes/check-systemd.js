@@ -101,6 +101,18 @@ function start(config, entrypoint) {
   }
 }
 
+function launcherLogs(config) {
+  const stdout = execSync('journalctl -u lokid')
+  console.log(stdout.toString())
+}
+
+function isActive() {
+  const stdout = execSync('systemctl is-active lokid')
+  return !stdout.toString().match(/inactive/)
+}
+
 module.exports = {
-  start: start
+  start: start,
+  launcherLogs: launcherLogs,
+  isStartedWithSystemD: isActive
 }
