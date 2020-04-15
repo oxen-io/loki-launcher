@@ -445,7 +445,7 @@ function runNetworkRPCTest(config, cb) {
 
 // won't take longer than 5s
 // offlineMessage is waiting... or offline
-function getLauncherStatus(config, lokinet, offlineMessage, cb) {
+async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   var checklist = {}
   var running = getProcessState(config)
   //console.log('getLauncherStatus running', running)
@@ -460,6 +460,12 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   }
   var need = {
   }
+
+  let doneResolver
+  const donePromise = new Promise(res => {
+    doneResolver = res
+  })
+
   function checkDone(task) {
     //console.log('checking done', task, need)
     need[task] = true
@@ -469,6 +475,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     }
     // all tasks complete
     cb(running, checklist)
+    doneResolver()
   }
 
   if (pids.runningConfig.network.enabled || pids.runningConfig.storage.enabled) {
@@ -605,7 +612,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     //need.network_rpc = true
     // checkDone('network_rpc')
   }
-  checkDone('')
+  await donePromise
 }
 
 // only stop lokid, which should stop any launcher
@@ -955,91 +962,98 @@ function findPidByPort(port) {
 
 let shuttingDown = false
 function httpPost(url, postdata, cb) {
-  const urlDetails = urlparser.parse(url)
-  var protoClient = http
-  if (urlDetails.protocol == 'https:') {
-    protoClient = https
-  }
-  // well somehow this can get hung on macos
-  var abort = false
-  var watchdog = setInterval(function () {
-    if (shuttingDown) {
-      //if (cb) cb()
-      // [', url, ']
-      console.log('LIB: hung httpPost but have shutdown request, calling back early and setting abort flag')
+  return new Promise((resolve, reject) => {
+    const urlDetails = urlparser.parse(url)
+    var protoClient = http
+    if (urlDetails.protocol == 'https:') {
+      protoClient = https
+    }
+    // well somehow this can get hung on macos
+    var abort = false
+    var watchdog = setInterval(function () {
+      if (shuttingDown) {
+        // [', url, ']
+        console.log('LIB: hung httpPost but have shutdown request, calling back early and setting abort flag')
+        clearInterval(watchdog)
+        abort = true
+        if (cb) cb()
+        reject()
+        return
+      }
+    }, 5000)
+    // console.log('url', url, 'postdata', postdata)
+    const req = protoClient.request({
+      hostname: urlDetails.hostname,
+      protocol: urlDetails.protocol,
+      port: urlDetails.port,
+      path: urlDetails.path,
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': postdata.length,
+        'Host': 'localhost', // hack for lokinet
+        'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
+      }
+    }, function (resp) {
       clearInterval(watchdog)
-      abort = true
-      cb()
-      return
-    }
-  }, 5000)
-  // console.log('url', url, 'postdata', postdata)
-  const req = protoClient.request({
-    hostname: urlDetails.hostname,
-    protocol: urlDetails.protocol,
-    port: urlDetails.port,
-    path: urlDetails.path,
-    method: 'POST',
-    timeout: 5000,
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': postdata.length,
-      'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
-    }
-  }, function (resp) {
-    clearInterval(watchdog)
 
-    resp.setEncoding('binary')
-    let data = ''
-    // A chunk of data has been recieved.
-    resp.on('data', (chunk) => {
-      data += chunk
-    })
-    // The whole response has been received. Print out the result.
-    resp.on('end', () => {
-      // warn if not perfect
-      if (resp.statusCode != 200) {
-        console.log('LIB: httpPost result code', resp.statusCode)
-      }
-      if (abort) {
-        // we already called back
-        return
-      }
-      // hijack 300s
-      if (resp.statusCode === 301 || resp.statusCode === 302) {
-        if (resp.headers.location) {
-          let loc = resp.headers.location
-          if (!loc.match(/^http/)) {
-            if (loc.match(/^\//)) {
-              // absolute path
-              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
-            } else {
-              // relative path
-              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
-            }
-          }
-          console.log('LIB: httpGet Redirecting to', loc)
-          return httpGet(loc, cb)
+      resp.setEncoding('binary')
+      let data = ''
+      // A chunk of data has been recieved.
+      resp.on('data', (chunk) => {
+        data += chunk
+      })
+      // The whole response has been received. Print out the result.
+      resp.on('end', () => {
+        // warn if not perfect
+        if (resp.statusCode != 200) {
+          console.log('LIB: httpPost result code', resp.statusCode)
         }
-      }
-      // fail on 400s
-      if (resp.statusCode === 404 || resp.statusCode === 403) {
-        if (resp.statusCode === 403) console.error('LIB:', url, 'is forbidden')
-        if (resp.statusCode === 404) console.error('LIB:', url, 'is not found')
-        cb()
-        return
-      }
-      cb(data)
+        if (abort) {
+          // we already called back
+          return
+        }
+        // hijack 300s
+        if (resp.statusCode === 301 || resp.statusCode === 302) {
+          if (resp.headers.location) {
+            let loc = resp.headers.location
+            if (!loc.match(/^http/)) {
+              if (loc.match(/^\//)) {
+                // absolute path
+                loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
+              } else {
+                // relative path
+                loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
+              }
+            }
+            console.log('LIB: httpGet Redirecting to', loc)
+            return httpPost(loc, cb)
+          }
+        }
+        // fail on 400s
+        if (resp.statusCode === 404 || resp.statusCode === 403) {
+          if (resp.statusCode === 403) console.error('LIB:', url, 'is forbidden')
+          if (resp.statusCode === 404) console.error('LIB:', url, 'is not found')
+          if (cb) cb()
+          reject()
+          return
+        }
+        if (cb) cb(data)
+        resolve(data)
+      })
+    }).on("error", (err) => {
+      console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
+      clearInterval(watchdog)
+      //console.log('err', err)
+      if (cb) cb()
+      reject()
     })
-  }).on("error", (err) => {
-    console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
-    clearInterval(watchdog)
-    //console.log('err', err)
-    cb()
+    req.write(postdata)
+    req.end()
+    // I don't think anything uses this
+    //return req
   })
-  req.write(postdata)
-  req.end()
-  return req
 }
 
 // FIXME: consider shutdown hooks system
