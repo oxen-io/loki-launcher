@@ -24,7 +24,7 @@ if (VERSION.match(/git/)) {
   continueStart()
 }
 
-function continueStart() {
+async function continueStart() {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
       console.error('MacOS requires you start this with sudo, i.e. $ sudo ' + __filename)
@@ -142,7 +142,6 @@ function continueStart() {
 
   const statusSystem = require(__dirname + '/modes/status')
   statusSystem.start(config)
-  const status = statusSystem.status
 
   // this just show's what's installed not running
   function showVersions() {
@@ -161,23 +160,30 @@ function continueStart() {
     break;
     case 'stauts':
     case 'statsu':
+    case 'statu':
+    case 'stuatus':
+    case 'stautu':
     case 'status': // official
-      status()
+      await statusSystem.status()
       var type = findFirstArgWithoutDash()
       if (type) {
         switch(type) {
           case 'blockchain':
+            console.log('BLOCKCHAIN STATUS')
             statusSystem.checkBlockchain();
           break;
           case 'storage':
+            console.log('STORAGE STATUS')
             statusSystem.checkStorage();
           break;
           case 'network':
+            console.log('NETWORK STATUS')
             statusSystem.checkNetwork();
           break;
         }
       }
     break;
+    // no restart because we don't want people croning it
     case 'stop': // official
       // maybe use the client to see what's taking lokid a while...
       //console.log('Getting launcher state')
@@ -362,11 +368,31 @@ function continueStart() {
     break;
     case 'check-systemd':
     case 'upgrade-systemd': // official
+      // do the docs expect a specific message
+      // requireRoot()
       if (process.getuid() != 0) {
         console.log('Check-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
       require(__dirname + '/modes/check-systemd').start(config, __filename)
+    break;
+    case 'systemd':
+      var type = findFirstArgWithoutDash()
+      if (type === 'enable') {
+        requireRoot()
+        // migrate or create
+        // need __filename for index location to put in service file
+        require(__dirname + '/modes/check-systemd').start(config, __filename)
+      } else
+      if (type === 'disable') {
+        requireRoot()
+        // unlink('/etc/systemd/system/lokid.service')
+      } else
+      if (type === 'log') {
+        require(__dirname + '/modes/check-systemd').launcherLogs(config)
+      } else {
+        console.log('requires one of the following parameters: enable or log')
+      }
     break;
     case 'chown':
     case 'fixperms':
@@ -390,6 +416,9 @@ function continueStart() {
       console.log('out:', args)
     break;
     case 'donwload-binaries':
+    case 'donwload-binaries':
+    case 'donwload-bianres':
+    case 'downlaod-binaries':
     case 'download-binaries': // official
       requireRoot()
       require(__dirname + '/modes/download-binaries').start(config)
