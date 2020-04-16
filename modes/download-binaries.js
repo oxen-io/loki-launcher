@@ -242,7 +242,7 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
       // tag_name, name
       var thisVer = data.tag_name.replace(/^v/, '')
       //console.log('looking at version', thisVer, '==', curVerStr)
-      if (curVerStr && curVerStr.match(thisVer)) {
+      if (curVerStr && curVerStr.match && curVerStr.match(thisVer)) {
         console.log('seems', thisVer, 'is the latest and you have', curVerStr + '! skipping')
         // no one reads the return code
         // but lets stay consistent
