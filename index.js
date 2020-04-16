@@ -108,6 +108,7 @@ async function continueStart() {
     config_type = __dirname
   }
   config.type = config_type
+  config.entrypoint = __filename
   const lib = require(__dirname + '/lib')
 
   //console.log('Launcher config:', config)
@@ -169,6 +170,7 @@ async function continueStart() {
       if (type) {
         switch(type) {
           case 'blockchain':
+            // can hang if lokid is popping blocks
             console.log('BLOCKCHAIN STATUS')
             statusSystem.checkBlockchain();
           break;
@@ -422,13 +424,16 @@ async function continueStart() {
     case 'download-binaries': // official
       requireRoot()
       const opt1 = findFirstArgWithoutDash()
-      const options = {
+      var options = {
         forceDownload: (opt1 === 'force')
       }
       require(__dirname + '/modes/download-binaries').start(config, options)
     break;
-    case 'download-chain': // official
-      //
+    case 'download-chain':
+    case 'download-blockchain': // official
+      // doesn't have to be root but does have to be stopped
+      var options = {}
+      require(__dirname + '/modes/download-blockchain').start(config, options)
     break;
     case 'versions':
     case 'version': // official
