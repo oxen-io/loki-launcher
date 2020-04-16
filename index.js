@@ -24,7 +24,7 @@ if (VERSION.match(/git/)) {
   continueStart()
 }
 
-function continueStart() {
+async function continueStart() {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
       console.error('MacOS requires you start this with sudo, i.e. $ sudo ' + __filename)
@@ -108,6 +108,7 @@ function continueStart() {
     config_type = __dirname
   }
   config.type = config_type
+  config.entrypoint = __filename
   const lib = require(__dirname + '/lib')
 
   //console.log('Launcher config:', config)
@@ -133,7 +134,7 @@ function continueStart() {
 
   function requireRoot() {
     if (process.getuid() !== 0) {
-      console.error('This now requires to be ran as root (currentUID: ', process.getuid(), ', expected 0), try running the command with "sudo " in front')
+      console.error('This now requires to be ran as root (currentUID:', process.getuid(), ', expected 0), try running the command with "sudo " in front')
       process.exit()
     }
   }
@@ -142,7 +143,6 @@ function continueStart() {
 
   const statusSystem = require(__dirname + '/modes/status')
   statusSystem.start(config)
-  const status = statusSystem.status
 
   // this just show's what's installed not running
   function showVersions() {
@@ -155,29 +155,38 @@ function continueStart() {
   switch(mode) {
     case 'strt':
     case 'strart':
+    case 'staart':
     case 'start': // official
       warnRunAsRoot()
       require(__dirname + '/start')(args, config, __filename, false)
     break;
     case 'stauts':
     case 'statsu':
+    case 'statu':
+    case 'stuatus':
+    case 'stautu':
     case 'status': // official
-      status()
+      await statusSystem.status()
       var type = findFirstArgWithoutDash()
       if (type) {
         switch(type) {
           case 'blockchain':
+            // can hang if lokid is popping blocks
+            console.log('BLOCKCHAIN STATUS')
             statusSystem.checkBlockchain();
           break;
           case 'storage':
+            console.log('STORAGE STATUS')
             statusSystem.checkStorage();
           break;
           case 'network':
+            console.log('NETWORK STATUS')
             statusSystem.checkNetwork();
           break;
         }
       }
     break;
+    // no restart because we don't want people croning it
     case 'stop': // official
       // maybe use the client to see what's taking lokid a while...
       //console.log('Getting launcher state')
@@ -362,11 +371,31 @@ function continueStart() {
     break;
     case 'check-systemd':
     case 'upgrade-systemd': // official
+      // do the docs expect a specific message
+      // requireRoot()
       if (process.getuid() != 0) {
-        console.log('Check-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
+        console.log('upgrade-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
       require(__dirname + '/modes/check-systemd').start(config, __filename)
+    break;
+    case 'systemd':
+      var type = findFirstArgWithoutDash()
+      if (type === 'enable') {
+        requireRoot()
+        // migrate or create
+        // need __filename for index location to put in service file
+        require(__dirname + '/modes/check-systemd').start(config, __filename)
+      } else
+      if (type === 'disable') {
+        requireRoot()
+        // unlink('/etc/systemd/system/lokid.service')
+      } else
+      if (type === 'log') {
+        require(__dirname + '/modes/check-systemd').launcherLogs(config)
+      } else {
+        console.log('requires one of the following parameters: enable or log')
+      }
     break;
     case 'chown':
     case 'fixperms':
@@ -390,12 +419,58 @@ function continueStart() {
       console.log('out:', args)
     break;
     case 'donwload-binaries':
+    case 'donwload-binaries':
+    case 'donwload-bianres':
+    case 'downlaod-binaries':
     case 'download-binaries': // official
+      // because of lokinet and mkdirp /opt/...
       requireRoot()
-      require(__dirname + '/modes/download-binaries').start(config)
+      var opt1 = findFirstArgWithoutDash()
+      // FIXME: prerel-force
+      var options = {
+        forceDownload: (opt1 === 'force' || opt1 === 'force-prerel'),
+        prerel: (opt1 === 'prerel' || opt1 === 'force-prerel')
+      }
+      require(__dirname + '/modes/download-binaries').start(config, options)
     break;
-    case 'download-chain': // official
-      //
+    case 'download-chain':
+    case 'download-blockchain': // official
+      // FIXME: disable if not mainnet
+      // doesn't have to be root but does have to be stopped
+      var options = {}
+      require(__dirname + '/modes/download-blockchain').start(config, options)
+    break;
+    case 'export':
+      // doesn't have to be root or stopped, just need read access
+
+      if (!fs.existsSync(config.blockchain.lokid_key)) {
+        console.log(config.blockchain.lokid_key, "does not exist, this has not been run as a service node yet")
+        process.exit()
+      }
+
+      var opt1 = findFirstArgWithoutDash()
+
+      let key
+      if (!opt1) {
+        var running = lib.getProcessState(config)
+
+        if (running.lokid) {
+          const keys = await lib.blockchainRpcGetKey(config)
+          key = keys.result.service_node_pubkey
+        } else {
+          console.log('blockchain is not running, one sec, need to start it to get our key')
+          const statusUtils = require(__dirname + '/modes/status')
+          const daemon = require(__dirname + '/daemon')
+          const lokinet = require('./lokinet')
+          key = await lib.getSnodeOffline(statusUtils, daemon, lokinet, config)
+        }
+      }
+      const date = new Date().toISOString().replace(/:/g, '-')
+
+      var options = {
+        destPath: opt1 || 'export_' + key + '_' + date + '.tar'
+      }
+      require(__dirname + '/modes/export').start(config, options)
     break;
     case 'versions':
     case 'version': // official
@@ -408,22 +483,32 @@ function continueStart() {
     default:
       console.debug('in :', process.argv)
       console.debug('out:', args)
+      //              storage    - get storage status
       console.log(`
-  Unknown mode [${mode}]
+  Unknown command [${mode}]
 
   loki-launcher is manages the Loki.network suite of software primarily for service node operation
   Usage:
-    loki-launcher [mode] [OPTIONS]
+    [sudo] loki-launcher [command] [OPTIONS]
 
-    Modes:
-      start   start the loki suite with OPTIONS
-      status  get the current loki suite status
-      client  connect to lokid
-      prequal prequalify your server for service node operation
-      download-binaries download the latest version of the loki software suite
-      check-systemd upgrade your lokid.service to use the launcher (requires root)
-      fix-perms requires user OPTION, make all operational files own by user passed in
+    Commands:
+      start       start the loki suite with OPTIONS
+      status      get the current loki suite status, can optionally provide:
+                    blockchain - get blockchain status
+      client      connect to lokid
+      prequal     prequalify your server for service node operation
       config-view print out current configuration information
+      versions    show installed versions of Loki software
+      export      try to create a compressed tarball with all the snode files
+                    that you need to migrate this snode to another host
+      systemd     requires one of the following options
+                    log - show systemd launcher log file
+
+    Commands that require root/sudo:
+      download-binaries - download the latest version of the loki software suite
+        can optionally provide: force, prerel and force-prerel
+      upgrade-systemd (check-systemd) - reconfigures your lokid.service
+      fix-perms - requires user OPTION, make all operational files own by user
   `)
     break;
   }

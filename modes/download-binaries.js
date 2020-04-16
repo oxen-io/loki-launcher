@@ -174,7 +174,7 @@ function downloadArchive(url, config, options) {
   })
 }
 
-function downloadGithubRepo(github_url, options, config, cb) {
+function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
   lokinet.httpGet(github_url, function(json) {
     //console.log('got', github_url, 'result', json)
     if (json === undefined) {
@@ -199,11 +199,14 @@ function downloadGithubRepo(github_url, options, config, cb) {
       process.exit(1)
     }
 
+    // console.log('downloadGithubRepo options', options)
+
     if (data.length) {
       //console.log('Got a list of', data.length, 'releases, narrowing it down.')
       var selectedVersion = null
       for(var i in data) {
         const ver = data[i]
+
         if (options.prereleaseOnly) {
           if (ver.prerelease) {
             selectedVersion = ver
@@ -233,8 +236,23 @@ function downloadGithubRepo(github_url, options, config, cb) {
       console.log('selecting', data.name)
     }
 
-    // FIXME: compare against version we have downloaded...
-    // FIXME: how can we get the version of a binary?
+    // definitely broken for RCs...
+    if (!config.forceDownload) {
+      // since there's no commit rev in the data
+      // FIXME: compare created_at / published_at against our dates
+      // our dates should be newer
+      //console.log('data', data)
+      // tag_name, name
+      var thisVer = data.tag_name.replace(/^v/, '')
+      //console.log('looking at version', thisVer, '==', curVerStr)
+      if (curVerStr && curVerStr.match && curVerStr.match(thisVer)) {
+        console.log('seems', thisVer, 'is the latest and you have', curVerStr + '! skipping')
+        // no one reads the return code
+        // but lets stay consistent
+        return cb(true)
+      }
+    }
+
     var search = 'UNKNOWN'
     if (os.platform() == 'darwin') search = 'osx'
     else
@@ -246,6 +264,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
     var platform = new RegExp(process.arch, 'i')
     var searchRE = new RegExp(search, 'i')
     var found = false // we only need one archive for our platform and we'll figure it out
+    // FIXME do a final version check
     options.cb = cb
     for(var i in data.assets) {
       var asset = data.assets[i]
@@ -278,7 +297,7 @@ function downloadGithubRepo(github_url, options, config, cb) {
 
 // FIXME: move into options
 var start_retries = 0
-function start(config) {
+function start(config, options) {
   /*
   const { exec } = require('child_process')
   exec('lsb_release -c', (err, stdout, stderr) => {
@@ -306,22 +325,28 @@ function start(config) {
 
   // can't get draft release without authenticating as someone that can see the draft...
 
+  if (options.forceDownload) {
+    config.forceDownload = options.forceDownload
+  }
+  baseOptions = {}
+  baseOptions[options.prerel ? 'prereleaseOnly': 'notPrerelease'] = true
+
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
       start_retries = 0
       lokinet.checkConfig(config) // setcap
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
         start_retries = 0
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config, function() {
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
 
         })
       })
     })
   } else {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
       start_retries = 0
       lokinet.checkConfig(config) // setcap
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
         start_retries = 0
         /*
         if (xenial_hack) {
@@ -329,7 +354,7 @@ function start(config) {
           downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
         } else {
         */
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config, function() {
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
           // can't run fix-perms without knowing the user
         })
         //}

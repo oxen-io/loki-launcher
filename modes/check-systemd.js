@@ -2,7 +2,6 @@
 const fs = require('fs')
 const cp = require('child_process')
 const execSync = cp.execSync
-const lib = require(__dirname + '/../lib')
 const lokinet = require(__dirname + '/../lokinet')
 
 function rewriteServiceFile(serviceFile, entrypoint) {
@@ -71,6 +70,7 @@ function rewriteServiceFile(serviceFile, entrypoint) {
 
 // we actually currently don't use config at all... but we likely will evenutally
 function start(config, entrypoint) {
+  const lib = require(__dirname + '/../lib')
   // address issue #19
   lib.stopLauncher(config)
 
@@ -101,6 +101,36 @@ function start(config, entrypoint) {
   }
 }
 
+function launcherLogs(config) {
+  const stdout = execSync('journalctl -u lokid')
+  console.log(stdout.toString())
+}
+
+function isActive() {
+  try {
+    const stdout = execSync('systemctl is-active lokid')
+    return !stdout.toString().match(/inactive/)
+  } catch (e) {
+    return
+  }
+}
+
+function isEnabled(config) {
+  try {
+    const stdout = execSync('systemctl is-enabled lokid')
+    // and probably should make sure it's using our entrypoint
+    // incase there's multiple snode?
+    // FIXME:
+    // const stdout2 = execSync('systemctl show lokid')
+    return stdout.toString().match(/enabled/)
+  } catch (e) {
+    return
+  }
+}
+
 module.exports = {
-  start: start
+  start: start,
+  launcherLogs: launcherLogs,
+  isStartedWithSystemD: isActive,
+  isSystemdEnabled: isEnabled,
 }

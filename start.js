@@ -39,14 +39,7 @@ function isNothingRunning(running) {
   return !(running.lokid || running.lokinet || running.storageServer)
 }
 
-module.exports = function(args, config, entryPoint, debug) {
-  const VERSION = 0.7
-
-  //var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
-  //console.log('loki SN launcher version', VERSION, 'registered')
-  const lokinet = require(__dirname + '/lokinet') // needed for checkConfig
-
-  var requested_config = config
+function setupBlockchainForStart(args, config) {
   // index.js does this already...
   //configUtil.check(config)
 
@@ -144,7 +137,18 @@ module.exports = function(args, config, entryPoint, debug) {
   setPort('zmq-rpc-bind-port', 'zmq_port')
   setPort('rpc-bind-port', 'rpc_port')
   setPort('p2p-bind-port', 'p2p_port')
+}
 
+module.exports = function(args, config, entryPoint, debug) {
+  const VERSION = 0.7
+
+  //var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
+  //console.log('loki SN launcher version', VERSION, 'registered')
+  const lokinet = require(__dirname + '/lokinet') // needed for checkConfig
+
+  var requested_config = config
+
+  setupBlockchainForStart(args, config)
   // launcher defaults were here...
   // lokinet defaults were here...
   // now in config.js

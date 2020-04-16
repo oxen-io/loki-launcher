@@ -6,7 +6,9 @@ function start(pConfig) {
   config = pConfig
 }
 
-function status() {
+const nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+
+async function status() {
   // calls areWeRunning && getPids
   var running = lib.getProcessState(config)
   var pids = lib.getPids(config)
@@ -33,7 +35,7 @@ function status() {
       lokinet.portIsFree(config.blockchain.rpc_ip, config.blockchain.rpc_port, function(portFree) {
         if (!portFree) {
           console.log('')
-          console.log('There\'s a lokid that we\'re not tracking using our configuration (rpc_port is already in use). You likely will want to confirm and manually stop it before start using the launcher again.');
+          console.log('There\'s a lokid that we\'re not tracking using our configuration (rpc_port is already in use). You likely will want to confirm and manually stop it before start using the launcher again.')
           // Exiting...
           console.log('')
           if (pids.err == 'noFile') {
@@ -42,7 +44,7 @@ function status() {
             // noFile explains why we know lokid isn't running...
           }
         }
-      });
+      })
     }
     // if we have a launcher, then ofc the port SHOULD be in use...
 
@@ -69,8 +71,7 @@ function status() {
   }
 
   // "not running" but too easy to confuse with "running"
-  lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
-    var nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+  await lib.getLauncherStatus(config, lokinet, 'offline', function(running, checklist) {
     //console.log('nodeVer', nodeVer)
     if (nodeVer >= 10) {
       console.table(checklist)
@@ -83,24 +84,143 @@ function status() {
     // read config, run it with status param...
     // spawn out and relay output...
     // could also use the socket to issue a print_sn_status
+    // checkBlockchain() is best
   }
 }
 
-function checkBlockchain() {
+async function checkBlockchain() {
   var useIp = config.blockchain.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
-  const jsonPost = {
-    jsonrpc: "2.0",
-    id: "0",
-    method: "get_info"
+
+  function getStatus() {
+    return new Promise(resolve => {
+      const jsonPost = {
+        jsonrpc: "2.0",
+        id: "0",
+        method: "get_info"
+      }
+      lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        var data = JSON.parse(json)
+        //console.log('result', data.result)
+        // start_time / version is interesting
+        // outgoing_connections_count / incoming_connections_count
+        // free_space
+        // rpc_connections_count
+        const ts = parseInt(Date.now() / 1000)
+        // original function credit to https://stackoverflow.com/a/23352499
+        function secondsToRel(secondsPast) {
+          if (secondsPast === ts) {
+            return 'never'
+          }
+          if (secondsPast > 86400) {
+            return 'over a day'
+          }
+          var hours = Math.floor(secondsPast / 60 / 60)
+          if (hours) {
+            return' over an hour';
+          }
+          var minutes = Math.floor(secondsPast / 60) - (hours * 60)
+          var seconds = secondsPast % 60
+          var formatted = ''
+          formatted += minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0')
+          return formatted
+        }
+        function tsInSecToRel(tsInSec) {
+          return secondsToRel(ts - tsInSec)
+        }
+        const status = {
+          'height': data.result.height,
+          'last_lokinet_ping': tsInSecToRel(data.result.last_lokinet_ping),
+          'last_storage_server_ping': tsInSecToRel(data.result.last_storage_server_ping),
+          'offline': data.result.offline,
+          // this is just the status of the JSON rpc call
+          //'status': data.result.status,
+        }
+        resolve(status)
+        // get_block_count
+        // console.log('block count', data.result.count)
+      })
+    })
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-    var data = JSON.parse(json)
-    console.log('result', data.result)
-    // get_block_count
-    // console.log('block count', data.result.count)
+
+  function getSnodeStatus() {
+    return new Promise(resolve => {
+      const jsonPost = {
+        jsonrpc: "2.0",
+        id: "0",
+        method: "get_service_node_status"
+      }
+      lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        var data = JSON.parse(json)
+        console.log('result', data.result)
+        resolve({})
+      })
+    })
+  }
+
+  function getSnodeKeyStatus() {
+    return new Promise(async resolve => {
+      const jsonPost = {
+        jsonrpc: "2.0",
+        id: "0",
+        method: "get_service_node_key"
+      }
+      let pubkey
+      let snodeList
+      function checkDone() {
+        if (pubkey && snodeList) {
+          const ourSnode = snodeList.filter(node => node.service_node_pubkey == pubkey)
+          //console.log('ourSnode', ourSnode)
+          if (!ourSnode.length) {
+            // likely not staked yet
+            return resolve({
+              staked: false
+            })
+          }
+          resolve({
+            more_info: 'https://lokisn.com/sn/' + pubkey,
+          })
+        }
+      }
+      lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        const data = JSON.parse(json)
+        //console.log('result', data.result)
+        pubkey = data.result.service_node_pubkey
+        /*
+        resolve({
+          pubkey: data.result.service_node_pubkey,
+          ed25519: data.result.service_node_ed25519_pubkey,
+          x25519: data.result.service_node_x25519_pubkey,
+        })
+        */
+        checkDone()
+      })
+      const jsonPost2 = {
+        jsonrpc: "2.0",
+        id: "0",
+        method: "get_n_service_nodes"
+      }
+      lib.httpPost(url, JSON.stringify(jsonPost2), function(json) {
+        const data = JSON.parse(json)
+        //console.log('result', data.result.service_node_states)
+        snodeList = data.result.service_node_states
+        checkDone()
+      })
+    })
+  }
+
+
+  // , getSnodeStatus() crashes unstaked 7.1.3
+  const statuses = await Promise.all([getStatus(), getSnodeKeyStatus()])
+  const status = statuses.reduce((result, current) => {
+    return Object.assign(result, current)
   })
+  if (nodeVer >= 10) {
+    console.table(status)
+  } else {
+    console.log(status)
+  }
 }
 
 function checkStorage() {

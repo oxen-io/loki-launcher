@@ -178,25 +178,33 @@ function start(user, dir, config) {
         }
         if (os.platform() == 'linux') {
           // not root-like
-          exec('getcap ' + config.network.binary_path, function (error, stdout, stderr) {
-            //console.log('stdout', stdout)
-            // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
-            if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
-              if (process.getgid() != 0) {
-                console.log(config.network.binary_path, 'does not have setcap. Please run fix-perms with sudo one time, so we can fix this')
-                process.exit()
-              } else {
-                // are root
-                console.log('going to try to setcap your lokinet binary, so you don\'t need to run as root')
-                exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.network.binary_path, function (error, stdout, stderr) {
-                  if (error) console.error('upgrade failed:', error)
-                  else console.log('binary permissions upgraded')
-                  //console.log('fix stdout', stdout)
-                  //console.log('fix stderr', stderr)
-                })
+          if (fs.existsSync(config.network.binary_path)) {
+            exec('getcap ' + config.network.binary_path, function (error, stdout, stderr) {
+              //console.log('stdout', stdout)
+              // src/loki-network/lokinet = cap_net_bind_service,cap_net_admin+eip
+              if (!(stdout.match(/cap_net_bind_service/) && stdout.match(/cap_net_admin/))) {
+                if (process.getgid() != 0) {
+                  console.log(config.network.binary_path, 'does not have setcap. Please run fix-perms with sudo one time, so we can fix this')
+                  process.exit()
+                } else {
+                  // are root
+                  console.log('going to try to setcap your lokinet binary, so you don\'t need to run as root')
+                  try {
+                    exec('setcap cap_net_admin,cap_net_bind_service=+eip ' + config.network.binary_path, function (error, stdout, stderr) {
+                      if (error) console.error('upgrade failed:', error)
+                      else console.log('binary permissions upgraded')
+                      //console.log('fix stdout', stdout)
+                      //console.log('fix stderr', stderr)
+                    })
+                  } catch(e) {
+                    console.log('failed', e)
+                  }
+                }
               }
-            }
-          })
+            })
+          } else {
+            console.log('no file at', config.network.binary_path)
+          }
         }
       }
 

@@ -1,3 +1,4 @@
+
 // no npm!
 const fs  = require('fs')
 const cp  = require('child_process')
@@ -80,7 +81,8 @@ function getStorageVersion(config) {
   if (storageVersion !== null) return storageVersion
   if (config.storage.binary_path && fs.existsSync(config.storage.binary_path)) {
     try {
-      const stdout = execFileSync(config.storage.binary_path, ['-v'])
+      // data-dir has to exist to get the version
+      const stdout = execFileSync(config.storage.binary_path, ['--data-dir', '/tmp', '-v'])
       const storage_version = stdout.toString().trim()
       const lines = storage_version.split(/\n/)
       //console.log('storage_version', storage_version)
@@ -386,10 +388,33 @@ function runBlockchainRPCTest(config, cb) {
     id: "0",
     method: "get_info"
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-    cb(json)
-  })
+  try {
+    httpPost(url, JSON.stringify(jsonPost), { quiet: true }, function(json) {
+      cb(json)
+    })
+  } catch (e) {
+    cb()
+  }
 }
+
+
+async function blockchainRpcGetKey(config, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: "0",
+    method: "get_service_node_key"
+  }
+  try {
+    const json = await httpPost(url, JSON.stringify(jsonPost), cb)
+    return JSON.parse(json)
+  } catch (e) {
+    return false
+  }
+}
+
 
 function runStorageRPCTest(lokinet, config, cb) {
   var url = 'https://' + config.storage.ip + ':' + config.storage.port + '/get_stats/v1'
@@ -397,7 +422,7 @@ function runStorageRPCTest(lokinet, config, cb) {
   //console.log('storage', config.storage)
   //console.log('asking', url)
   var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
-  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0 // turn it off for now
+  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = '0' // turn it off for now
   var responded = false
   var ref = {
     abort: function () {
@@ -428,7 +453,7 @@ function runNetworkRPCTest(config, cb) {
     id: "0",
     method: "llarp.version"
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+  httpPost(url, JSON.stringify(jsonPost), function(json) {
     console.log('json', json)
     // 0.6.x support
     if (json === 'bad json object') {
@@ -445,7 +470,7 @@ function runNetworkRPCTest(config, cb) {
 
 // won't take longer than 5s
 // offlineMessage is waiting... or offline
-function getLauncherStatus(config, lokinet, offlineMessage, cb) {
+async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   var checklist = {}
   var running = getProcessState(config)
   //console.log('getLauncherStatus running', running)
@@ -460,6 +485,12 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   }
   var need = {
   }
+
+  let doneResolver
+  const donePromise = new Promise(res => {
+    doneResolver = res
+  })
+
   function checkDone(task) {
     //console.log('checking done', task, need)
     need[task] = true
@@ -469,6 +500,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     }
     // all tasks complete
     cb(running, checklist)
+    doneResolver()
   }
 
   if (pids.runningConfig.network.enabled || pids.runningConfig.storage.enabled) {
@@ -605,7 +637,7 @@ function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     //need.network_rpc = true
     // checkDone('network_rpc')
   }
-  checkDone('')
+  await donePromise
 }
 
 // only stop lokid, which should stop any launcher
@@ -615,23 +647,50 @@ function stopLokid(config) {
   if (running.lokid) {
     var pids = getPids(config)
     console.log('blockchain is running, requesting shutdown')
-    process.kill(pids.lokid, 15)
+    // can't use 15
+    process.kill(pids.lokid, 'SIGTERM')
     return 1
   }
   return 0
 }
 
+// called by index and modes/
 function stopLauncher(config) {
+  const systemdUtils = require(__dirname + '/modes/check-systemd')
+  if (systemdUtils.isSystemdEnabled(config)) {
+    console.log('systemd lokid service is enabled')
+    if (systemdUtils.isStartedWithSystemD()) {
+      console.log('systemd lokid service is active, stopping')
+      // are we root?
+      if (process.getuid() !== 0) {
+        console.log("this command isn't running as root, so can't stop launcher, run again with sudo")
+      } else {
+        try {
+          const stdoutBuf = execSync('systemctl stop lokid')
+          console.log("launcher has been stopped")
+          return
+        } catch(e) {
+          console.log("stopping failed, falling back")
+        }
+      }
+    }
+  }
+
   // locate launcher pid
   var pid = areWeRunning(config)
+
   // FIXME: add try/catch in case of EPERM
   // request launcher shutdown...
   var count = 0
   if (pid) {
     // request launcher stop
     console.log('requesting launcher('+pid+') to stop')
-    console.warn('we may hang if launcher was set up with systemd, and you will need to')
-    console.warn('"systemctl stop lokid.service" before running this')
+    if (systemdUtils.isStartedWithSystemD()) {
+      console.warn('launcher was set up with systemd, and you will need to')
+      console.warn('"systemctl stop lokid.service" before running this')
+      // or should we just return 0?
+      process.exit(1)
+    }
     count++
     // hrm 15 doesn't always kill it... (lxc308)
     process.kill(pid, 'SIGTERM') // 15
@@ -954,92 +1013,107 @@ function findPidByPort(port) {
 }
 
 let shuttingDown = false
-function httpPost(url, postdata, cb) {
-  const urlDetails = urlparser.parse(url)
-  var protoClient = http
-  if (urlDetails.protocol == 'https:') {
-    protoClient = https
+function httpPost(url, postdata, options, cb) {
+  if (cb === undefined && typeof(options) !== 'object'){
+    cb = options
   }
-  // well somehow this can get hung on macos
-  var abort = false
-  var watchdog = setInterval(function () {
-    if (shuttingDown) {
-      //if (cb) cb()
-      // [', url, ']
-      console.log('LIB: hung httpPost but have shutdown request, calling back early and setting abort flag')
+  return new Promise((resolve, reject) => {
+    const urlDetails = urlparser.parse(url)
+    var protoClient = http
+    if (urlDetails.protocol == 'https:') {
+      protoClient = https
+    }
+    // well somehow this can get hung on macos
+    var abort = false
+    var watchdog = setInterval(function () {
+      if (shuttingDown) {
+        // [', url, ']
+        console.log('LIB: hung httpPost but have shutdown request, calling back early and setting abort flag')
+        clearInterval(watchdog)
+        abort = true
+        if (cb) cb()
+        else // so rejecting a non-await cb version is a problem
+          reject()
+        return
+      }
+    }, 5000)
+    // console.log('url', url, 'postdata', postdata)
+    const req = protoClient.request({
+      hostname: urlDetails.hostname,
+      protocol: urlDetails.protocol,
+      port: urlDetails.port,
+      path: urlDetails.path,
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': postdata.length,
+        'Host': 'localhost', // hack for lokinet
+        'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
+      }
+    }, function (resp) {
       clearInterval(watchdog)
-      abort = true
-      cb()
-      return
-    }
-  }, 5000)
-  // console.log('url', url, 'postdata', postdata)
-  const req = protoClient.request({
-    hostname: urlDetails.hostname,
-    protocol: urlDetails.protocol,
-    port: urlDetails.port,
-    path: urlDetails.path,
-    method: 'POST',
-    timeout: 5000,
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': postdata.length,
-      'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
-    }
-  }, function (resp) {
-    clearInterval(watchdog)
 
-    resp.setEncoding('binary')
-    let data = ''
-    // A chunk of data has been recieved.
-    resp.on('data', (chunk) => {
-      data += chunk
-    })
-    // The whole response has been received. Print out the result.
-    resp.on('end', () => {
-      // warn if not perfect
-      if (resp.statusCode != 200) {
-        console.log('LIB: httpPost result code', resp.statusCode)
-      }
-      if (abort) {
-        // we already called back
-        return
-      }
-      // hijack 300s
-      if (resp.statusCode === 301 || resp.statusCode === 302) {
-        if (resp.headers.location) {
-          let loc = resp.headers.location
-          if (!loc.match(/^http/)) {
-            if (loc.match(/^\//)) {
-              // absolute path
-              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
-            } else {
-              // relative path
-              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
-            }
-          }
-          console.log('LIB: httpGet Redirecting to', loc)
-          return httpGet(loc, cb)
+      resp.setEncoding('binary')
+      let data = ''
+      // A chunk of data has been recieved.
+      resp.on('data', (chunk) => {
+        data += chunk
+      })
+      // The whole response has been received. Print out the result.
+      resp.on('end', () => {
+        // warn if not perfect
+        if (resp.statusCode != 200) {
+          console.log('LIB: httpPost result code', resp.statusCode)
         }
+        if (abort) {
+          // we already called back
+          return
+        }
+        // hijack 300s
+        if (resp.statusCode === 301 || resp.statusCode === 302) {
+          if (resp.headers.location) {
+            let loc = resp.headers.location
+            if (!loc.match(/^http/)) {
+              if (loc.match(/^\//)) {
+                // absolute path
+                loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
+              } else {
+                // relative path
+                loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
+              }
+            }
+            console.log('LIB: httpGet Redirecting to', loc)
+            return httpPost(loc, cb)
+          }
+        }
+        // fail on 400s
+        if (resp.statusCode === 404 || resp.statusCode === 403) {
+          if (resp.statusCode === 403) console.error('LIB:', url, 'is forbidden')
+          if (resp.statusCode === 404) console.error('LIB:', url, 'is not found')
+          if (cb) cb()
+          else
+            reject()
+          return
+        }
+        if (cb) cb(data)
+        resolve(data)
+      })
+    }).on("error", (err) => {
+      if (!options.quiet) {
+        console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
       }
-      // fail on 400s
-      if (resp.statusCode === 404 || resp.statusCode === 403) {
-        if (resp.statusCode === 403) console.error('LIB:', url, 'is forbidden')
-        if (resp.statusCode === 404) console.error('LIB:', url, 'is not found')
-        cb()
-        return
-      }
-      cb(data)
+      clearInterval(watchdog)
+      //console.log('err', err)
+      if (cb) cb()
+      else
+        reject()
     })
-  }).on("error", (err) => {
-    console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
-    clearInterval(watchdog)
-    //console.log('err', err)
-    cb()
+    req.write(postdata)
+    req.end()
+    // I don't think anything uses this
+    //return req
   })
-  req.write(postdata)
-  req.end()
-  return req
 }
 
 // FIXME: consider shutdown hooks system
@@ -1047,6 +1121,50 @@ function httpPost(url, postdata, cb) {
 // statusWatcher in interactive-debug needs shutdown hooks too
 function stop() {
   shuttingDown = true
+}
+
+async function waitForBlockchain(config, options) {
+  return new Promise(function (resolve, reject) {
+    let timer
+    if (options.timeout) {
+      timer = setTimeout(function() {
+        reject()
+      }, options.timeout)
+    }
+    function checkChain() {
+      runBlockchainRPCTest(config, function(result) {
+        if (result) {
+          if (timer) clearTimeout(timer)
+          return resolve()
+        }
+        setTimeout(checkChain, 1000)
+      })
+    }
+    checkChain()
+  })
+}
+
+async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
+  daemon.config = config // update config for shutdownEverything
+
+  lokinet.disableLogging(true)
+  const publicIPv4 = await lokinet.getPublicIPv4()
+  if (!publicIPv4) {
+    console.error('LAUNCHER: Could not determine a IPv4 public address for this host.')
+    process.exit()
+  }
+  config.launcher.publicIPv4 = publicIPv4
+  const args = []
+  const parameters = daemon.configureLokid(config, args)
+  const lokid_options = parameters.lokid_options
+  //console.log('configured ', config.blockchain.binary_path, lokid_options.join(' '))
+  config.blockchain.quiet = true // force quiet
+  daemon.launchLokid(config.blockchain.binary_path, lokid_options, false, config, args)
+  await waitForBlockchain(config, { timeout: 30 * 1000 })
+  const keys = await blockchainRpcGetKey(config)
+  //console.log('rpc test result', keys.result)
+  stopLokid(config)
+  return keys.result.service_node_pubkey
 }
 
 module.exports = {
@@ -1077,4 +1195,7 @@ module.exports = {
   getBlockchainVersion: getBlockchainVersion,
   getStorageVersion: getStorageVersion,
   getNetworkVersion: getNetworkVersion,
+
+  getSnodeOffline: getSnodeOffline,
+  blockchainRpcGetKey: blockchainRpcGetKey,
 }
