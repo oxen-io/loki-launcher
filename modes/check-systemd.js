@@ -2,7 +2,6 @@
 const fs = require('fs')
 const cp = require('child_process')
 const execSync = cp.execSync
-const lib = require(__dirname + '/../lib')
 const lokinet = require(__dirname + '/../lokinet')
 
 function rewriteServiceFile(serviceFile, entrypoint) {
@@ -71,6 +70,7 @@ function rewriteServiceFile(serviceFile, entrypoint) {
 
 // we actually currently don't use config at all... but we likely will evenutally
 function start(config, entrypoint) {
+  const lib = require(__dirname + '/../lib')
   // address issue #19
   lib.stopLauncher(config)
 
