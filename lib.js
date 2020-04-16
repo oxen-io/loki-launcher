@@ -5,6 +5,7 @@ const net = require('net')
 const http = require('http')
 const https = require('https')
 const urlparser = require('url')
+const systemdUtils = require(__dirname + '/modes/check-systemd')
 const execSync = cp.execSync
 const spawnSync = cp.spawnSync
 const execFileSync = cp.execFileSync
@@ -628,17 +629,38 @@ function stopLokid(config) {
   return 0
 }
 
+// called by index and modes/
 function stopLauncher(config) {
+  if (systemdUtils.isSystemdEnabled(config)) {
+    console.log('systemd lokid service is enabled')
+    if (systemdUtils.isStartedWithSystemD()) {
+      console.log('systemd lokid service is active, stopping')
+      // are we root?
+      if (process.getuid() !== 0) {
+        console.log("this command isn't running as root, so can't stop launcher, run again with sudo")
+      } else {
+        const stdoutBuf = execSync('systemctl stop lokid')
+        console.log("launcher has been stopped")
+        return
+      }
+    }
+  }
+
   // locate launcher pid
   var pid = areWeRunning(config)
+
   // FIXME: add try/catch in case of EPERM
   // request launcher shutdown...
   var count = 0
   if (pid) {
     // request launcher stop
     console.log('requesting launcher('+pid+') to stop')
-    console.warn('we may hang if launcher was set up with systemd, and you will need to')
-    console.warn('"systemctl stop lokid.service" before running this')
+    if (systemdUtils.isStartedWithSystemD()) {
+      console.warn('launcher was set up with systemd, and you will need to')
+      console.warn('"systemctl stop lokid.service" before running this')
+      // or should we just return 0?
+      process.exit(1)
+    }
     count++
     // hrm 15 doesn't always kill it... (lxc308)
     process.kill(pid, 'SIGTERM') // 15
