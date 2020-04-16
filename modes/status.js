@@ -179,7 +179,7 @@ async function checkBlockchain() {
             })
           }
           resolve({
-
+            more_info: 'https://lokisn.com/sn/' + pubkey,
           })
         }
       }
@@ -203,7 +203,7 @@ async function checkBlockchain() {
       }
       lib.httpPost(url, JSON.stringify(jsonPost2), function(json) {
         const data = JSON.parse(json)
-        // console.log('result', data.result.service_node_states)
+        //console.log('result', data.result.service_node_states)
         snodeList = data.result.service_node_states
         checkDone()
       })
