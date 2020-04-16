@@ -334,12 +334,12 @@ function launcherStorageServer(config, args, cb) {
   // copy the output to stdout
   let storageServer_version = 'unknown'
   let stdout = '', stderr = '', collectData = true
+  let probablySyncing = false
   storageServer.stdout
     .on('data', (data) => {
-      var str = data.toString('utf8').trim()
-      if (storageLogging) console.log(`STORAGE: ${str}`)
+      const logLinesStr = data.toString('utf8').trim()
       if (collectData) {
-        const lines = str.split(/\n/)
+        const lines = logLinesStr.split(/\n/)
         for(let i in lines) {
           const tline = lines[i].trim()
           if (tline.match('Loki Storage Server v')) {
@@ -350,59 +350,107 @@ function launcherStorageServer(config, args, cb) {
             const parts = tline.split('git commit hash: ')
             fs.writeFileSync(config.launcher.var_path + '/storageServer.version', storageServer_version+"\n"+parts[1])
           }
+          if (tline.match(/pubkey_x25519_hex is missing from sn info/)) {
+            // it's be nice to know lokid was syncing
+            // but from the loki-storage logs doesn't look like it's possible to tell
+            // save some logging space
+            continue
+          }
+          if (storageLogging) console.log(`STORAGE(Start): ${tline}`)
         }
         stdout += data
-      }
-      // blockchain test
-      if (str.match(/Could not send blockchain request to Lokid/)) {
-        if (storageLogging) console.log(`STORAGE: blockchain test failure`)
-        if (!storageServer) {
-          console.log('storageServer is unset, yet getting output', str)
-          return
+      } else {
+
+
+        const lines = logLinesStr.split(/\n/)
+        for(let i in lines) {
+          const str = lines[i].trim()
+          let outputError = true
+
+          // all that don't need storageServer set
+
+          // could be testing a remote node
+          if (str.match(/Could not report node status: bad json in response/)) {
+          } else if (str.match(/Could not report node status/)) {
+          }
+          if (str.match(/Empty body on Lokid report node status/)) {
+          }
+          // end remote node
+
+          if (!storageServer) {
+            if (storageLogging && outputError) console.log(`STORAGE: ${logLinesStr}`)
+            console.log('storageServer is unset, yet getting output', logLinesStr)
+            continue
+          }
+          // all that need storageServer set
+
+          // blockchain test
+          if (str.match(/Could not send blockchain request to Lokid/)) {
+            if (storageLogging) console.log(`STORAGE: blockchain test failure`)
+            storageServer.blockchainFailures.last_blockchain_test = Date.now()
+            //communicate this out
+            lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+          }
+          // blockchain ping
+          if (str.match(/Empty body on Lokid ping/) || str.match(/Could not ping Lokid. Status: {}/) ||
+              str.match(/Could not ping Lokid: bad json in response/) || str.match(/Could not ping Lokid/)) {
+            if (storageLogging) console.log(`STORAGE: blockchain ping failure`)
+            storageServer.blockchainFailures.last_blockchain_ping = Date.now()
+            //communicate this out
+            lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+          }
+          // probably syncing
+          if (str.match(/Bad lokid rpc response: invalid json fields/)) {
+            probablySyncing = true
+          }
+
+          if (str.match(/pubkey_x25519_hex is missing from sn info/)) {
+            // it's be nice to know lokid was syncing
+            // but from the loki-storage logs doesn't look like it's possible to tell
+            // save some logging space
+            outputError = false // hide these
+            continue // no need to output it again
+          }
+
+          // swarm_tick communication error
+          // but happens when lokid is syncing, so we can't restart lokid
+          if (str.match(/Exception caught on swarm update: Failed to parse swarm update/)) {
+            if (probablySyncing) {
+              if (storageLogging) console.log(`STORAGE: blockchain comms failure, probably syncing`)
+              outputError = false // hide these
+              continue // no need to output it again
+            } else {
+              if (storageLogging) console.log(`STORAGE: blockchain tick failure`)
+              storageServer.blockchainFailures.last_blockchain_tick = Date.now()
+              //communicate this out
+              lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+            }
+          } else if (str.match(/Exception caught on swarm update/)) {
+            if (storageLogging) console.log(`STORAGE: blockchain tick failure. Maybe syncing? ${probablySyncing}`)
+            storageServer.blockchainFailures.last_blockchain_tick = Date.now()
+            //communicate this out
+            lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+          }
+          // swarm_tick communication error
+          if (str.match(/Failed to contact local Lokid/)) {
+            var ts = Date.now()
+            last120lokidContactFailures.push(ts)
+            last120lokidContactFailures.splice(-120)
+            console.log('last120lokidContactFailures', last120lokidContactFailures.length)
+            // if the oldest one is not more than 180s ago
+            if (ts - last120lokidContactFailures[0] < 180 * 1000) {
+              console.log('we should restart lokid');
+              requestBlockchainRestart();
+            }
+            if (storageLogging) console.log(`STORAGE: blockchain tick contact failure`)
+            storageServer.blockchainFailures.last_blockchain_tick = Date.now()
+            //communicate this out
+            lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+          }
+          if (storageLogging && outputError) console.log(`STORAGE: ${logLinesStr}`)
         }
-        storageServer.blockchainFailures.last_blockchain_test = Date.now()
-        //communicate this out
-        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
       }
-      // blockchain ping
-      if (str.match(/Empty body on Lokid ping/) || str.match(/Could not ping Lokid. Status: {}/) ||
-          str.match(/Could not ping Lokid: bad json in response/) || str.match(/Could not ping Lokid/)) {
-        if (storageLogging) console.log(`STORAGE: blockchain ping failure`)
-        if (!storageServer) {
-          console.log('storageServer is unset, yet getting output:', str)
-          return
-        }
-        storageServer.blockchainFailures.last_blockchain_ping = Date.now()
-        //communicate this out
-        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
-      }
-      // swarm_tick communication error
-      if (str.match(/Failed to contact local Lokid/) || str.match(/Exception caught on swarm update/)) {
-        var ts = Date.now()
-        last120lokidContactFailures.push(ts)
-        last120lokidContactFailures.splice(-120)
-        console.log('last120lokidContactFailures', last120lokidContactFailures.length)
-        // if the oldest one is not more than 180s ago
-        if (ts - last120lokidContactFailures[0] < 180 * 1000) {
-          console.log('we should restart lokid');
-          requestBlockchainRestart();
-        }
-        if (storageLogging) console.log(`STORAGE: blockchain tick failure`)
-        if (!storageServer) {
-          console.log('storageServer is unset, yet getting output', str)
-          return
-        }
-        storageServer.blockchainFailures.last_blockchain_tick = Date.now()
-        //communicate this out
-        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
-      }
-      // could be testing a remote node
-      if (str.match(/Could not report node status: bad json in response/)) {
-      } else if (str.match(/Could not report node status/)) {
-      }
-      if (str.match(/Empty body on Lokid report node status/)) {
-      }
-      // end remote node
+      //if (storageLogging) console.log(`STORAGE: ${logLinesStr}`)
     })
     .on('error', (err) => {
       console.error(`Storage Server stdout error: ${err.toString('utf8').trim()}`)
@@ -1145,6 +1193,8 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
           conn.write(data + "\n")
         }
       }
+      // FIXME: if we don't get `Received uptime-proof confirmation back from network for Service Node (yours): <24030a316d4b8379a4a7be640ee716632d40f76f2784074bcbffc4b0c617d6b7>`
+      // at least once every 2 hours, restart lokid
     })
     loki_daemon.stdout.on('error', (err) => {
       console.error('BLOCKCHAIN1_ERR:', JSON.stringify(err))
