@@ -640,9 +640,13 @@ function stopLauncher(config) {
       if (process.getuid() !== 0) {
         console.log("this command isn't running as root, so can't stop launcher, run again with sudo")
       } else {
-        const stdoutBuf = execSync('systemctl stop lokid')
-        console.log("launcher has been stopped")
-        return
+        try {
+          const stdoutBuf = execSync('systemctl stop lokid')
+          console.log("launcher has been stopped")
+          return
+        } catch(e) {
+          console.log("stopping failed, falling back")
+        }
       }
     }
   }
