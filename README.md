@@ -131,6 +131,19 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+- 1.0.14
+  - introduce `status blockchain` for quick read of important status
+  - introduce `systemd log` for dumping launcher logs
+  - introduce `export` for migrating snodes
+  - download-binaries doesn't redownload binaries versions we already (unless 'download-binaries force' is used)
+  - added prerel & force-prerel
+  - integrate system enable/active detection
+  - work around loki-storage 2.x permissions crash
+  - parse INI section name case insensitively
+  - limit lokid max threads to 16
+  - catch getPidLimit exceptions
+  - refactor storage server logging processing
+  - hide CONNRESET socket server from logs
 - 1.0.13
   - lower storage file descriptor requirement to just a warning instead of exiting
 - 1.0.12
