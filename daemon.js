@@ -1177,7 +1177,7 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   }
   lib.savePids(config, args, loki_daemon, lokinet, storageServer)
 
-  if (!interactive) {
+  if (!interactive && !config.blockchain.quiet) {
     // why is the banner held back until we connect!?
     loki_daemon.stdout.on('data', (data) => {
       console.log(`blockchainRAW: ${data}`)
@@ -1579,6 +1579,10 @@ module.exports = {
   startLokinet: startLokinet,
   startStorageServer: startStorageServer,
   startLokid: startLokid,
+  // for lib::getSnodeOffline
+  configureLokid: configureLokid,
+  launchLokid: launchLokid,
+  //
   waitForLokiKey: waitForLokiKey,
   setupHandlers: setupHandlers,
   shutdown_everything: shutdown_everything,
