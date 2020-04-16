@@ -192,7 +192,7 @@ function getPublicIPv6(cb) {
 }
 
 var getPublicIPv4_retries = 0
-function getPublicIPv4(cb) {
+async function getPublicIPv4(cb) {
   // trust more than one source
   // randomly find 2 matching sources
 
@@ -219,6 +219,12 @@ function getPublicIPv4(cb) {
     service[1] = Math.floor(Math.random() * publicIpServices.length)
   }
   var done = [false, false]
+
+  let doneResolver
+  const donePromise = new Promise(res => {
+    doneResolver = res
+  })
+
   function markDone(idx, value) {
     if (value === undefined) value = ''
     done[idx] = value.trim()
@@ -227,12 +233,12 @@ function getPublicIPv4(cb) {
     for (var i in done) {
       if (done[i] === false) {
         ready = false
-        log('getPublicIPv4', i, 'is not ready')
+        // log('getPublicIPv4', i, 'is not ready')
         break
       }
     }
     if (!ready) return
-    log('getPublicIPv4 look ups are done', done)
+    // log('getPublicIPv4 look ups are done', done)
     if (done[0] != done[1]) {
       // try 2 random services again
       getPublicIPv4_retries++
@@ -241,12 +247,13 @@ function getPublicIPv4(cb) {
         console.error('NAT detection: Can\'t determine public IP address')
         process.exit()
       }
-      console.log('retry #', getPublicIPv4_retries)
+      log(done[0], 'not equal to', done[1], 'retrying attempt #', getPublicIPv4_retries)
       getPublicIPv4(cb)
     } else {
       // return
       //log("found public IP", done[0])
-      cb(done[0])
+      if (cb) cb(done[0])
+      doneResolver(done[0])
     }
   }
 
@@ -259,12 +266,13 @@ function getPublicIPv4(cb) {
         doCall(number)
         return
       }
-      console.log(number, publicIpServices[service[number]].url, ip)
+      // console.log(number, publicIpServices[service[number]].url, ip)
       markDone(number, ip)
     })
   }
   doCall(0)
   doCall(1)
+  return donePromise
 }
 
 function portIsFree(ip, port, cb) {
@@ -1312,7 +1320,7 @@ function stop() {
     return
   }
   // output on each stop request...
-  log('requesting lokinet be shutdown')
+  if (lokinetLogging) log('requesting lokinet be shutdown')
   if (lokinet && !lokinet.killed) {
     log('sending SIGINT to lokinet', lokinet.pid)
     try {
@@ -1388,8 +1396,8 @@ function enableLogging() {
   lokinetLogging = true
 }
 
-function disableLogging() {
-  console.log('Disabling lokinet logging')
+function disableLogging(quiet = false) {
+  if (!quiet) console.log('Disabling lokinet logging')
   lokinetLogging = false
 }
 
