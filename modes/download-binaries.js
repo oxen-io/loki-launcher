@@ -199,6 +199,8 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
       process.exit(1)
     }
 
+    // console.log('downloadGithubRepo options', options)
+
     if (data.length) {
       //console.log('Got a list of', data.length, 'releases, narrowing it down.')
       var selectedVersion = null
@@ -234,6 +236,7 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
       console.log('selecting', data.name)
     }
 
+    // definitely broken for RCs...
     if (!config.forceDownload) {
       // since there's no commit rev in the data
       // FIXME: compare created_at / published_at against our dates
@@ -325,23 +328,25 @@ function start(config, options) {
   if (options.forceDownload) {
     config.forceDownload = options.forceDownload
   }
+  baseOptions = {}
+  baseOptions[options.prerel ? 'prereleaseOnly': 'notPrerelease'] = true
 
   if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, lib.getNetworkVersion(config), function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
       start_retries = 0
       lokinet.checkConfig(config) // setcap
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, lib.getStorageVersion(config), function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
         start_retries = 0
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config, lib.getBlockchainVersion(config), function() {
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
 
         })
       })
     })
   } else {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, notPrerelease: true }, config, lib.getNetworkVersion(config), function() {
+    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
       start_retries = 0
       lokinet.checkConfig(config) // setcap
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, notPrerelease: true }, config, lib.getStorageVersion(config), function() {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
         start_retries = 0
         /*
         if (xenial_hack) {
@@ -349,7 +354,7 @@ function start(config, options) {
           downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
         } else {
         */
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, notPrerelease: true }, config, lib.getBlockchainVersion(config), function() {
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
           // can't run fix-perms without knowing the user
         })
         //}
