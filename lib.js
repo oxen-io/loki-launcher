@@ -1,3 +1,4 @@
+
 // no npm!
 const fs  = require('fs')
 const cp  = require('child_process')
@@ -5,7 +6,6 @@ const net = require('net')
 const http = require('http')
 const https = require('https')
 const urlparser = require('url')
-const systemdUtils = require(__dirname + '/modes/check-systemd')
 const execSync = cp.execSync
 const spawnSync = cp.spawnSync
 const execFileSync = cp.execFileSync
@@ -388,10 +388,33 @@ function runBlockchainRPCTest(config, cb) {
     id: "0",
     method: "get_info"
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-    cb(json)
-  })
+  try {
+    httpPost(url, JSON.stringify(jsonPost), { quiet: true }, function(json) {
+      cb(json)
+    })
+  } catch (e) {
+    cb()
+  }
 }
+
+
+async function blockchainRpcGetKey(config, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: "0",
+    method: "get_service_node_key"
+  }
+  try {
+    const json = await httpPost(url, JSON.stringify(jsonPost), cb)
+    return JSON.parse(json)
+  } catch (e) {
+    return false
+  }
+}
+
 
 function runStorageRPCTest(lokinet, config, cb) {
   var url = 'https://' + config.storage.ip + ':' + config.storage.port + '/get_stats/v1'
@@ -399,7 +422,7 @@ function runStorageRPCTest(lokinet, config, cb) {
   //console.log('storage', config.storage)
   //console.log('asking', url)
   var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
-  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0 // turn it off for now
+  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = '0' // turn it off for now
   var responded = false
   var ref = {
     abort: function () {
@@ -430,7 +453,7 @@ function runNetworkRPCTest(config, cb) {
     id: "0",
     method: "llarp.version"
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+  httpPost(url, JSON.stringify(jsonPost), function(json) {
     console.log('json', json)
     // 0.6.x support
     if (json === 'bad json object') {
@@ -624,7 +647,8 @@ function stopLokid(config) {
   if (running.lokid) {
     var pids = getPids(config)
     console.log('blockchain is running, requesting shutdown')
-    process.kill(pids.lokid, 15)
+    // can't use 15
+    process.kill(pids.lokid, 'SIGTERM')
     return 1
   }
   return 0
@@ -632,6 +656,7 @@ function stopLokid(config) {
 
 // called by index and modes/
 function stopLauncher(config) {
+  const systemdUtils = require(__dirname + '/modes/check-systemd')
   if (systemdUtils.isSystemdEnabled(config)) {
     console.log('systemd lokid service is enabled')
     if (systemdUtils.isStartedWithSystemD()) {
@@ -988,7 +1013,10 @@ function findPidByPort(port) {
 }
 
 let shuttingDown = false
-function httpPost(url, postdata, cb) {
+function httpPost(url, postdata, options, cb) {
+  if (cb === undefined && typeof(options) !== 'object'){
+    cb = options
+  }
   return new Promise((resolve, reject) => {
     const urlDetails = urlparser.parse(url)
     var protoClient = http
@@ -1004,7 +1032,8 @@ function httpPost(url, postdata, cb) {
         clearInterval(watchdog)
         abort = true
         if (cb) cb()
-        reject()
+        else // so rejecting a non-await cb version is a problem
+          reject()
         return
       }
     }, 5000)
@@ -1063,18 +1092,22 @@ function httpPost(url, postdata, cb) {
           if (resp.statusCode === 403) console.error('LIB:', url, 'is forbidden')
           if (resp.statusCode === 404) console.error('LIB:', url, 'is not found')
           if (cb) cb()
-          reject()
+          else
+            reject()
           return
         }
         if (cb) cb(data)
         resolve(data)
       })
     }).on("error", (err) => {
-      console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
+      if (!options.quiet) {
+        console.error("LIB: httpPost Error: " + err.message, 'port', urlDetails.port)
+      }
       clearInterval(watchdog)
       //console.log('err', err)
       if (cb) cb()
-      reject()
+      else
+        reject()
     })
     req.write(postdata)
     req.end()
@@ -1088,6 +1121,50 @@ function httpPost(url, postdata, cb) {
 // statusWatcher in interactive-debug needs shutdown hooks too
 function stop() {
   shuttingDown = true
+}
+
+async function waitForBlockchain(config, options) {
+  return new Promise(function (resolve, reject) {
+    let timer
+    if (options.timeout) {
+      timer = setTimeout(function() {
+        reject()
+      }, options.timeout)
+    }
+    function checkChain() {
+      runBlockchainRPCTest(config, function(result) {
+        if (result) {
+          if (timer) clearTimeout(timer)
+          return resolve()
+        }
+        setTimeout(checkChain, 1000)
+      })
+    }
+    checkChain()
+  })
+}
+
+async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
+  daemon.config = config // update config for shutdownEverything
+
+  lokinet.disableLogging(true)
+  const publicIPv4 = await lokinet.getPublicIPv4()
+  if (!publicIPv4) {
+    console.error('LAUNCHER: Could not determine a IPv4 public address for this host.')
+    process.exit()
+  }
+  config.launcher.publicIPv4 = publicIPv4
+  const args = []
+  const parameters = daemon.configureLokid(config, args)
+  const lokid_options = parameters.lokid_options
+  //console.log('configured ', config.blockchain.binary_path, lokid_options.join(' '))
+  config.blockchain.quiet = true // force quiet
+  daemon.launchLokid(config.blockchain.binary_path, lokid_options, false, config, args)
+  await waitForBlockchain(config, { timeout: 30 * 1000 })
+  const keys = await blockchainRpcGetKey(config)
+  //console.log('rpc test result', keys.result)
+  stopLokid(config)
+  return keys.result.service_node_pubkey
 }
 
 module.exports = {
@@ -1118,4 +1195,7 @@ module.exports = {
   getBlockchainVersion: getBlockchainVersion,
   getStorageVersion: getStorageVersion,
   getNetworkVersion: getNetworkVersion,
+
+  getSnodeOffline: getSnodeOffline,
+  blockchainRpcGetKey: blockchainRpcGetKey,
 }
