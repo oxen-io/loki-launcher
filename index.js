@@ -423,17 +423,51 @@ async function continueStart() {
     case 'downlaod-binaries':
     case 'download-binaries': // official
       requireRoot()
-      const opt1 = findFirstArgWithoutDash()
+      var opt1 = findFirstArgWithoutDash()
       var options = {
-        forceDownload: (opt1 === 'force')
+        forceDownload: (opt1 === 'force' || opt1 === 'force-prerel'),
+        prerel: (opt1 === 'prerel' || opt1 === 'force-prerel')
       }
       require(__dirname + '/modes/download-binaries').start(config, options)
     break;
     case 'download-chain':
     case 'download-blockchain': // official
+      // FIXME: disable if not mainnet
       // doesn't have to be root but does have to be stopped
       var options = {}
       require(__dirname + '/modes/download-blockchain').start(config, options)
+    break;
+    case 'export':
+      // doesn't have to be root or stopped, just need read access
+
+      if (!fs.existsSync(config.blockchain.lokid_key)) {
+        console.log(config.blockchain.lokid_key, "does not exist, this has not been run as a service node yet")
+        process.exit()
+      }
+
+      var opt1 = findFirstArgWithoutDash()
+
+      let key
+      if (!opt1) {
+        var running = lib.getProcessState(config)
+
+        if (running.lokid) {
+          const keys = await lib.blockchainRpcGetKey(config)
+          key = keys.result.service_node_pubkey
+        } else {
+          console.log('blockchain is not running, one sec, need to start it to get our key')
+          const statusUtils = require(__dirname + '/modes/status')
+          const daemon = require(__dirname + '/daemon')
+          const lokinet = require('./lokinet')
+          key = await lib.getSnodeOffline(statusUtils, daemon, lokinet, config)
+        }
+      }
+      const date = new Date().toISOString().replace(/:/g, '-')
+
+      var options = {
+        destPath: opt1 || 'export_' + key + '_' + date + '.tar'
+      }
+      require(__dirname + '/modes/export').start(config, options)
     break;
     case 'versions':
     case 'version': // official
