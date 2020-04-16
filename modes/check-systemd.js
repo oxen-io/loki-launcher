@@ -107,12 +107,26 @@ function launcherLogs(config) {
 }
 
 function isActive() {
-  const stdout = execSync('systemctl is-active lokid')
-  return !stdout.toString().match(/inactive/)
+  try {
+    const stdout = execSync('systemctl is-active lokid')
+    return !stdout.toString().match(/inactive/)
+  } catch (e) {
+    return
+  }
+}
+
+function isEnabled(config) {
+  const stdout = execSync('systemctl is-enabled lokid')
+  // and probably should make sure it's using our entrypoint
+  // incase there's multiple snode?
+  // const stdout2 = execSync('systemctl show lokid')
+
+  return stdout.toString().match(/enabled/)
 }
 
 module.exports = {
   start: start,
   launcherLogs: launcherLogs,
-  isStartedWithSystemD: isActive
+  isStartedWithSystemD: isActive,
+  isSystemdEnabled: isEnabled,
 }
