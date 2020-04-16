@@ -134,7 +134,7 @@ async function continueStart() {
 
   function requireRoot() {
     if (process.getuid() !== 0) {
-      console.error('This now requires to be ran as root (currentUID: ', process.getuid(), ', expected 0), try running the command with "sudo " in front')
+      console.error('This now requires to be ran as root (currentUID:', process.getuid(), ', expected 0), try running the command with "sudo " in front')
       process.exit()
     }
   }
@@ -155,6 +155,7 @@ async function continueStart() {
   switch(mode) {
     case 'strt':
     case 'strart':
+    case 'staart':
     case 'start': // official
       warnRunAsRoot()
       require(__dirname + '/start')(args, config, __filename, false)
@@ -373,7 +374,7 @@ async function continueStart() {
       // do the docs expect a specific message
       // requireRoot()
       if (process.getuid() != 0) {
-        console.log('Check-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
+        console.log('upgrade-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
       require(__dirname + '/modes/check-systemd').start(config, __filename)
@@ -422,8 +423,10 @@ async function continueStart() {
     case 'donwload-bianres':
     case 'downlaod-binaries':
     case 'download-binaries': // official
+      // because of lokinet and mkdirp /opt/...
       requireRoot()
       var opt1 = findFirstArgWithoutDash()
+      // FIXME: prerel-force
       var options = {
         forceDownload: (opt1 === 'force' || opt1 === 'force-prerel'),
         prerel: (opt1 === 'prerel' || opt1 === 'force-prerel')
@@ -480,22 +483,32 @@ async function continueStart() {
     default:
       console.debug('in :', process.argv)
       console.debug('out:', args)
+      //              storage    - get storage status
       console.log(`
-  Unknown mode [${mode}]
+  Unknown command [${mode}]
 
   loki-launcher is manages the Loki.network suite of software primarily for service node operation
   Usage:
-    loki-launcher [mode] [OPTIONS]
+    [sudo] loki-launcher [command] [OPTIONS]
 
-    Modes:
-      start   start the loki suite with OPTIONS
-      status  get the current loki suite status
-      client  connect to lokid
-      prequal prequalify your server for service node operation
-      download-binaries download the latest version of the loki software suite
-      check-systemd upgrade your lokid.service to use the launcher (requires root)
-      fix-perms requires user OPTION, make all operational files own by user passed in
+    Commands:
+      start       start the loki suite with OPTIONS
+      status      get the current loki suite status, can optionally provide:
+                    blockchain - get blockchain status
+      client      connect to lokid
+      prequal     prequalify your server for service node operation
       config-view print out current configuration information
+      versions    show installed versions of Loki software
+      export      try to create a compressed tarball with all the snode files
+                    that you need to migrate this snode to another host
+      systemd     requires one of the following options
+                    log - show systemd launcher log file
+
+    Commands that require root/sudo:
+      download-binaries - download the latest version of the loki software suite
+        can optionally provide: force, prerel and force-prerel
+      upgrade-systemd (check-systemd) - reconfigures your lokid.service
+      fix-perms - requires user OPTION, make all operational files own by user
   `)
     break;
   }
