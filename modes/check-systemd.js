@@ -116,12 +116,16 @@ function isActive() {
 }
 
 function isEnabled(config) {
-  const stdout = execSync('systemctl is-enabled lokid')
-  // and probably should make sure it's using our entrypoint
-  // incase there's multiple snode?
-  // const stdout2 = execSync('systemctl show lokid')
-
-  return stdout.toString().match(/enabled/)
+  try {
+    const stdout = execSync('systemctl is-enabled lokid')
+    // and probably should make sure it's using our entrypoint
+    // incase there's multiple snode?
+    // FIXME:
+    // const stdout2 = execSync('systemctl show lokid')
+    return stdout.toString().match(/enabled/)
+  } catch (e) {
+    return
+  }
 }
 
 module.exports = {
