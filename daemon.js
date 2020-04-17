@@ -18,7 +18,9 @@ const stdin = process.openStdin()
 const VERSION = 0.2
 //console.log('loki daemon library version', VERSION, 'registered')
 
-let g_config = null
+let g_config = false
+let server = false
+let webApiServer = false
 process.on('uncaughtException', function (err) {
   console.trace('Caught exception:', err)
   let var_path = '/tmp'
@@ -172,6 +174,11 @@ function shutdown_everything() {
         stop = false
       }
       if (stop) {
+        if (webApiServer) {
+          webApiServer.close()
+          webApiServer.unref()
+          webApiServer = false
+        }
         console.log('All daemons down.')
         // deallocate
         // can't null these yet because lokid.onExit
@@ -435,12 +442,14 @@ function launcherStorageServer(config, args, cb) {
           if (str.match(/Failed to contact local Lokid/)) {
             var ts = Date.now()
             last120lokidContactFailures.push(ts)
-            last120lokidContactFailures.splice(-120)
-            console.log('last120lokidContactFailures', last120lokidContactFailures.length)
+            if (last120lokidContactFailures.length > 120) {
+              last120lokidContactFailures.splice(-120)
+            }
+            console.log('last120lokidContactFailures', last120lokidContactFailures.length, 'first', last120lokidContactFailures[0])
             // if the oldest one is not more than 180s ago
-            if (ts - last120lokidContactFailures[0] < 180 * 1000) {
+            if (last120lokidContactFailures.length > 120 && ts - last120lokidContactFailures[0] < 180 * 1000) {
               console.log('we should restart lokid');
-              requestBlockchainRestart();
+              requestBlockchainRestart(config);
             }
             if (storageLogging) console.log(`STORAGE: blockchain tick contact failure`)
             storageServer.blockchainFailures.last_blockchain_tick = Date.now()
@@ -851,6 +860,12 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
       }
       // no one sees these
       //console.log('backgrounded')
+    } else {
+      // interactive is mainly for lokid
+      if (!debug) {
+        lokinet.disableLogging(true)
+        storageLogging = false
+      }
     }
 
     startBackgroundCode()
@@ -1137,7 +1152,6 @@ function configureLokid(config, args) {
 }
 
 var loki_daemon
-var server
 var savePidConfig = {}
 function launchLokid(binary_path, lokid_options, interactive, config, args, cb) {
   if (shuttingDown) {
@@ -1300,6 +1314,7 @@ function requestBlockchainRestart(config, cb) {
     launchLokid(config.blockchain.binary_path, obj.blockchain_startedOptions, config.launcher.interactive, config, obj.arg)
     requestBlockchainRestartLock = false
     config.blockchain.restart = oldVal
+    if (cb) cb()
   })
 }
 
@@ -1504,6 +1519,10 @@ function startLokid(config, args) {
     server.listen(config.launcher.var_path + '/launcher.socket', () => {
       console.log('SOCKET: bound')
     })
+  }
+
+  if (config.web_api.enabled) {
+    webApiServer = require(__dirname + '/web_api').start(config)
   }
 
   // only set up these handlers if we need to
