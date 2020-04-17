@@ -31,7 +31,7 @@ COPY modes/status.js modes/
 COPY lokinet.js .
 COPY start.js .
 COPY uid.js .
-COPY web_api.js
+COPY web_api.js .
 
 # place new package
 COPY package.json .
