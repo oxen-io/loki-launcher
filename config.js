@@ -6,6 +6,8 @@ const lib = require(__dirname + '/lib')
 // only defaults we can save to disk
 // disk config is loaded over this...
 function getDefaultConfig(entrypoint) {
+  // doesn't really work like defaults
+  // if ini has one set, they're all blown out
   const config = {
     launcher: {
       prefix: '/opt/loki-launcher',
@@ -805,6 +807,13 @@ function ensureDirectoriesExist(config, uid) {
   }
 }
 
+function checkWebApiConfig(config) {
+  if (!config.web_api) config.web_api = {}
+  if (config.web_api.enabled === undefined) config.web_api.enabled = true
+  if (config.web_api.ip === undefined) config.web_api.ip = '127.0.0.1'
+  if (config.web_api.port === undefined) config.web_api.port = 22000
+}
+
 // ran after disk config is loaded
 // for everything (index.js)
 function checkConfig(config, args, debug) {
@@ -813,6 +822,7 @@ function checkConfig(config, args, debug) {
   checkBlockchainConfig(config)
   checkNetworkConfig(config)
   checkStorageConfig(config)
+  checkWebApiConfig(config)
   postcheckConfig(config)
   // this means no prequal, fix-perm, etc...
   portChecks(config) // will exit if not ok
