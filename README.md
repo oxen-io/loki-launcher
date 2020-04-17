@@ -102,6 +102,9 @@ And be sure to make sure you restart your service node (if it's staked) by
 
 # Popular linux distribution instructions to install NodeJS
 
+CentOS NodeJS installation:
+curl -sL https://rpm.nodesource.com/setup_12.x | sudo bash -
+
 Ubuntu NodeJS installation:
 
 `curl -sL https://deb.nodesource.com/setup_12.x | sudo bash -`
@@ -109,6 +112,8 @@ Ubuntu NodeJS installation:
 then
 
 `sudo apt-get install -y nodejs`
+
+
 
 # Software the launcher manages
 
