@@ -216,21 +216,15 @@ async function checkBlockchain() {
   const status = statuses.reduce((result, current) => {
     return Object.assign(result, current)
   })
-  if (nodeVer >= 10) {
-    console.table(status)
-  } else {
-    console.log(status)
-  }
+  return status
 }
 
-function checkStorage() {
-  lib.runStorageRPCTest(lokinet, config, function(data) {
-    if (data === undefined) {
-      console.log('failure')
-    } else {
-      console.log('looks good')
-    }
-  })
+async function checkStorage() {
+  let data = await lib.runStorageRPCTest(lokinet, config)
+  if (data !== undefined) {
+    return JSON.parse(data)
+  }
+  return false
   /*
   var useIp = config.storage.ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
@@ -246,7 +240,7 @@ function checkStorage() {
   */
 }
 
-function checkNetwork() {
+async function checkNetwork() {
   var useIp = config.network.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.network.rpc_port + '/'
@@ -255,17 +249,16 @@ function checkNetwork() {
     id: "0",
     method: "llarp.version"
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-    console.log('json', json)
-    // 0.6.x support
-    if (json === 'bad json object') {
-      console.log('')
-    }
-    //var data = JSON.parse(json)
-    //console.log('result', data.result)
-    // get_block_count
-    // console.log('block count', data.result.count)
-  })
+  const json = await lib.httpPost(url, JSON.stringify(jsonPost))
+  console.log('json', json)
+  // 0.6.x support
+  if (json === 'bad json object') {
+    console.log('well its at least running... :(')
+  }
+  //var data = JSON.parse(json)
+  //console.log('result', data.result)
+  // get_block_count
+  // console.log('block count', data.result.count)
 }
 
 module.exports = {
