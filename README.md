@@ -22,7 +22,7 @@ dNMMM0,   ;KMMXo.           ,KMx.        .oNNx'      .dNWx.  :NMo .cKWk;     dMW
 - [npm](https://www.npmjs.com/get-npm) usually installed with nodejs (only for distribution and easy install of this software, we do not use ANY external NPMs for security reasons)
 - Linux (though macos does works and Windows kind of works)
 - xz (xz-utils apt package) to be able to download and extract updated Linux binaries
-- setcap (apt: libcap2-bin, yum: libcap) to be enable lokinet to not need to run as root on Linux
+- setcap (apt: libcap2-bin, rpm: libcap) to be enable lokinet to not need to run as root on Linux
 
 # Why use the launcher over DEBs
 The goal of the launcher is to make it easier to run a service node, however the DEBs installation and upgrade process can be much easier if you're running a debian-based OS. However we do have some additional advantages:
