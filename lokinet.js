@@ -108,78 +108,83 @@ function httpGet(url, cb) {
   if (urlDetails.protocol == 'https:') {
     protoClient = https
   }
-  // well somehow this can get hung on macos
-  var abort = false
-  var watchdog = setInterval(function () {
-    if (shuttingDown) {
-      //if (cb) cb()
-      // [', url, ']
-      log('hung httpGet but have shutdown request, calling back early and setting abort flag')
-      clearInterval(watchdog)
-      abort = true
-      cb()
-      return
-    }
-  }, 5000)
-  return protoClient.get({
-    hostname: urlDetails.hostname,
-    protocol: urlDetails.protocol,
-    port: urlDetails.port,
-    path: urlDetails.path,
-    timeout: 5000,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
-    }
-  }, (resp) => {
-    //log('httpGet setting up handlers')
-    clearInterval(watchdog)
-    resp.setEncoding('binary')
-    let data = ''
-    // A chunk of data has been recieved.
-    resp.on('data', (chunk) => {
-      data += chunk
-    })
-    // The whole response has been received. Print out the result.
-    resp.on('end', () => {
-      // warn if not perfect
-      if (resp.statusCode != 200) {
-        log('httpGet result code', resp.statusCode)
-      }
-      if (abort) {
-        // we already called back
+  return new Promise(function(resolve, reject) {
+    // well somehow this can get hung on macos
+    var abort = false
+    var startWatchdog = setInterval(function () {
+      if (shuttingDown) {
+        // [', url, ']
+        log('hung httpGet but have shutdown request, calling back early and setting abort flag')
+        clearInterval(startWatchdog)
+        abort = true
+        if (cb) cb()
+          else reject()
         return
       }
-      // hijack 300s
-      if (resp.statusCode === 301 || resp.statusCode === 302) {
-        if (resp.headers.location) {
-          let loc = resp.headers.location
-          if (!loc.match(/^http/)) {
-            if (loc.match(/^\//)) {
-              // absolute path
-              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
-            } else {
-              // relative path
-              loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
-            }
-          }
-          console.log('NETWORK: httpGet Redirecting to', loc)
-          return httpGet(loc, cb)
+    }, 5000)
+    protoClient.get({
+      hostname: urlDetails.hostname,
+      protocol: urlDetails.protocol,
+      port: urlDetails.port,
+      path: urlDetails.path,
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 Loki-launcher/' + VERSION
+      }
+    }, (resp) => {
+      //log('httpGet setting up handlers')
+      clearInterval(startWatchdog)
+      resp.setEncoding('binary')
+      let data = ''
+      // A chunk of data has been recieved.
+      resp.on('data', (chunk) => {
+        data += chunk
+      })
+      // The whole response has been received. Print out the result.
+      resp.on('end', () => {
+        // warn if not perfect
+        if (resp.statusCode != 200) {
+          log('httpGet result code', resp.statusCode)
         }
-      }
-      // fail on 400s
-      if (resp.statusCode === 404 || resp.statusCode === 403) {
-        if (resp.statusCode === 403) console.error('NETWORK:', url, 'is forbidden')
-        if (resp.statusCode === 404) console.error('NETWORK:', url, 'is not found')
-        cb()
-        return
-      }
-      cb(data)
+        if (abort) {
+          // we already called back
+          return
+        }
+        // hijack 300s
+        if (resp.statusCode === 301 || resp.statusCode === 302) {
+          if (resp.headers.location) {
+            let loc = resp.headers.location
+            if (!loc.match(/^http/)) {
+              if (loc.match(/^\//)) {
+                // absolute path
+                loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + loc
+              } else {
+                // relative path
+                loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
+              }
+            }
+            console.log('NETWORK: httpGet Redirecting to', loc)
+            return httpGet(loc, cb)
+          }
+        }
+        // fail on 400s
+        if (resp.statusCode === 404 || resp.statusCode === 403) {
+          if (resp.statusCode === 403) console.error('NETWORK:', url, 'is forbidden')
+          if (resp.statusCode === 404) console.error('NETWORK:', url, 'is not found')
+          if (cb) cb()
+            else reject()
+          return
+        }
+        if (cb) cb(data)
+        resolve(data)
+      })
+    }).on("error", (err) => {
+      console.error("NETWORK: httpGet Error: " + err.message, 'port', urlDetails.port)
+      clearInterval(startWatchdog)
+      //console.log('err', err)
+      if (cb) cb()
+        else reject()
     })
-  }).on("error", (err) => {
-    console.error("NETWORK: httpGet Error: " + err.message, 'port', urlDetails.port)
-    clearInterval(watchdog)
-    //console.log('err', err)
-    cb()
   })
 }
 
