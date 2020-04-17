@@ -169,19 +169,30 @@ async function continueStart() {
       await statusSystem.status()
       var type = findFirstArgWithoutDash()
       if (type) {
+        const nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
         switch(type) {
           case 'blockchain':
             // can hang if lokid is popping blocks
             console.log('BLOCKCHAIN STATUS')
-            statusSystem.checkBlockchain();
+            var status = await statusSystem.checkBlockchain()
+            if (nodeVer >= 10) {
+              console.table(status)
+            } else {
+              console.log(status)
+            }
           break;
           case 'storage':
             console.log('STORAGE STATUS')
-            statusSystem.checkStorage();
+            var data = await statusSystem.checkStorage()
+            if (data.storageServerStatus === false) {
+              console.log('failure')
+            } else {
+              console.log('looks good')
+            }
           break;
           case 'network':
             console.log('NETWORK STATUS')
-            statusSystem.checkNetwork();
+            statusSystem.checkNetwork()
           break;
         }
       }
@@ -421,7 +432,9 @@ async function continueStart() {
     case 'donwload-binaries':
     case 'donwload-binaries':
     case 'donwload-bianres':
+    case 'download-binares':
     case 'downlaod-binaries':
+    case 'dlb':
     case 'download-binaries': // official
       // because of lokinet and mkdirp /opt/...
       requireRoot()
@@ -459,10 +472,9 @@ async function continueStart() {
           key = keys.result.service_node_pubkey
         } else {
           console.log('blockchain is not running, one sec, need to start it to get our key')
-          const statusUtils = require(__dirname + '/modes/status')
           const daemon = require(__dirname + '/daemon')
           const lokinet = require('./lokinet')
-          key = await lib.getSnodeOffline(statusUtils, daemon, lokinet, config)
+          key = await lib.getSnodeOffline(statusSystem, daemon, lokinet, config)
         }
       }
       const date = new Date().toISOString().replace(/:/g, '-')
@@ -471,6 +483,17 @@ async function continueStart() {
         destPath: opt1 || 'export_' + key + '_' + date + '.tar'
       }
       require(__dirname + '/modes/export').start(config, options)
+    break;
+    case 'import':
+      var importFile = findFirstArgWithoutDash()
+      if (!importFile) {
+        console.log('No file passed in! You must explicitly tell us what file you want imported')
+        return
+      }
+      var options = {
+        srcPath: importFile
+      }
+      require(__dirname + '/modes/import').start(config, options)
     break;
     case 'versions':
     case 'version': // official
