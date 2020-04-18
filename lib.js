@@ -69,7 +69,33 @@ function getBlockchainVersion(config) {
       // Loki 'Nimble Nerthus' (v6.1.4-6f78319d0)
       return blockchainVersion
     } catch(e) {
-      console.error('Cant detect blockchain version', e)
+      /*
+Cant detect blockchain version Error: Command failed: /opt/loki-launcher/bin/lokid --version
+/opt/loki-launcher/bin/lokid: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.25' not found (required by /opt/loki-launcher/bin/lokid)
+
+    at checkExecSyncError (child_process.js:621:11)
+    at execFileSync (child_process.js:639:15)
+    at Object.getBlockchainVersion (/root/loki-daemon-launcher/lib.js:66:22)
+    at getLokidVersion (/root/loki-daemon-launcher/config.js:291:31)
+    at isBlockchainBinary3X (/root/loki-daemon-launcher/config.js:312:3)
+    at checkLauncherConfig (/root/loki-daemon-launcher/config.js:347:9)
+    at Object.checkConfig [as check] (/root/loki-daemon-launcher/config.js:821:3)
+    at continueStart (/root/loki-daemon-launcher/index.js:125:14)
+    at Object.<anonymous> (/root/loki-daemon-launcher/index.js:22:3)
+    at Module._compile (internal/modules/cjs/loader.js:936:30) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    <Buffer >,
+    <Buffer 2f 6f 70 74 2f 6c 6f 6b 69 2d 6c 61 75 6e 63 68 65 72 2f 62 69 6e 2f 6c 6f 6b 69 64 3a 20 2f 6c 69 62 2f 78 38 36 5f 36 34 2d 6c 69 6e 75 78 2d 67 6e ... 87 more bytes>
+  ],
+  pid: 442253,
+  stdout: <Buffer >,
+  stderr: <Buffer 2f 6f 70 74 2f 6c 6f 6b 69 2d 6c 61 75 6e 63 68 65 72 2f 62 69 6e 2f 6c 6f 6b 69 64 3a 20 2f 6c 69 62 2f 78 38 36 5f 36 34 2d 6c 69 6e 75 78 2d 67 6e ... 87 more bytes>
+      */
+      // stderr seems to be already echo'd
+      console.error('Cant detect blockchain version', e.stdout.toString())
       // can't hurt to retry I guess, maybe it is a temp problem
     }
   }

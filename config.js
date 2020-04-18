@@ -289,6 +289,12 @@ function getLokidVersion(config) {
   if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
     try {
       var lokid_version = lib.getBlockchainVersion(config)
+      if (!lokid_version.match) {
+        // this could mean lokid fails to run
+        // (i.e. version `GLIBC_2.25' not found)
+        // if we can't get it, maybe assume the latest?
+        return false;
+      }
       //console.log('lokid_version', lokid_version)
       binary3xCache = lokid_version.match(/v3\.0/)?true:false
       binary4Xor5XCache = lokid_version.match(/v[54]\./)?true:false
