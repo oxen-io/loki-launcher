@@ -686,7 +686,6 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
 }
 
 // only stop lokid, which should stop any launcher
-// FIXME: put into stopLauncher
 function stopLokid(config) {
   var running = getProcessState(config)
   if (running.lokid) {
@@ -1189,6 +1188,7 @@ async function waitForBlockchain(config, options) {
   })
 }
 
+// FIXME: redo, so that this just starts lokid, so we can run any rpc command
 async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
   daemon.config = config // update config for shutdownEverything
 
@@ -1209,7 +1209,7 @@ async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
   const keys = await blockchainRpcGetKey(config)
   //console.log('rpc test result', keys.result)
   stopLokid(config)
-  return keys.result.service_node_pubkey
+  return keys.result
 }
 
 module.exports = {
