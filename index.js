@@ -351,7 +351,7 @@ async function continueStart() {
             }
           })
           client.on('data', (data) => {
-            var stripped = data.toString().trim()
+            var stripped = data.toString().trim().replace(/\n/, '')
             console.log('FROM SOCKET:', stripped)
           })
           client.on('end', () => {
