@@ -24,6 +24,44 @@ if (VERSION.match(/git/)) {
   continueStart()
 }
 
+// from https://www.codedrome.com/the-soundex-algorithm-in-javascript/
+function soundex(name) {
+  let s = [];
+  let si = 1;
+  let c;
+
+  //              ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  const mappings = "01230120022455012623010202";
+
+  s[0] = name[0].toUpperCase();
+
+  for(let i = 1, l = name.length; i < l; i++) {
+    c = (name[i].toUpperCase()).charCodeAt(0) - 65;
+
+    if(c >= 0 && c <= 25) {
+      if(mappings[c] != '0') {
+        if(mappings[c] != s[si-1]) {
+          s[si] = mappings[c];
+          si++;
+        }
+
+        if(si > 3) {
+          break;
+        }
+      }
+    }
+  }
+
+  if(si <= 3) {
+    while(si <= 3) {
+      s[si] = '0';
+      si++;
+    }
+  }
+
+  return s.join("");
+}
+
 async function continueStart() {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
@@ -56,6 +94,9 @@ async function continueStart() {
   stripArg('/usr/bin/nodejs')
   stripArg('node')
   stripArg('nodejs')
+  // centos8
+  stripArg('/bin/node')
+  stripArg('/bin/loki-launcher')
   stripArg(__filename) // will just be index.js
   stripArg('loki-launcher')
   stripArg('/usr/bin/loki-launcher')
@@ -77,6 +118,7 @@ async function continueStart() {
   }
 
   // find the first arg without --
+  var modeExtractedFrom = [...args]
   var mode = findFirstArgWithoutDash()
 
   //console.log('mode', mode)
@@ -112,12 +154,30 @@ async function continueStart() {
   const lib = require(__dirname + '/lib')
 
   //console.log('Launcher config:', config)
-  if (useGitVersion) {
-    var logo = lib.getLogo('git rev version')
-    console.log(logo.replace(/version/, VERSION.toString().split('').join('')))
-  } else {
-    var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
-    console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+  // FIXME: do the spelling unification up here
+  // interactive, start because user facing and we'll want the version in logs
+  // may want to it in '' to give more screen space to help
+  const showLogoCommands = [
+    'prequal', 'download-binaries', 'versions', 'config-view', 'client'
+  ]
+  const showVersionCommands = [
+    'prequal', 'interactive', 'start', 'daemon-start'
+  ]
+  if (showLogoCommands.includes(mode)) {
+    if (useGitVersion) {
+      var logo = lib.getLogo('git rev version')
+      console.log(logo.replace(/version/, VERSION.toString()))
+    } else {
+      var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
+      console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+    }
+  }
+  if (showVersionCommands.includes(mode)) {
+    if (useGitVersion) {
+      console.log('Loki-Launcher version', VERSION.toString())
+    } else {
+      console.log('Loki-Launcher version', VERSION.toString())
+    }
   }
 
   var debugMode = mode.match(/debug/i)
@@ -149,6 +209,21 @@ async function continueStart() {
     console.log('blockchain installed version', lib.getBlockchainVersion(config))
     console.log('storage    installed version', lib.getStorageVersion(config))
     console.log('network    installed version', lib.getNetworkVersion(config))
+  }
+
+  async function getPubKeys() {
+    var running = lib.getProcessState(config)
+    let key
+    if (running.lokid) {
+      const keys = await lib.blockchainRpcGetKey(config)
+      key = keys.result
+    } else {
+      console.log('blockchain is not running, one sec, need to start it to get our key')
+      const daemon = require(__dirname + '/daemon')
+      const lokinet = require('./lokinet')
+      key = await lib.getSnodeOffline(statusSystem, daemon, lokinet, config)
+    }
+    return key
   }
 
   console.log('Running', mode)
@@ -196,6 +271,10 @@ async function continueStart() {
           break;
         }
       }
+    break;
+    case 'key':
+      keys = await getPubKeys()
+      console.log(keys)
     break;
     // no restart because we don't want people croning it
     case 'stop': // official
@@ -295,6 +374,7 @@ async function continueStart() {
     case 'interactive':
       config.launcher.interactive = true
       process.env.__daemon = true
+      /*
       if (debugMode) {
         statusWatcher = setInterval(status, 30*1000)
         process.on('SIGUSR1', function () {
@@ -323,6 +403,7 @@ async function continueStart() {
           process.exit();
         })
       }
+      */
       require(__dirname + '/start')(args, config, __filename, debugMode)
     break;
     case 'daemon-start-debug': // official
@@ -435,6 +516,8 @@ async function continueStart() {
     case 'download-binares':
     case 'downlaod-binaries':
     case 'dlb':
+    case 'dowload-binaries':
+    case 'downloadb-inaries':
     case 'download-binaries': // official
       // because of lokinet and mkdirp /opt/...
       requireRoot()
@@ -465,17 +548,8 @@ async function continueStart() {
 
       let key
       if (!opt1) {
-        var running = lib.getProcessState(config)
-
-        if (running.lokid) {
-          const keys = await lib.blockchainRpcGetKey(config)
-          key = keys.result.service_node_pubkey
-        } else {
-          console.log('blockchain is not running, one sec, need to start it to get our key')
-          const daemon = require(__dirname + '/daemon')
-          const lokinet = require('./lokinet')
-          key = await lib.getSnodeOffline(statusSystem, daemon, lokinet, config)
-        }
+        const keys = await getPubKeys()
+        key = keys.pubkey || keys.service_node_pubkey
       }
       const date = new Date().toISOString().replace(/:/g, '-')
 
@@ -505,7 +579,7 @@ async function continueStart() {
     case 'lpeh':
     default:
       console.debug('in :', process.argv)
-      console.debug('out:', args)
+      console.debug('out:', args, 'mode pulled from:', modeExtractedFrom)
       //              storage    - get storage status
       console.log(`
   Unknown command [${mode}]
