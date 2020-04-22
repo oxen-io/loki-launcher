@@ -1600,7 +1600,7 @@ module.exports = {
   startLokinet: startLokinet,
   startStorageServer: startStorageServer,
   startLokid: startLokid,
-  // for lib::getSnodeOffline
+  // for lib::runOfflineBlockchainRPC
   configureLokid: configureLokid,
   launchLokid: launchLokid,
   //

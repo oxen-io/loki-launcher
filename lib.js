@@ -405,13 +405,16 @@ function getProcessState(config) {
   return running
 }
 
+var rpcIdCounter = 0
+
 function runBlockchainRPCTest(config, cb) {
   var useIp = config.blockchain.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
   const jsonPost = {
     jsonrpc: "2.0",
-    id: "0",
+    id: rpcIdCounter,
     method: "get_info"
   }
   try {
@@ -423,15 +426,16 @@ function runBlockchainRPCTest(config, cb) {
   }
 }
 
-
-async function blockchainRpcGetKey(config, cb) {
+async function blockchainRpcGetNetInfo(config, cb) {
   var useIp = config.blockchain.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
   const jsonPost = {
     jsonrpc: "2.0",
-    id: "0",
-    method: "get_service_node_key"
+    id: rpcIdCounter,
+    method: "get_info",
+    params: {}
   }
   try {
     const json = await httpPost(url, JSON.stringify(jsonPost), cb)
@@ -441,6 +445,50 @@ async function blockchainRpcGetKey(config, cb) {
   }
 }
 
+async function blockchainRpcGetKey(config, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: rpcIdCounter,
+    method: "get_service_node_key",
+    params: {}
+  }
+  try {
+    const json = await httpPost(url, JSON.stringify(jsonPost), cb)
+    return JSON.parse(json)
+  } catch (e) {
+    return false
+  }
+}
+
+async function blockchainRpcGetObligationsQuorum(config, options, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: rpcIdCounter,
+    method: "get_quorum_state",
+    params: { quorum_type: 0 }
+  }
+  if (options.start_height) {
+    jsonPost.params.start_height = parseInt(options.start_height)
+  }
+  if (options.end_height) {
+    jsonPost.params.end_height = parseInt(options.end_height)
+  }
+  // console.log('jsonPost', jsonPost)
+  try {
+    const json = await httpPost(url, JSON.stringify(jsonPost), cb)
+    return JSON.parse(json)
+  } catch (e) {
+    return false
+  }
+}
 
 async function runStorageRPCTest(lokinet, config, cb) {
   var url = 'https://' + config.storage.ip + ':' + config.storage.port + '/get_stats/v1'
@@ -1060,6 +1108,7 @@ let shuttingDown = false
 function httpPost(url, postdata, options, cb) {
   if (cb === undefined && typeof(options) !== 'object'){
     cb = options
+    options = {}
   }
   return new Promise(function(resolve, reject) {
     const urlDetails = urlparser.parse(url)
@@ -1127,8 +1176,9 @@ function httpPost(url, postdata, options, cb) {
                 loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
               }
             }
-            console.log('LIB: httpGet Redirecting to', loc)
-            return httpPost(loc, cb)
+            console.log('LIB: httpPost asks for redirect to', loc)
+            //return httpPost(loc, postdata, options, cb)
+            reject()
           }
         }
         // fail on 400s
@@ -1188,8 +1238,7 @@ async function waitForBlockchain(config, options) {
   })
 }
 
-// FIXME: redo, so that this just starts lokid, so we can run any rpc command
-async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
+async function startLokidForRPC(daemon, lokinet, config) {
   daemon.config = config // update config for shutdownEverything
 
   lokinet.disableLogging(true)
@@ -1206,11 +1255,16 @@ async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
   config.blockchain.quiet = true // force quiet
   daemon.launchLokid(config.blockchain.binary_path, lokid_options, false, config, args)
   await waitForBlockchain(config, { timeout: 30 * 1000 })
-  const keys = await blockchainRpcGetKey(config)
-  //console.log('rpc test result', keys.result)
-  stopLokid(config)
-  return keys.result
 }
+
+async function runOfflineBlockchainRPC(daemon, lokinet, config, rpcFunc) {
+  startLokidForRPC(daemon, lokinet, config)
+  await waitForBlockchain(config, { timeout: 30 * 1000 })
+  const res = await rpcFunc(config)
+  stopLokid(config)
+  return res.result ? res.result : res
+}
+
 
 module.exports = {
   getLogo: getLogo,
@@ -1241,6 +1295,10 @@ module.exports = {
   getStorageVersion: getStorageVersion,
   getNetworkVersion: getNetworkVersion,
 
-  getSnodeOffline: getSnodeOffline,
+  runOfflineBlockchainRPC: runOfflineBlockchainRPC,
+  startLokidForRPC: startLokidForRPC,
+  stopLokid: stopLokid,
   blockchainRpcGetKey: blockchainRpcGetKey,
+  blockchainRpcGetNetInfo: blockchainRpcGetNetInfo,
+  blockchainRpcGetObligationsQuorum: blockchainRpcGetObligationsQuorum,
 }
