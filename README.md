@@ -137,6 +137,20 @@ And if you don't have the dependencies to build from source check out [contrib/d
 # Changelog
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
+Changelog:
+- 1.0.15
+  - introduce web api (tries to bind to 22000 on localhost by default)
+  - introduce `show-quorum`
+  - introduce `import`
+  - introduce `keys`
+  - introduce `download-blockchain`
+  - centos8 fixes
+  - turn off always showing the logo
+  - fix qun_ip (it's tied to the p2p_ip)
+  - trim new lines from `stop` blockchain output
+  - `download-binaries` now just runs `check-system` if systemd is enabled
+  - `download-binaries` fall back to last release if the current one doesn't have a binary for your platform
+  - improve `status blockchain` error handling
 - 1.0.14
   - introduce `status blockchain` for quick read of important status
   - introduce `systemd log` for dumping launcher logs
