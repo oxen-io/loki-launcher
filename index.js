@@ -371,6 +371,7 @@ async function continueStart() {
       require(__dirname + '/start')(args, config, __filename, true)
     break;
     case 'interactive-debug':
+    case 'ineractive':
     case 'interactive':
       config.launcher.interactive = true
       process.env.__daemon = true
@@ -469,7 +470,10 @@ async function continueStart() {
         console.log('upgrade-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
-      require(__dirname + '/modes/check-systemd').start(config, __filename)
+      const systemdUtils = require(__dirname + '/modes/check-systemd')
+      // we should run this even if it's not enabled
+      // as people maybe installing this file for the first time
+      systemdUtils.start(config, __filename)
     break;
     case 'systemd':
       var type = findFirstArgWithoutDash()
@@ -527,7 +531,8 @@ async function continueStart() {
         forceDownload: (opt1 === 'force' || opt1 === 'force-prerel'),
         prerel: (opt1 === 'prerel' || opt1 === 'force-prerel')
       }
-      require(__dirname + '/modes/download-binaries').start(config, options)
+      await require(__dirname + '/modes/download-binaries').start(config, options)
+      require(__dirname + '/modes/check-systemd').start(config, __filename)
     break;
     case 'download-chain':
     case 'download-blockchain': // official
