@@ -53,7 +53,13 @@ function start(config) {
       break;
     }
   });
-  webApiServer.listen(config.web_api.port, config.web_api.ip);
+  webApiServer.listen(config.web_api.port, config.web_api.ip).on('error', function(e) {
+    if (e.code === 'EADDRINUSE') {
+      console.log('WEB_API: disabling because port', config.web_api.port, 'is inuse on', config.web_api.ip)
+    } else {
+      console.log('WEB_API:', e)
+    }
+  })
   return webApiServer
 }
 
