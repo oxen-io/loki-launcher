@@ -300,7 +300,7 @@ async function continueStart() {
       info = await lib.blockchainRpcGetNetInfo(config)
       if (info && info.result && info.result.height) {
         const startHeight = info.result.height - 20
-        const endHeight = info.result.height + 20
+        const endHeight = info.result.height
         // full node just has quorums up to endHeight
         console.log('Network height:', info.result.height, 'Checking for quorums between', startHeight, 'to', endHeight)
         const knownQuorums = {}
@@ -333,7 +333,7 @@ async function continueStart() {
           // console.log('test:', test)
           // height isn't set if we just started it up
           if (test.quorum.workers.indexOf(ourPubKey) !== -1) {
-            const blocks = test.height - info.result.height
+            const blocks = (test.height - 20) - info.result.height
             console.log('You will be tested at', test.height, 'which is roughly in', blocks * 2, 'mins')
             found = true
           }
@@ -676,16 +676,22 @@ async function continueStart() {
 
     Commands:
       start       start the loki suite with OPTIONS
+      stop        stops the launcher running in the background
       status      get the current loki suite status, can optionally provide:
                     blockchain - get blockchain status
       client      connect to lokid
       prequal     prequalify your server for service node operation
       config-view print out current configuration information
       versions    show installed versions of Loki software
-      export      try to create a compressed tarball with all the snode files
-                    that you need to migrate this snode to another host
       systemd     requires one of the following options
                     log - show systemd launcher log file
+      keys        get your service node public keys
+      show-quorum tries to give an estimate to the next time you're tested
+      export [FILENAME]   try to create a compressed tarball with all the snode files
+                            that you need to migrate this snode to another host
+      import FILENAME     try to import this exported tarball to this host
+      download-blockchain deletes current blockchain and downloads a fresh sync'd copy
+                            usually much faster than a normal lokid sync takes
 
     Commands that require root/sudo:
       download-binaries - download the latest version of the loki software suite
