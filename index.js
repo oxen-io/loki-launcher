@@ -340,6 +340,7 @@ async function continueStart() {
         })
         if (!found) {
           console.warn('Could not find you being tested in', heights)
+          console.log('Please run again in a little bit (2 mins+)')
         }
       }
 
