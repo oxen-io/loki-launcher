@@ -445,7 +445,9 @@ function launcherStorageServer(config, args, cb) {
             if (last120lokidContactFailures.length > 120) {
               last120lokidContactFailures.splice(-120)
             }
-            console.log('last120lokidContactFailures', last120lokidContactFailures.length, 'first', last120lokidContactFailures[0])
+            if (!shuttingDown) {
+              console.log('STORAGE: can not contact blockchain, failure count', last120lokidContactFailures.length, 'first', parseInt((ts - last120lokidContactFailures[0]) / 1000) + 's ago')
+            }
             // if the oldest one is not more than 180s ago
             if (last120lokidContactFailures.length > 120 && ts - last120lokidContactFailures[0] < 180 * 1000) {
               console.log('we should restart lokid');
