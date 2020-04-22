@@ -213,17 +213,18 @@ async function continueStart() {
 
   async function getPubKeys() {
     var running = lib.getProcessState(config)
-    let key
+    let keys
     if (running.lokid) {
-      const keys = await lib.blockchainRpcGetKey(config)
-      key = keys.result
+      const response = await lib.blockchainRpcGetKey(config)
+      keys = response.result
     } else {
       console.log('blockchain is not running, one sec, need to start it to get our key')
       const daemon = require(__dirname + '/daemon')
       const lokinet = require('./lokinet')
-      key = await lib.getSnodeOffline(statusSystem, daemon, lokinet, config)
+      keys = await lib.runOfflineBlockchainRPC( daemon, lokinet, config, lib.blockchainRpcGetKey)
     }
-    return key
+    delete keys.status
+    return keys
   }
 
   console.log('Running', mode)
@@ -272,8 +273,88 @@ async function continueStart() {
         }
       }
     break;
+    case 'show-quorum':
+      if (configUtil.isBlockchainBinary7X(config)) {
+        var ver = lib.getBlockchainVersion(config)
+        if (ver.match(/7.1.0|7.1.1|7.1.2|7.1.3/)) {
+          console.log('ver', ver, 'has a bug and this function will not work')
+          process.exit()
+        }
+      }
+      var running = lib.getProcessState(config)
+      var keys, qResp, info
+      if (!running.lokid) {
+        const daemon = require(__dirname + '/daemon')
+        const lokinet = require('./lokinet')
+        await lib.startLokidForRPC(daemon, lokinet, config)
+      }
+
+      keys = await lib.blockchainRpcGetKey(config)
+      if (!keys || !keys.result || !keys.result.service_node_pubkey) {
+        console.error('Could not get our pubkey')
+        return
+      }
+      const ourPubKey = keys.result.service_node_pubkey
+      console.log('Our PubKey', ourPubKey)
+
+      info = await lib.blockchainRpcGetNetInfo(config)
+      if (info && info.result && info.result.height) {
+        const startHeight = info.result.height - 20
+        const endHeight = info.result.height + 20
+        // full node just has quorums up to endHeight
+        console.log('Network height:', info.result.height, 'Checking for quorums between', startHeight, 'to', endHeight)
+        const knownQuorums = {}
+        qResp = await lib.blockchainRpcGetObligationsQuorum(config, {
+          start_height: startHeight,
+          end_height: endHeight,
+        })
+        if (!qResp) {
+          console.error('no quorum resp for', adjusedHeight)
+          return
+        }
+        // console.log('checking height', adjusedHeight, qResp.result.quorums[0].height, qResp.result.quorums[0].quorum_type, qResp.result.quorums[0])
+        const obligations = qResp.result.quorums.filter(q => q.quorum_type === 0)
+        if (!obligations.length) {
+          console.error('Could not find any obligation quorums, try again later')
+          return
+        }
+
+        console.warn('There are', obligations.length, 'quorums found')
+        let found = false
+        const heights = []
+        obligations.forEach(test => {
+          /*
+          if (knownQuorums[test.height]) {
+            continue
+          }
+          knownQuorums[next.height] = true
+          */
+          heights.push(test.height)
+          // console.log('test:', test)
+          // height isn't set if we just started it up
+          if (test.quorum.workers.indexOf(ourPubKey) !== -1) {
+            const blocks = test.height - info.result.height
+            console.log('You will be tested at', test.height, 'which is roughly in', blocks * 2, 'mins')
+            found = true
+          }
+        })
+        if (!found) {
+          console.warn('Could not find you being tested in', heights)
+        }
+      }
+
+      if (!running.lokid) {
+        lib.stopLokid(config)
+      }
+
+      if (!qResp) {
+        console.error('no quorum resp')
+        return
+      }
+    break;
     case 'key':
-      keys = await getPubKeys()
+    case 'keys':
+      var keys = await getPubKeys()
       console.log(keys)
     break;
     // no restart because we don't want people croning it
