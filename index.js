@@ -286,6 +286,7 @@ async function continueStart() {
       if (!running.lokid) {
         const daemon = require(__dirname + '/daemon')
         const lokinet = require('./lokinet')
+        console.log('blockchain is not running, one sec, need to start it')
         await lib.startLokidForRPC(daemon, lokinet, config)
       }
 
@@ -299,7 +300,7 @@ async function continueStart() {
 
       info = await lib.blockchainRpcGetNetInfo(config)
       if (info && info.result && info.result.height) {
-        const startHeight = info.result.height - 20
+        const startHeight = info.result.height - 11
         const endHeight = info.result.height
         // full node just has quorums up to endHeight
         console.log('Network height:', info.result.height, 'Checking for quorums between', startHeight, 'to', endHeight)
@@ -531,6 +532,7 @@ async function continueStart() {
     case 'blockchain':
       require(__dirname + '/modes/client')(config)
     break;
+    case 'preuqal':
     case 'prequal': // official
       require(__dirname + '/modes/prequal')(config, false)
     break;
