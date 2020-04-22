@@ -174,7 +174,7 @@ function downloadArchive(url, config, options) {
   })
 }
 
-function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
+async function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
   lokinet.httpGet(github_url, function(json) {
     //console.log('got', github_url, 'result', json)
     if (json === undefined) {
@@ -206,6 +206,13 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
       var selectedVersion = null
       for(var i in data) {
         const ver = data[i]
+
+        // skip if name is in the skip list
+        if (options.skips) {
+          if (options.skips.indexOf(ver.name) !== -1) {
+            continue
+          }
+        }
 
         if (options.prereleaseOnly) {
           if (ver.prerelease) {
@@ -273,6 +280,7 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
         // linux
         options.ext = '.tar.xz'
         downloadArchive(asset.browser_download_url, config, options)
+        found = true
       }
       // storage server support
       if (search == 'osx' && asset.browser_download_url.match(searchRE) && asset.browser_download_url.match(/\.tar.xz/i) && asset.browser_download_url.match(/-x64-/i)) {
@@ -291,6 +299,16 @@ function downloadGithubRepo(github_url, options, config, curVerStr, cb) {
           found = true
         }
       }
+    }
+    if (!found) {
+      if (options.skips === undefined) options.skips = []
+      options.skips.push(data.name)
+      console.log('No binary found for', search, 'for', data.name, 'searching for older version (that is not:', options.skips, ')')
+
+      // add timeout to not flood github
+      setTimeout(function() {
+        downloadGithubRepo(github_url, options, config, curVerStr, cb)
+      }, 5000 * options.skips.length)
     }
   })
 }
@@ -322,45 +340,48 @@ function start(config, options) {
   // FIXME: this force sudo support...
   lokinet.mkDirByPathSync('/opt/loki-launcher/bin')
   console.log('Configured architecture:', process.arch)
+  return new Promise(resolve => {
 
-  // can't get draft release without authenticating as someone that can see the draft...
+    // can't get draft release without authenticating as someone that can see the draft...
 
-  if (options.forceDownload) {
-    config.forceDownload = options.forceDownload
-  }
-  baseOptions = {}
-  baseOptions[options.prerel ? 'prereleaseOnly': 'notPrerelease'] = true
+    if (options.forceDownload) {
+      config.forceDownload = options.forceDownload
+    }
+    baseOptions = {}
+    baseOptions[options.prerel ? 'prereleaseOnly': 'notPrerelease'] = true
 
-  if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
-      start_retries = 0
-      lokinet.checkConfig(config) // setcap
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
+    if (config.blockchain.network == 'test' || config.blockchain.network == 'demo' || config.blockchain.network == 'staging') {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
         start_retries = 0
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
-
+        lokinet.checkConfig(config) // setcap
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
+          start_retries = 0
+          downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
+            resolve()
+          })
         })
       })
-    })
-  } else {
-    downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
-      start_retries = 0
-      lokinet.checkConfig(config) // setcap
-      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
+    } else {
+      downloadGithubRepo('https://api.github.com/repos/loki-project/loki-network/releases', { filename: 'lokinet', useDir: true, ...baseOptions }, config, lib.getNetworkVersion(config), function() {
         start_retries = 0
-        /*
-        if (xenial_hack) {
-          console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
-          downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
-        } else {
-        */
-        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
-          // can't run fix-perms without knowing the user
+        lokinet.checkConfig(config) // setcap
+        downloadGithubRepo('https://api.github.com/repos/loki-project/loki-storage-server/releases', { filename: 'loki-storage', useDir: false, ...baseOptions }, config, lib.getStorageVersion(config), function() {
+          start_retries = 0
+          /*
+          if (xenial_hack) {
+            console.log('Detected Xenial, forcing 4.0.5. This is temporary, until 5.1.0 supports your operating system version')
+            downloadGithubRepo('https://api.github.com/repos/loki-project/loki/releases/19352901', { filename: 'lokid', useDir: true, notPrerelease: true }, config)
+          } else {
+          */
+          downloadGithubRepo('https://api.github.com/repos/loki-project/loki-core/releases', { filename: 'lokid', useDir: true, ...baseOptions }, config, lib.getBlockchainVersion(config), function() {
+            // can't run fix-perms without knowing the user
+            resolve()
+          })
+          //}
         })
-        //}
       })
-    })
-  }
+    }
+  })
 }
 
 module.exports = {

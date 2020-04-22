@@ -17,15 +17,15 @@ function start(config, options) {
     // console.log('strip', dir, 'from', file, '=>', stripFile)
     execSync('tar -C '+dir+' -rf ' + filename + ' ' + stripFile)
   }
-  console.log('saving blockchain keys')
+  console.log('exporting blockchain keys')
   addFile(config.blockchain.lokid_key, config.blockchain.data_dir)
   addFile(config.blockchain.lokid_edkey, config.blockchain.data_dir)
-  console.log('saving network keys')
+  console.log('exporting network keys')
   addFile(config.network.data_dir + '/encryption.private', config.network.data_dir)
   addFile(config.network.data_dir + '/transport.private', config.network.data_dir)
   // "Shouldn't be very important, it just takes a bit longer to generate them" - Maxim S 200415
   //console.log('saving storage keys')
-  console.log('saving storage data')
+  console.log('exporting storage data')
   addFile(config.storage.data_dir + '/storage.db', config.storage.data_dir)
   try {
     console.log('trying to compress')

@@ -69,7 +69,33 @@ function getBlockchainVersion(config) {
       // Loki 'Nimble Nerthus' (v6.1.4-6f78319d0)
       return blockchainVersion
     } catch(e) {
-      console.error('Cant detect blockchain version', e)
+      /*
+Cant detect blockchain version Error: Command failed: /opt/loki-launcher/bin/lokid --version
+/opt/loki-launcher/bin/lokid: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.25' not found (required by /opt/loki-launcher/bin/lokid)
+
+    at checkExecSyncError (child_process.js:621:11)
+    at execFileSync (child_process.js:639:15)
+    at Object.getBlockchainVersion (/root/loki-daemon-launcher/lib.js:66:22)
+    at getLokidVersion (/root/loki-daemon-launcher/config.js:291:31)
+    at isBlockchainBinary3X (/root/loki-daemon-launcher/config.js:312:3)
+    at checkLauncherConfig (/root/loki-daemon-launcher/config.js:347:9)
+    at Object.checkConfig [as check] (/root/loki-daemon-launcher/config.js:821:3)
+    at continueStart (/root/loki-daemon-launcher/index.js:125:14)
+    at Object.<anonymous> (/root/loki-daemon-launcher/index.js:22:3)
+    at Module._compile (internal/modules/cjs/loader.js:936:30) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    <Buffer >,
+    <Buffer 2f 6f 70 74 2f 6c 6f 6b 69 2d 6c 61 75 6e 63 68 65 72 2f 62 69 6e 2f 6c 6f 6b 69 64 3a 20 2f 6c 69 62 2f 78 38 36 5f 36 34 2d 6c 69 6e 75 78 2d 67 6e ... 87 more bytes>
+  ],
+  pid: 442253,
+  stdout: <Buffer >,
+  stderr: <Buffer 2f 6f 70 74 2f 6c 6f 6b 69 2d 6c 61 75 6e 63 68 65 72 2f 62 69 6e 2f 6c 6f 6b 69 64 3a 20 2f 6c 69 62 2f 78 38 36 5f 36 34 2d 6c 69 6e 75 78 2d 67 6e ... 87 more bytes>
+      */
+      // stderr seems to be already echo'd
+      console.error('Cant detect blockchain version', e.stdout.toString())
       // can't hurt to retry I guess, maybe it is a temp problem
     }
   }
@@ -379,13 +405,16 @@ function getProcessState(config) {
   return running
 }
 
+var rpcIdCounter = 0
+
 function runBlockchainRPCTest(config, cb) {
   var useIp = config.blockchain.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
   const jsonPost = {
     jsonrpc: "2.0",
-    id: "0",
+    id: rpcIdCounter,
     method: "get_info"
   }
   try {
@@ -397,15 +426,16 @@ function runBlockchainRPCTest(config, cb) {
   }
 }
 
-
-async function blockchainRpcGetKey(config, cb) {
+async function blockchainRpcGetNetInfo(config, cb) {
   var useIp = config.blockchain.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
   const jsonPost = {
     jsonrpc: "2.0",
-    id: "0",
-    method: "get_service_node_key"
+    id: rpcIdCounter,
+    method: "get_info",
+    params: {}
   }
   try {
     const json = await httpPost(url, JSON.stringify(jsonPost), cb)
@@ -415,14 +445,56 @@ async function blockchainRpcGetKey(config, cb) {
   }
 }
 
+async function blockchainRpcGetKey(config, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: rpcIdCounter,
+    method: "get_service_node_key",
+    params: {}
+  }
+  try {
+    const json = await httpPost(url, JSON.stringify(jsonPost), cb)
+    return JSON.parse(json)
+  } catch (e) {
+    return false
+  }
+}
 
-function runStorageRPCTest(lokinet, config, cb) {
+async function blockchainRpcGetObligationsQuorum(config, options, cb) {
+  var useIp = config.blockchain.rpc_ip
+  if (useIp === '0.0.0.0') useIp = '127.0.0.1'
+  const url = 'http://' + useIp + ':' + config.blockchain.rpc_port + '/json_rpc'
+  rpcIdCounter++
+  const jsonPost = {
+    jsonrpc: "2.0",
+    id: rpcIdCounter,
+    method: "get_quorum_state",
+    params: { quorum_type: 0 }
+  }
+  if (options.start_height) {
+    jsonPost.params.start_height = parseInt(options.start_height)
+  }
+  if (options.end_height) {
+    jsonPost.params.end_height = parseInt(options.end_height)
+  }
+  // console.log('jsonPost', jsonPost)
+  try {
+    const json = await httpPost(url, JSON.stringify(jsonPost), cb)
+    return JSON.parse(json)
+  } catch (e) {
+    return false
+  }
+}
+
+async function runStorageRPCTest(lokinet, config, cb) {
   var url = 'https://' + config.storage.ip + ':' + config.storage.port + '/get_stats/v1'
   //console.log('Storage server is running, checking to make sure it\'s responding')
   //console.log('storage', config.storage)
   //console.log('asking', url)
-  var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
-  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = '0' // turn it off for now
   var responded = false
   var ref = {
     abort: function () {
@@ -435,16 +507,18 @@ function runStorageRPCTest(lokinet, config, cb) {
     ref.abort()
     cb()
   }, 5000)
-  ref = lokinet.httpGet(url, function(data) {
-    process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = oldTLSValue
-    clearTimeout(storage_rpc_timer)
-    if (responded) return
-    responded = true
-    cb(data)
-  })
+  var oldTLSValue = process.env["NODE_TLS_REJECT_UNAUTHORIZED"]
+  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = '0' // turn it off for now
+  const data =  await lokinet.httpGet(url)
+  process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = oldTLSValue
+  clearTimeout(storage_rpc_timer)
+  if (responded) return
+  responded = true
+  if (cb) cb(data)
+  return data
 }
 
-function runNetworkRPCTest(config, cb) {
+async function runNetworkRPCTest(config, cb) {
   var useIp = config.network.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.network.rpc_port + '/'
@@ -453,19 +527,20 @@ function runNetworkRPCTest(config, cb) {
     id: "0",
     method: "llarp.version"
   }
-  httpPost(url, JSON.stringify(jsonPost), function(json) {
-    console.log('json', json)
-    // 0.6.x support
-    if (json === 'bad json object') {
-      cb(true)
-    } else {
-      cb(false)
-    }
-    //var data = JSON.parse(json)
-    //console.log('result', data.result)
-    // get_block_count
-    // console.log('block count', data.result.count)
-  })
+  const json = await httpPost(url, JSON.stringify(jsonPost))
+  console.log('json', json)
+  // 0.6.x support
+  if (json === 'bad json object') {
+    if (cb) cb(true)
+    return true
+  } else {
+    if (cb) cb(false)
+    return false
+  }
+  //var data = JSON.parse(json)
+  //console.log('result', data.result)
+  // get_block_count
+  // console.log('block count', data.result.count)
 }
 
 // won't take longer than 5s
@@ -486,18 +561,38 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   var need = {
   }
 
+  // make sure need is configured here
+  // console.log('config', pids.runningConfig)
+  // console.log('running', running)
+  if (pids.runningConfig.storage.enabled && running.storageServer) {
+    need.storage_rpc = false
+  }
+  let socketExists = fs.existsSync(pids.runningConfig.launcher.var_path + '/launcher.socket')
+  if (socketExists) {
+    need.socketWorks = false
+  }
+  if (running.lokid) {
+    need.blockchain_rpc = false
+  }
+  // need is now set up
+  // console.log('needs', need)
+
   let doneResolver
   const donePromise = new Promise(res => {
     doneResolver = res
   })
 
   function checkDone(task) {
-    //console.log('checking done', task, need)
+    // console.log('checking done', task, need)
     need[task] = true
     for(var i in need) {
       // if still need something
-      if (need[i] === false) return
+      if (need[i] === false) {
+        // console.log('getLauncherStatus checkDone still needs', need[i])
+        return
+      }
     }
+    // console.log('DONE!', need)
     // all tasks complete
     cb(running, checklist)
     doneResolver()
@@ -520,9 +615,7 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   }
 
   // socket...
-  let socketExists = fs.existsSync(pids.runningConfig.launcher.var_path + '/launcher.socket')
   if (running.lokid) {
-    need.blockchain_rpc = false
     checklist.blockchain_rpc = 'Checking...'
     var url = 'http://' + pids.runningConfig.blockchain.rpc_ip + ':' + pids.runningConfig.blockchain.rpc_port + '/json_rpc'
     //console.log('Lokid is running, checking to make sure it\'s responding')
@@ -560,7 +653,6 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   */
 
   if (pids.runningConfig.storage.enabled && running.storageServer) {
-    need.storage_rpc = false
     if (pids.storage_blockchain_failures && pids.storage_blockchain_failures.last_blockchain_test) {
       checklist.storage_last_failure_blockchain_test = new Date(pids.storage_blockchain_failures.last_blockchain_test)+''
     }
@@ -602,7 +694,6 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
   }
 
   if (socketExists) {
-    need.socketWorks = false
     let socketClientTest = net.connect({ path: pids.runningConfig.launcher.var_path + '/launcher.socket' }, function () {
       // successfully connected, then it's in use...
       checklist.socketWorks = 'running at ' + pids.runningConfig.launcher.var_path
@@ -637,11 +728,12 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     //need.network_rpc = true
     // checkDone('network_rpc')
   }
+  // console.log('awaiting...')
   await donePromise
+  // console.log('awaited!')
 }
 
 // only stop lokid, which should stop any launcher
-// FIXME: put into stopLauncher
 function stopLokid(config) {
   var running = getProcessState(config)
   if (running.lokid) {
@@ -1016,8 +1108,9 @@ let shuttingDown = false
 function httpPost(url, postdata, options, cb) {
   if (cb === undefined && typeof(options) !== 'object'){
     cb = options
+    options = {}
   }
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     const urlDetails = urlparser.parse(url)
     var protoClient = http
     if (urlDetails.protocol == 'https:') {
@@ -1083,8 +1176,9 @@ function httpPost(url, postdata, options, cb) {
                 loc = urlDetails.protocol + '//' + urlDetails.hostname + ':' + urlDetails.port + urlDetails.path + loc
               }
             }
-            console.log('LIB: httpGet Redirecting to', loc)
-            return httpPost(loc, cb)
+            console.log('LIB: httpPost asks for redirect to', loc)
+            //return httpPost(loc, postdata, options, cb)
+            reject()
           }
         }
         // fail on 400s
@@ -1144,7 +1238,7 @@ async function waitForBlockchain(config, options) {
   })
 }
 
-async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
+async function startLokidForRPC(daemon, lokinet, config) {
   daemon.config = config // update config for shutdownEverything
 
   lokinet.disableLogging(true)
@@ -1161,11 +1255,16 @@ async function getSnodeOffline(statusUtils, daemon, lokinet, config) {
   config.blockchain.quiet = true // force quiet
   daemon.launchLokid(config.blockchain.binary_path, lokid_options, false, config, args)
   await waitForBlockchain(config, { timeout: 30 * 1000 })
-  const keys = await blockchainRpcGetKey(config)
-  //console.log('rpc test result', keys.result)
-  stopLokid(config)
-  return keys.result.service_node_pubkey
 }
+
+async function runOfflineBlockchainRPC(daemon, lokinet, config, rpcFunc) {
+  startLokidForRPC(daemon, lokinet, config)
+  await waitForBlockchain(config, { timeout: 30 * 1000 })
+  const res = await rpcFunc(config)
+  stopLokid(config)
+  return res.result ? res.result : res
+}
+
 
 module.exports = {
   getLogo: getLogo,
@@ -1196,6 +1295,10 @@ module.exports = {
   getStorageVersion: getStorageVersion,
   getNetworkVersion: getNetworkVersion,
 
-  getSnodeOffline: getSnodeOffline,
+  runOfflineBlockchainRPC: runOfflineBlockchainRPC,
+  startLokidForRPC: startLokidForRPC,
+  stopLokid: stopLokid,
   blockchainRpcGetKey: blockchainRpcGetKey,
+  blockchainRpcGetNetInfo: blockchainRpcGetNetInfo,
+  blockchainRpcGetObligationsQuorum: blockchainRpcGetObligationsQuorum,
 }

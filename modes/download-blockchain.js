@@ -113,12 +113,12 @@ function start(config, options) {
   var mdbFilePath = lmdbDir + '/data.mdb'
   if (fs.existsSync(mdbFilePath)) {
     console.log('removing old blockchain')
-    // fs.unlinkSync(mdbFilePath)
+    fs.unlinkSync(mdbFilePath)
   }
 
   const pingMap = {}
   function checkDone(label, value) {
-    console.log(label, 'avgPing', value)
+    // console.log(label, 'avgPing', value)
     pingMap[label] = value
     if (Object.keys(pingMap).length === 2) {
       // https://imaginary.stream/loki/data.mdb

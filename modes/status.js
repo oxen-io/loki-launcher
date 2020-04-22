@@ -101,7 +101,16 @@ async function checkBlockchain() {
         method: "get_info"
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-        var data = JSON.parse(json)
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
+        try {
+          var data = JSON.parse(json)
+        } catch (e) {
+          console.log('could not parse', json, 'as JSON')
+          return
+        }
         //console.log('result', data.result)
         // start_time / version is interesting
         // outgoing_connections_count / incoming_connections_count
@@ -152,6 +161,10 @@ async function checkBlockchain() {
         method: "get_service_node_status"
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
         var data = JSON.parse(json)
         console.log('result', data.result)
         resolve({})
@@ -184,6 +197,10 @@ async function checkBlockchain() {
         }
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
         const data = JSON.parse(json)
         //console.log('result', data.result)
         pubkey = data.result.service_node_pubkey
@@ -202,6 +219,10 @@ async function checkBlockchain() {
         method: "get_n_service_nodes"
       }
       lib.httpPost(url, JSON.stringify(jsonPost2), function(json) {
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
         const data = JSON.parse(json)
         //console.log('result', data.result.service_node_states)
         snodeList = data.result.service_node_states
@@ -216,21 +237,15 @@ async function checkBlockchain() {
   const status = statuses.reduce((result, current) => {
     return Object.assign(result, current)
   })
-  if (nodeVer >= 10) {
-    console.table(status)
-  } else {
-    console.log(status)
-  }
+  return status
 }
 
-function checkStorage() {
-  lib.runStorageRPCTest(lokinet, config, function(data) {
-    if (data === undefined) {
-      console.log('failure')
-    } else {
-      console.log('looks good')
-    }
-  })
+async function checkStorage() {
+  let data = await lib.runStorageRPCTest(lokinet, config)
+  if (data !== undefined) {
+    return JSON.parse(data)
+  }
+  return false
   /*
   var useIp = config.storage.ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
@@ -246,7 +261,7 @@ function checkStorage() {
   */
 }
 
-function checkNetwork() {
+async function checkNetwork() {
   var useIp = config.network.rpc_ip
   if (useIp === '0.0.0.0') useIp = '127.0.0.1'
   const url = 'http://' + useIp + ':' + config.network.rpc_port + '/'
@@ -255,17 +270,16 @@ function checkNetwork() {
     id: "0",
     method: "llarp.version"
   }
-  lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-    console.log('json', json)
-    // 0.6.x support
-    if (json === 'bad json object') {
-      console.log('')
-    }
-    //var data = JSON.parse(json)
-    //console.log('result', data.result)
-    // get_block_count
-    // console.log('block count', data.result.count)
-  })
+  const json = await lib.httpPost(url, JSON.stringify(jsonPost))
+  console.log('json', json)
+  // 0.6.x support
+  if (json === 'bad json object') {
+    console.log('well its at least running... :(')
+  }
+  //var data = JSON.parse(json)
+  //console.log('result', data.result)
+  // get_block_count
+  // console.log('block count', data.result.count)
 }
 
 module.exports = {

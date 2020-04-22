@@ -116,6 +116,9 @@ function isActive() {
 }
 
 function isEnabled(config) {
+  if (!fs.existsSync('/etc/systemd/system/lokid.service')) {
+    return
+  }
   try {
     const stdout = execSync('systemctl is-enabled lokid')
     // and probably should make sure it's using our entrypoint

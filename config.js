@@ -6,6 +6,8 @@ const lib = require(__dirname + '/lib')
 // only defaults we can save to disk
 // disk config is loaded over this...
 function getDefaultConfig(entrypoint) {
+  // doesn't really work like defaults
+  // if ini has one set, they're all blown out
   const config = {
     launcher: {
       prefix: '/opt/loki-launcher',
@@ -287,6 +289,12 @@ function getLokidVersion(config) {
   if (config.blockchain.binary_path && fs.existsSync(config.blockchain.binary_path)) {
     try {
       var lokid_version = lib.getBlockchainVersion(config)
+      if (!lokid_version.match) {
+        // this could mean lokid fails to run
+        // (i.e. version `GLIBC_2.25' not found)
+        // if we can't get it, maybe assume the latest?
+        return false;
+      }
       //console.log('lokid_version', lokid_version)
       binary3xCache = lokid_version.match(/v3\.0/)?true:false
       binary4Xor5XCache = lokid_version.match(/v[54]\./)?true:false
@@ -658,7 +666,7 @@ function portChecks(config) {
     config.blockchain.zmq_ip = '127.0.0.1'
   }
   if (config.blockchain.qun_ip === undefined) {
-    config.blockchain.qun_ip = '' // your public ip
+    config.blockchain.qun_ip = config.blockchain.p2p_ip
   }
 
   addPort(config.blockchain.p2p_ip, config.blockchain.p2p_port, 'blockchain.p2p')
@@ -805,6 +813,13 @@ function ensureDirectoriesExist(config, uid) {
   }
 }
 
+function checkWebApiConfig(config) {
+  if (!config.web_api) config.web_api = {}
+  if (config.web_api.enabled === undefined) config.web_api.enabled = true
+  if (config.web_api.ip === undefined) config.web_api.ip = '127.0.0.1'
+  if (config.web_api.port === undefined) config.web_api.port = 22000
+}
+
 // ran after disk config is loaded
 // for everything (index.js)
 function checkConfig(config, args, debug) {
@@ -813,6 +828,7 @@ function checkConfig(config, args, debug) {
   checkBlockchainConfig(config)
   checkNetworkConfig(config)
   checkStorageConfig(config)
+  checkWebApiConfig(config)
   postcheckConfig(config)
   // this means no prequal, fix-perm, etc...
   portChecks(config) // will exit if not ok

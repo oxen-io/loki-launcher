@@ -24,6 +24,44 @@ if (VERSION.match(/git/)) {
   continueStart()
 }
 
+// from https://www.codedrome.com/the-soundex-algorithm-in-javascript/
+function soundex(name) {
+  let s = [];
+  let si = 1;
+  let c;
+
+  //              ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  const mappings = "01230120022455012623010202";
+
+  s[0] = name[0].toUpperCase();
+
+  for(let i = 1, l = name.length; i < l; i++) {
+    c = (name[i].toUpperCase()).charCodeAt(0) - 65;
+
+    if(c >= 0 && c <= 25) {
+      if(mappings[c] != '0') {
+        if(mappings[c] != s[si-1]) {
+          s[si] = mappings[c];
+          si++;
+        }
+
+        if(si > 3) {
+          break;
+        }
+      }
+    }
+  }
+
+  if(si <= 3) {
+    while(si <= 3) {
+      s[si] = '0';
+      si++;
+    }
+  }
+
+  return s.join("");
+}
+
 async function continueStart() {
   if (os.platform() == 'darwin') {
     if (process.getuid() != 0) {
@@ -56,6 +94,9 @@ async function continueStart() {
   stripArg('/usr/bin/nodejs')
   stripArg('node')
   stripArg('nodejs')
+  // centos8
+  stripArg('/bin/node')
+  stripArg('/bin/loki-launcher')
   stripArg(__filename) // will just be index.js
   stripArg('loki-launcher')
   stripArg('/usr/bin/loki-launcher')
@@ -77,6 +118,7 @@ async function continueStart() {
   }
 
   // find the first arg without --
+  var modeExtractedFrom = [...args]
   var mode = findFirstArgWithoutDash()
 
   //console.log('mode', mode)
@@ -112,12 +154,30 @@ async function continueStart() {
   const lib = require(__dirname + '/lib')
 
   //console.log('Launcher config:', config)
-  if (useGitVersion) {
-    var logo = lib.getLogo('git rev version')
-    console.log(logo.replace(/version/, VERSION.toString().split('').join('')))
-  } else {
-    var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
-    console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+  // FIXME: do the spelling unification up here
+  // interactive, start because user facing and we'll want the version in logs
+  // may want to it in '' to give more screen space to help
+  const showLogoCommands = [
+    'prequal', 'download-binaries', 'versions', 'config-view', 'client'
+  ]
+  const showVersionCommands = [
+    'prequal', 'interactive', 'start', 'daemon-start'
+  ]
+  if (showLogoCommands.includes(mode)) {
+    if (useGitVersion) {
+      var logo = lib.getLogo('git rev version')
+      console.log(logo.replace(/version/, VERSION.toString()))
+    } else {
+      var logo = lib.getLogo('L A U N C H E R   v e r s i o n   v version')
+      console.log(logo.replace(/version/, VERSION.toString().split('').join(' ')))
+    }
+  }
+  if (showVersionCommands.includes(mode)) {
+    if (useGitVersion) {
+      console.log('Loki-Launcher version', VERSION.toString())
+    } else {
+      console.log('Loki-Launcher version', VERSION.toString())
+    }
   }
 
   var debugMode = mode.match(/debug/i)
@@ -151,6 +211,22 @@ async function continueStart() {
     console.log('network    installed version', lib.getNetworkVersion(config))
   }
 
+  async function getPubKeys() {
+    var running = lib.getProcessState(config)
+    let keys
+    if (running.lokid) {
+      const response = await lib.blockchainRpcGetKey(config)
+      keys = response.result
+    } else {
+      console.log('blockchain is not running, one sec, need to start it to get our key')
+      const daemon = require(__dirname + '/daemon')
+      const lokinet = require('./lokinet')
+      keys = await lib.runOfflineBlockchainRPC( daemon, lokinet, config, lib.blockchainRpcGetKey)
+    }
+    delete keys.status
+    return keys
+  }
+
   console.log('Running', mode)
   switch(mode) {
     case 'strt':
@@ -169,22 +245,119 @@ async function continueStart() {
       await statusSystem.status()
       var type = findFirstArgWithoutDash()
       if (type) {
+        const nodeVer = Number(process.version.match(/^v(\d+\.\d+)/)[1])
         switch(type) {
           case 'blockchain':
             // can hang if lokid is popping blocks
             console.log('BLOCKCHAIN STATUS')
-            statusSystem.checkBlockchain();
+            var status = await statusSystem.checkBlockchain()
+            if (nodeVer >= 10) {
+              console.table(status)
+            } else {
+              console.log(status)
+            }
           break;
           case 'storage':
             console.log('STORAGE STATUS')
-            statusSystem.checkStorage();
+            var data = await statusSystem.checkStorage()
+            if (data.storageServerStatus === false) {
+              console.log('failure')
+            } else {
+              console.log('looks good')
+            }
           break;
           case 'network':
             console.log('NETWORK STATUS')
-            statusSystem.checkNetwork();
+            statusSystem.checkNetwork()
           break;
         }
       }
+    break;
+    case 'show-quorum':
+      if (configUtil.isBlockchainBinary7X(config)) {
+        var ver = lib.getBlockchainVersion(config)
+        if (ver.match(/7.1.0|7.1.1|7.1.2|7.1.3/)) {
+          console.log('ver', ver, 'has a bug and this function will not work')
+          process.exit()
+        }
+      }
+      var running = lib.getProcessState(config)
+      var keys, qResp, info
+      if (!running.lokid) {
+        const daemon = require(__dirname + '/daemon')
+        const lokinet = require('./lokinet')
+        console.log('blockchain is not running, one sec, need to start it')
+        await lib.startLokidForRPC(daemon, lokinet, config)
+      }
+
+      keys = await lib.blockchainRpcGetKey(config)
+      if (!keys || !keys.result || !keys.result.service_node_pubkey) {
+        console.error('Could not get our pubkey')
+        return
+      }
+      const ourPubKey = keys.result.service_node_pubkey
+      console.log('Our PubKey', ourPubKey)
+
+      info = await lib.blockchainRpcGetNetInfo(config)
+      if (info && info.result && info.result.height) {
+        const startHeight = info.result.height - 11
+        const endHeight = info.result.height
+        // full node just has quorums up to endHeight
+        console.log('Network height:', info.result.height, 'Checking for quorums between', startHeight, 'to', endHeight)
+        const knownQuorums = {}
+        qResp = await lib.blockchainRpcGetObligationsQuorum(config, {
+          start_height: startHeight,
+          end_height: endHeight,
+        })
+        if (!qResp) {
+          console.error('no quorum resp for', adjusedHeight)
+          return
+        }
+        // console.log('checking height', adjusedHeight, qResp.result.quorums[0].height, qResp.result.quorums[0].quorum_type, qResp.result.quorums[0])
+        const obligations = qResp.result.quorums.filter(q => q.quorum_type === 0)
+        if (!obligations.length) {
+          console.error('Could not find any obligation quorums, try again later')
+          return
+        }
+
+        console.warn('There are', obligations.length, 'quorums found')
+        let found = false
+        const heights = []
+        obligations.forEach(test => {
+          /*
+          if (knownQuorums[test.height]) {
+            continue
+          }
+          knownQuorums[next.height] = true
+          */
+          heights.push(test.height)
+          // console.log('test:', test)
+          // height isn't set if we just started it up
+          if (test.quorum.workers.indexOf(ourPubKey) !== -1) {
+            const blocks = test.height - (info.result.height - 11)
+            console.log('You will be tested at', test.height, 'which is roughly in', blocks * 2, 'mins')
+            found = true
+          }
+        })
+        if (!found) {
+          console.warn('Could not find you being tested in', heights)
+          console.log('Please run again in a little bit (2 mins+)')
+        }
+      }
+
+      if (!running.lokid) {
+        lib.stopLokid(config)
+      }
+
+      if (!qResp) {
+        console.error('no quorum resp')
+        return
+      }
+    break;
+    case 'key':
+    case 'keys':
+      var keys = await getPubKeys()
+      console.log(keys)
     break;
     // no restart because we don't want people croning it
     case 'stop': // official
@@ -261,7 +434,7 @@ async function continueStart() {
             }
           })
           client.on('data', (data) => {
-            var stripped = data.toString().trim()
+            var stripped = data.toString().trim().replace(/\n/, '')
             console.log('FROM SOCKET:', stripped)
           })
           client.on('end', () => {
@@ -281,9 +454,11 @@ async function continueStart() {
       require(__dirname + '/start')(args, config, __filename, true)
     break;
     case 'interactive-debug':
+    case 'ineractive':
     case 'interactive':
       config.launcher.interactive = true
       process.env.__daemon = true
+      /*
       if (debugMode) {
         statusWatcher = setInterval(status, 30*1000)
         process.on('SIGUSR1', function () {
@@ -312,6 +487,7 @@ async function continueStart() {
           process.exit();
         })
       }
+      */
       require(__dirname + '/start')(args, config, __filename, debugMode)
     break;
     case 'daemon-start-debug': // official
@@ -356,6 +532,7 @@ async function continueStart() {
     case 'blockchain':
       require(__dirname + '/modes/client')(config)
     break;
+    case 'preuqal':
     case 'prequal': // official
       require(__dirname + '/modes/prequal')(config, false)
     break;
@@ -377,7 +554,10 @@ async function continueStart() {
         console.log('upgrade-systemd needs to be ran as root, try prefixing your attempted command with: sudo')
         process.exit(1)
       }
-      require(__dirname + '/modes/check-systemd').start(config, __filename)
+      const systemdUtils = require(__dirname + '/modes/check-systemd')
+      // we should run this even if it's not enabled
+      // as people maybe installing this file for the first time
+      systemdUtils.start(config, __filename)
     break;
     case 'systemd':
       var type = findFirstArgWithoutDash()
@@ -421,7 +601,11 @@ async function continueStart() {
     case 'donwload-binaries':
     case 'donwload-binaries':
     case 'donwload-bianres':
+    case 'download-binares':
     case 'downlaod-binaries':
+    case 'dlb':
+    case 'dowload-binaries':
+    case 'downloadb-inaries':
     case 'download-binaries': // official
       // because of lokinet and mkdirp /opt/...
       requireRoot()
@@ -431,7 +615,8 @@ async function continueStart() {
         forceDownload: (opt1 === 'force' || opt1 === 'force-prerel'),
         prerel: (opt1 === 'prerel' || opt1 === 'force-prerel')
       }
-      require(__dirname + '/modes/download-binaries').start(config, options)
+      await require(__dirname + '/modes/download-binaries').start(config, options)
+      require(__dirname + '/modes/check-systemd').start(config, __filename)
     break;
     case 'download-chain':
     case 'download-blockchain': // official
@@ -452,18 +637,8 @@ async function continueStart() {
 
       let key
       if (!opt1) {
-        var running = lib.getProcessState(config)
-
-        if (running.lokid) {
-          const keys = await lib.blockchainRpcGetKey(config)
-          key = keys.result.service_node_pubkey
-        } else {
-          console.log('blockchain is not running, one sec, need to start it to get our key')
-          const statusUtils = require(__dirname + '/modes/status')
-          const daemon = require(__dirname + '/daemon')
-          const lokinet = require('./lokinet')
-          key = await lib.getSnodeOffline(statusUtils, daemon, lokinet, config)
-        }
+        const keys = await getPubKeys()
+        key = keys.pubkey || keys.service_node_pubkey
       }
       const date = new Date().toISOString().replace(/:/g, '-')
 
@@ -471,6 +646,17 @@ async function continueStart() {
         destPath: opt1 || 'export_' + key + '_' + date + '.tar'
       }
       require(__dirname + '/modes/export').start(config, options)
+    break;
+    case 'import':
+      var importFile = findFirstArgWithoutDash()
+      if (!importFile) {
+        console.log('No file passed in! You must explicitly tell us what file you want imported')
+        return
+      }
+      var options = {
+        srcPath: importFile
+      }
+      require(__dirname + '/modes/import').start(config, options)
     break;
     case 'versions':
     case 'version': // official
@@ -482,7 +668,7 @@ async function continueStart() {
     case 'lpeh':
     default:
       console.debug('in :', process.argv)
-      console.debug('out:', args)
+      console.debug('out:', args, 'mode pulled from:', modeExtractedFrom)
       //              storage    - get storage status
       console.log(`
   Unknown command [${mode}]
@@ -493,16 +679,22 @@ async function continueStart() {
 
     Commands:
       start       start the loki suite with OPTIONS
+      stop        stops the launcher running in the background
       status      get the current loki suite status, can optionally provide:
                     blockchain - get blockchain status
       client      connect to lokid
       prequal     prequalify your server for service node operation
       config-view print out current configuration information
       versions    show installed versions of Loki software
-      export      try to create a compressed tarball with all the snode files
-                    that you need to migrate this snode to another host
       systemd     requires one of the following options
                     log - show systemd launcher log file
+      keys        get your service node public keys
+      show-quorum tries to give an estimate to the next time you're tested
+      export [FILENAME]   try to create a compressed tarball with all the snode files
+                            that you need to migrate this snode to another host
+      import FILENAME     try to import this exported tarball to this host
+      download-blockchain deletes current blockchain and downloads a fresh sync'd copy
+                            usually much faster than a normal lokid sync takes
 
     Commands that require root/sudo:
       download-binaries - download the latest version of the loki software suite
