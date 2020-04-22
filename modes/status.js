@@ -101,7 +101,16 @@ async function checkBlockchain() {
         method: "get_info"
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
-        var data = JSON.parse(json)
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
+        try {
+          var data = JSON.parse(json)
+        } catch (e) {
+          console.log('could not parse', json, 'as JSON')
+          return
+        }
         //console.log('result', data.result)
         // start_time / version is interesting
         // outgoing_connections_count / incoming_connections_count
@@ -152,6 +161,10 @@ async function checkBlockchain() {
         method: "get_service_node_status"
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
         var data = JSON.parse(json)
         console.log('result', data.result)
         resolve({})
@@ -184,6 +197,10 @@ async function checkBlockchain() {
         }
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
         const data = JSON.parse(json)
         //console.log('result', data.result)
         pubkey = data.result.service_node_pubkey
@@ -202,6 +219,10 @@ async function checkBlockchain() {
         method: "get_n_service_nodes"
       }
       lib.httpPost(url, JSON.stringify(jsonPost2), function(json) {
+        if (!json) {
+          console.log('could not get info from', url)
+          return
+        }
         const data = JSON.parse(json)
         //console.log('result', data.result.service_node_states)
         snodeList = data.result.service_node_states
