@@ -666,7 +666,7 @@ function portChecks(config) {
     config.blockchain.zmq_ip = '127.0.0.1'
   }
   if (config.blockchain.qun_ip === undefined) {
-    config.blockchain.qun_ip = '' // your public ip
+    config.blockchain.qun_ip = config.blockchain.p2p_ip
   }
 
   addPort(config.blockchain.p2p_ip, config.blockchain.p2p_port, 'blockchain.p2p')
