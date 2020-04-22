@@ -334,7 +334,7 @@ async function continueStart() {
           // console.log('test:', test)
           // height isn't set if we just started it up
           if (test.quorum.workers.indexOf(ourPubKey) !== -1) {
-            const blocks = test.height - (info.result.height - 20)
+            const blocks = test.height - (info.result.height - 11)
             console.log('You will be tested at', test.height, 'which is roughly in', blocks * 2, 'mins')
             found = true
           }
