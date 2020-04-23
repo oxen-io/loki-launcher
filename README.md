@@ -138,6 +138,9 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 Changelog:
+- 1.0.16
+  - make /tmp/storage.logs directory unique per storage port
+  - add additional permissions check and clean up on /tmp/X/storage.logs
 - 1.0.15
   - introduce web api (tries to bind to 22000 on localhost by default)
   - introduce `show-quorum`
