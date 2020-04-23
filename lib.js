@@ -108,7 +108,17 @@ function getStorageVersion(config) {
   if (config.storage.binary_path && fs.existsSync(config.storage.binary_path)) {
     try {
       // data-dir has to exist to get the version
-      const stdout = execFileSync(config.storage.binary_path, ['--data-dir', '/tmp', '-v'])
+      //const lokinet = require(__dirname + '/lokinet')
+      //const tempdir = lokinet.randomString(8)
+      const tempdir = 'loki-storage-vercheck-' + config.storage.port
+      console.log('tempdir', tempdir)
+      const stdout = execFileSync(config.storage.binary_path, ['--data-dir', '/tmp/' + tempdir, '-v'])
+      try {
+        fs.unlinkSync('/tmp/' + tempdir + '/storage.logs')
+        fs.rmdirSync('/tmp/' + tempdir)
+      } catch (e) {
+        // no big deal, still return version
+      }
       const storage_version = stdout.toString().trim()
       const lines = storage_version.split(/\n/)
       //console.log('storage_version', storage_version)
