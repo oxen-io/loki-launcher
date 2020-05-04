@@ -111,7 +111,7 @@ function getStorageVersion(config) {
       //const lokinet = require(__dirname + '/lokinet')
       //const tempdir = lokinet.randomString(8)
       const tempdir = 'loki-storage-vercheck-' + config.storage.port
-      console.log('tempdir', tempdir)
+      //console.log('tempdir', tempdir)
       const stdout = execFileSync(config.storage.binary_path, ['--data-dir', '/tmp/' + tempdir, '-v'])
       try {
         fs.unlinkSync('/tmp/' + tempdir + '/storage.logs')
