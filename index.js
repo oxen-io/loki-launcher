@@ -152,6 +152,9 @@ async function continueStart() {
   statusSystem.start(config)
 
   async function doInstallUpgrade(user, config, install) {
+    // check versions first...
+    // what are we running, what do we have installed
+    // is there new available?
     // try an npm upgrade...
     const noProblems = await require(__dirname + '/modes/prequal')(config, false)
     if (!noProblems) {
@@ -239,6 +242,9 @@ async function continueStart() {
               console.table(status)
             } else {
               console.log(status)
+            }
+            if (status.pubkey) {
+              console.log(`More info: https://lokisn.com/sn/${status.pubkey}`)
             }
           break;
           case 'storage':
