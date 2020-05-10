@@ -191,9 +191,7 @@ async function checkBlockchain() {
               staked: false
             })
           }
-          resolve({
-            more_info: 'https://lokisn.com/sn/' + pubkey,
-          })
+          resolve({ pubkey: pubkey })
         }
       }
       lib.httpPost(url, JSON.stringify(jsonPost), function(json) {
