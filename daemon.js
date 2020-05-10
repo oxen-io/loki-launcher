@@ -229,7 +229,9 @@ var storageLogging = true
 // you get one per sec... so how many seconds to do you give lokid to recover?
 // you don't get one per sec
 // 120s
-var last120lokidContactFailures = []
+// it's one every 36 seconds
+// so lets say 360 = 10
+var lastLokidContactFailures = []
 function launcherStorageServer(config, args, cb) {
   if (shuttingDown) {
     //if (cb) cb()
@@ -441,15 +443,20 @@ function launcherStorageServer(config, args, cb) {
           // swarm_tick communication error
           if (str.match(/Failed to contact local Lokid/)) {
             var ts = Date.now()
-            last120lokidContactFailures.push(ts)
-            if (last120lokidContactFailures.length > 120) {
-              last120lokidContactFailures.splice(-120)
+            lastLokidContactFailures.push(ts)
+            if (lastLokidContactFailures.length > 5) {
+              lastLokidContactFailures.splice(-5)
             }
             if (!shuttingDown) {
-              console.log('STORAGE: can not contact blockchain, failure count', last120lokidContactFailures.length, 'first', parseInt((ts - last120lokidContactFailures[0]) / 1000) + 's ago')
+              console.log('STORAGE: can not contact blockchain, failure count', lastLokidContactFailures.length, 'first', parseInt((ts - lastLokidContactFailures[0]) / 1000) + 's ago')
             }
             // if the oldest one is not more than 180s ago
-            if (last120lokidContactFailures.length > 120 && ts - last120lokidContactFailures[0] < 180 * 1000) {
+            // it's not every 36s
+            // a user provided a ss where there was 300s between the 1st and the 2nd
+            // 0,334,374.469.730,784
+            // where it should have been restarted, so 5 in 15 mins will be our new tune
+            // was 11 * 36
+            if (lastLokidContactFailures.length == 5 && ts - lastLokidContactFailures[0] < 900 * 1000) {
               console.log('we should restart lokid');
               requestBlockchainRestart(config);
             }
@@ -697,8 +704,14 @@ function startLokinet(config, args, cb) {
       }
     })
   } else {
-    // 6.x, not key needed
+    // 6.x+, not key needed
     if (config.network.enabled) {
+      config.network.onStart = function(config, instance, lokinetProc) {
+        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      }
+      config.network.onStop = function(config, instance, lokinetProc) {
+        lib.savePids(config, args, loki_daemon, lokinet, storageServer)
+      }
       lokinet.startServiceNode(config, function () {
         lokinetPidwatcher = setInterval(function() {
           // read pids.json
