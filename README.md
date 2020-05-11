@@ -166,8 +166,8 @@ Changelog:
   - introduce `status blockchain` for quick read of important status
   - introduce `systemd log` for dumping launcher logs
   - introduce `export` for migrating snodes
-  - download-binaries doesn't redownload binaries versions we already (unless 'download-binaries force' is used)
-  - added prerel & force-prerel
+  - `download-binaries` doesn't redownload binaries versions we already (unless 'download-binaries force' is used)
+  - added prerel & force-prerel options to `download-binaries`
   - integrate system enable/active detection
   - work around loki-storage 2.x permissions crash
   - parse INI section name case insensitively
