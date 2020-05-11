@@ -138,6 +138,14 @@ And if you don't have the dependencies to build from source check out [contrib/d
 
 For more indepth details, be sure to check out our weekly [dev reports](https://loki.network/blog/)
 Changelog:
+- 1.0.17
+  - introduce `install USER`
+  - introduce `upgrade USER`
+  - fix lokinet pid sync issue
+  - tune loki-storage's lokid watchdog to be more aggressive
+  - fix prequal port-in-use handling
+  - fix systemctl message to include sudo
+  - move more_info out of `status blockchain`'s table output
 - 1.0.16
   - make /tmp/storage.logs directory unique per storage port
   - add additional permissions check and clean up on /tmp/X/storage.logs
