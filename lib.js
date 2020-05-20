@@ -798,13 +798,13 @@ function stopLauncher(config) {
   var count = 0
   if (pid) {
     // request launcher stop
-    console.log('requesting launcher('+pid+') to stop')
     if (systemdUtils.isStartedWithSystemD()) {
       console.warn('launcher was set up with systemd, and you will need to')
-      console.warn('"systemctl stop lokid.service" before running this')
+      console.warn('"sudo systemctl stop lokid.service" before running this')
       // or should we just return 0?
       process.exit(1)
     }
+    console.log('requesting launcher('+pid+') to stop')
     count++
     // hrm 15 doesn't always kill it... (lxc308)
     process.kill(pid, 'SIGTERM') // 15

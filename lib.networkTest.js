@@ -131,7 +131,7 @@ function createClient(host, port, cb, debug) {
       uiTimer = null
     }
     if (timeoutTimer) {
-      clearInterval(timeoutTimer)
+      clearTimeout(timeoutTimer)
       timeoutTimer = null
     }
     if (testCallback) {
@@ -340,36 +340,59 @@ function createClient(host, port, cb, debug) {
   function startTestingServer(port, networkTester, debug, cb) {
     if (debug) console.debug('startTestingServer start')
     // FIXME: make sure port isn't already taken
-    var code = lokinet.randomString(96)
-    var tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
+    const code = lokinet.randomString(96)
+    let callbacked = false
+    const tempResponder = netWrap.serveTCP(port, function(incomingConnection) {
       if (debug) console.debug('port verified')
       // request shutdown of the tcp connection from server side
       //incomingConnection.send('quit ' + code + ' ' + Date.now())
     })
     if (debug) console.debug('startTestingServer open')
+    // this can happen whenever... ugh
     tempResponder.errorHandler = function(err) {
       if (err.code == 'EADDRINUSE') {
-        tempResponder.letsClose(function() {
+        shutdownOk = true
+        callbacked = true
+        // we need to stop the timeout and the server response
+        // because the remote tester will tell us it's open
+        stopTest()
+        // it was a bug in stopTest that wasn't handling this
+        // clearTimeout(timeoutTimer)
+        portTestCallback = function() {
+          if (debug) console.debug('ignoring results')
+          // replace testPost callback with nop
+          // it would have successfully talked to the daemon on this port
           cb('inuse', port)
+        }
+        // function down our server..
+        tempResponder.letsClose(function() {
+          // I don't think we can schedule for the next test
+          // until we're sure this one is complete on the server side
         })
         return
       } else {
         if (err) console.error('serveTCP problem:', err)
       }
     }
+    // this sets portTestCallback
     networkTester.testPort(port, function(results) {
       if (debug) console.debug('port test complete', results)
-      shutdownOk = true
-      tempResponder.letsClose(function() {
-        cb(results.result, port)
-      })
+      if (!callbacked) {
+        shutdownOk = true
+        callbacked = true
+        tempResponder.letsClose(function() {
+          cb(results.result, port)
+        })
+      } else {
+        if (debug) console.debug('ignoring results')
+      }
     })
   }
 
   function startUDPRecvTestingServer(port, networkTester, debug, cb) {
     // FIXME: make sure port isn't already taken
-    var code = lokinet.randomString(96)
-    var tempResponder = netWrap.serveUDP(port, function(message, rinfo) {
+    const code = lokinet.randomString(96)
+    const tempResponder = netWrap.serveUDP(port, function(message, rinfo) {
       var str = message.toString()
       //console.log('message', str)
       if (str === 'Some bytes') {
@@ -429,7 +452,7 @@ function createClient(host, port, cb, debug) {
 // from https://stackoverflow.com/a/18650828
 function formatBytes(bytes, decimals = 2) {
   if(bytes == 0) return '0 Bytes'
-  var k = 1024,
+  const k = 1024,
      dm = decimals <= 0 ? 0 : decimals || 2,
      sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
      i = Math.floor(Math.log(bytes) / Math.log(k))

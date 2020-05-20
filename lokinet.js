@@ -1096,6 +1096,9 @@ function launchLokinet(config, instance, cb) {
     log(`lokinet process exited with code ${code} after`, (Date.now() - lokinet.startTime)+'ms')
     // code 0 means clean shutdown
     lokinet.killed = true
+    if (networkConfig.onStop) {
+      networkConfig.onStop(config, instance, lokinet)
+    }
     if (!shuttingDown) {
       if (networkConfig.restart) {
         // restart it in 30 seconds to avoid pegging the cpu
@@ -1118,6 +1121,10 @@ function launchLokinet(config, instance, cb) {
     }
     // else we're shutting down
   })
+  // we need to update pids!
+  if (networkConfig.onStart) {
+    networkConfig.onStart(config, instance, lokinet)
+  }
   if (cb) cb()
 }
 

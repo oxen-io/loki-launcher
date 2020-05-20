@@ -93,75 +93,78 @@ function downloadBlockchainFile(dest, url, cb) {
 // FIXME: move into options
 var start_retries = 0
 function start(config, options) {
-  /*
-  const { exec } = require('child_process')
-  exec('lsb_release -c', (err, stdout, stderr) => {
-    //console.log(stdout)
-    if (stdout && stdout.match(/xenial/)) {
-      xenial_hack = true
+  return new Promise(resolve => {
+    /*
+    const { exec } = require('child_process')
+    exec('lsb_release -c', (err, stdout, stderr) => {
+      //console.log(stdout)
+      if (stdout && stdout.match(/xenial/)) {
+        xenial_hack = true
+      }
+    })
+    */
+    // quick request so should be down by the time the file downloads...
+    lib.stopLauncher(config)
+
+    // make sure ~/.loki/data exits
+    const lmdbDir = config.blockchain.data_dir + '/lmdb'
+    console.log('lmdbDir', lmdbDir)
+    lokinet.mkDirByPathSync(lmdbDir)
+
+    var mdbFilePath = lmdbDir + '/data.mdb'
+    if (fs.existsSync(mdbFilePath)) {
+      console.log('removing old blockchain')
+      fs.unlinkSync(mdbFilePath)
     }
-  })
-  */
-  // quick request so should be down by the time the file downloads...
-  lib.stopLauncher(config)
 
-  // make sure ~/.loki/data exits
-  const lmdbDir = config.blockchain.data_dir + '/lmdb'
-  console.log('lmdbDir', lmdbDir)
-  lokinet.mkDirByPathSync(lmdbDir)
+    const pingMap = {}
+    function checkDone(label, value) {
+      // console.log(label, 'avgPing', value)
+      pingMap[label] = value
+      if (Object.keys(pingMap).length === 2) {
+        // https://imaginary.stream/loki/data.mdb
+        // https://public.loki.foundation/loki/data.mdb
+        // https://public.loki.foundation/loki/data.mdb.md5sum
+        let url = 'https://' + (pingMap['ca'] > pingMap['eu'] ? 'public.loki.foundation' : 'imaginary.stream')
+        url += '/loki/data.mdb'
+        console.log('downloading', url)
+        downloadBlockchainFile(mdbFilePath, url, function(result) {
+          if (result !== undefined) {
+            console.log('something went wrong with download, try again later or check with us')
+            process.exit(1)
+          }
+          resolve(true)
+        })
+      }
+    }
 
-  var mdbFilePath = lmdbDir + '/data.mdb'
-  if (fs.existsSync(mdbFilePath)) {
-    console.log('removing old blockchain')
-    fs.unlinkSync(mdbFilePath)
-  }
-
-  const pingMap = {}
-  function checkDone(label, value) {
-    // console.log(label, 'avgPing', value)
-    pingMap[label] = value
-    if (Object.keys(pingMap).length === 2) {
-      // https://imaginary.stream/loki/data.mdb
-      // https://eu.imaginary.stream/loki/data.mdb
-      // https://eu.imaginary.stream/loki/data.mdb.md5sum
-      let url = 'https://' + (pingMap['ca'] > pingMap['eu'] ? 'eu.' : '')
-      url += 'imaginary.stream/loki/data.mdb'
-      console.log('downloading', url)
-      downloadBlockchainFile(mdbFilePath, url, function(result) {
-        if (result !== undefined) {
-          console.log('something went wrong with download, try again later or check with us')
-          process.exit(1)
+    console.log('detecting best source')
+    const ca = cp.execFile('/bin/ping', ['-n', '-c5', 'imaginary.stream'], function(error, stdout, stderr) {
+      if (error) console.error(error)
+      var avg = []
+      for(line of stdout.split('\n')) {
+        if (line.match(/time=/)) {
+          const parts = line.split(/time=/)
+          const ms = parts[1].replace(' ms', '')
+          avg.push(parseInt(ms * 100))
         }
-      })
-    }
-  }
-
-  console.log('detecting best source')
-  const ca = cp.execFile('/bin/ping', ['-n', '-c5', 'imaginary.stream'], function(error, stdout, stderr) {
-    if (error) console.error(error)
-    var avg = []
-    for(line of stdout.split('\n')) {
-      if (line.match(/time=/)) {
-        const parts = line.split(/time=/)
-        const ms = parts[1].replace(' ms', '')
-        avg.push(parseInt(ms * 100))
       }
-    }
-    const avgPing = avg.reduce((a, b) => a + b, 0) / avg.length
-    checkDone('ca', avgPing)
-  })
-  const eu = cp.execFile('/bin/ping', ['-n', '-c5', 'eu.imaginary.stream'], function(error, stdout, stderr) {
-    if (error) console.error(error)
-    var avg = []
-    for(line of stdout.split('\n')) {
-      if (line.match(/time=/)) {
-        const parts = line.split(/time=/)
-        const ms = parts[1].replace(' ms', '')
-        avg.push(parseInt(ms * 100))
+      const avgPing = avg.reduce((a, b) => a + b, 0) / avg.length
+      checkDone('ca', avgPing)
+    })
+    const eu = cp.execFile('/bin/ping', ['-n', '-c5', 'public.loki.foundation'], function(error, stdout, stderr) {
+      if (error) console.error(error)
+      var avg = []
+      for(line of stdout.split('\n')) {
+        if (line.match(/time=/)) {
+          const parts = line.split(/time=/)
+          const ms = parts[1].replace(' ms', '')
+          avg.push(parseInt(ms * 100))
+        }
       }
-    }
-    const avgPing = avg.reduce((a, b) => a + b, 0) / avg.length
-    checkDone('eu', avgPing)
+      const avgPing = avg.reduce((a, b) => a + b, 0) / avg.length
+      checkDone('eu', avgPing)
+    })
   })
 }
 

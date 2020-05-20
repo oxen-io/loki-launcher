@@ -2,12 +2,12 @@
 // no npm!
 const os = require('os')
 const packageData = require('./package.json')
+const execSync = require('child_process').execSync
 
 let VERSION = packageData.version
 let useGitVersion = false
 
 if (VERSION.match(/git/)) {
-  const execSync = require('child_process').execSync
   try {
     var stdout = execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
     if (stdout && stdout.toString) {
@@ -22,44 +22,6 @@ if (VERSION.match(/git/)) {
   continueStart()
 } else {
   continueStart()
-}
-
-// from https://www.codedrome.com/the-soundex-algorithm-in-javascript/
-function soundex(name) {
-  let s = [];
-  let si = 1;
-  let c;
-
-  //              ABCDEFGHIJKLMNOPQRSTUVWXYZ
-  const mappings = "01230120022455012623010202";
-
-  s[0] = name[0].toUpperCase();
-
-  for(let i = 1, l = name.length; i < l; i++) {
-    c = (name[i].toUpperCase()).charCodeAt(0) - 65;
-
-    if(c >= 0 && c <= 25) {
-      if(mappings[c] != '0') {
-        if(mappings[c] != s[si-1]) {
-          s[si] = mappings[c];
-          si++;
-        }
-
-        if(si > 3) {
-          break;
-        }
-      }
-    }
-  }
-
-  if(si <= 3) {
-    while(si <= 3) {
-      s[si] = '0';
-      si++;
-    }
-  }
-
-  return s.join("");
 }
 
 async function continueStart() {
@@ -184,25 +146,50 @@ async function continueStart() {
   //if (debugMode) console.debug('enabling debug')
   configUtil.check(config, args, debugMode)
 
-  function warnRunAsRoot() {
-    if (os.platform() != 'darwin') {
-      if (process.getuid() === 0) {
-        console.error('Its not recommended you run this as root unless the guide otherwise says to do so')
-      }
-    }
-  }
-
-  function requireRoot() {
-    if (process.getuid() !== 0) {
-      console.error('This now requires to be ran as root (currentUID:', process.getuid(), ', expected 0), try running the command with "sudo " in front')
-      process.exit()
-    }
-  }
-
   let statusWatcher = false
 
   const statusSystem = require(__dirname + '/modes/status')
   statusSystem.start(config)
+
+  async function doInstallUpgrade(user, config, install) {
+    // check versions first...
+    // what are we running, what do we have installed
+    // is there new available?
+    // try an npm upgrade...
+    const noProblems = await require(__dirname + '/modes/prequal')(config, false)
+    if (!noProblems) {
+      console.log('please fix these issues before continuing installation')
+      process.exit();
+    }
+    var options = {
+      forceDownload: false,
+      prerel: false
+    }
+    await require(__dirname + '/modes/download-binaries').start(config, options)
+    if (install) {
+      // FIXME: detect if we have any blockchain started
+      // and it has to be over 10gb
+      // this isn't always faster either... like for Rick
+      await require(__dirname + '/modes/download-blockchain').start(config, options)
+    }
+    const systemdUtils = require(__dirname + '/modes/check-systemd')
+    await systemdUtils.start(config, __filename)
+    await require(__dirname + '/modes/fix-perms').start(user, __dirname, config)
+    // start-debug to test?
+    if (systemdUtils.isSystemdEnabled(config)) {
+      const stdout = execSync('systemctl start lokid')
+    } else {
+      // override args
+      // not yet...
+      // await require(__dirname + '/start')([], config, __filename, false)
+    }
+    // reboot?
+    // start through system
+    console.log('Now we recommend you reboot to make sure everything comes back after a reboot event')
+    // console.log('Or alternative please run: sudo systemctl start lokid')
+    // system takes too long
+    //await statusSystem.status()
+  }
 
   // this just show's what's installed not running
   function showVersions() {
@@ -251,10 +238,18 @@ async function continueStart() {
             // can hang if lokid is popping blocks
             console.log('BLOCKCHAIN STATUS')
             var status = await statusSystem.checkBlockchain()
+            var pubkey = ''
+            if (status.pubkey) {
+              pubkey += status.pubkey
+            }
+            delete status.pubkey
             if (nodeVer >= 10) {
               console.table(status)
             } else {
               console.log(status)
+            }
+            if (pubkey) {
+              console.log(`More info: https://lokisn.com/sn/${pubkey}`)
             }
           break;
           case 'storage':
@@ -625,7 +620,7 @@ async function continueStart() {
       var options = {}
       require(__dirname + '/modes/download-blockchain').start(config, options)
     break;
-    case 'export':
+    case 'export': // official
       // doesn't have to be root or stopped, just need read access
 
       if (!fs.existsSync(config.blockchain.lokid_key)) {
@@ -647,7 +642,7 @@ async function continueStart() {
       }
       require(__dirname + '/modes/export').start(config, options)
     break;
-    case 'import':
+    case 'import': // official
       var importFile = findFirstArgWithoutDash()
       if (!importFile) {
         console.log('No file passed in! You must explicitly tell us what file you want imported')
@@ -657,6 +652,32 @@ async function continueStart() {
         srcPath: importFile
       }
       require(__dirname + '/modes/import').start(config, options)
+    break;
+    case 'install': // official
+      var user = findFirstArgWithoutDash()
+      if (!user) {
+        console.log('No user passed in! You must explicitly tell us what user you want the permissions to be set for')
+        console.log('You are currently logged in as', os.userInfo().username)
+        return
+      }
+      if (process.getuid() != 0) {
+        console.log('install needs to be ran as root, try prefixing your attempted command with: sudo')
+        process.exit(1)
+      }
+      await doInstallUpgrade(user, config, true)
+    break;
+    case 'upgrade': // official
+      var user = findFirstArgWithoutDash()
+      if (!user) {
+        console.log('No user passed in! You must explicitly tell us what user you want the permissions to be set for')
+        console.log('You are currently logged in as', os.userInfo().username)
+        return
+      }
+      if (process.getuid() != 0) {
+        console.log('install needs to be ran as root, try prefixing your attempted command with: sudo')
+        process.exit(1)
+      }
+      await doInstallUpgrade(user, config, false)
     break;
     case 'versions':
     case 'version': // official
@@ -701,7 +722,62 @@ async function continueStart() {
         can optionally provide: force, prerel and force-prerel
       upgrade-systemd (check-systemd) - reconfigures your lokid.service
       fix-perms - requires user OPTION, make all operational files own by user
+      install   - requires user OPTION, installs a fresh node
+      upgrade   - requires user OPTION, upgrade an existing node
   `)
     break;
   }
+}
+
+function warnRunAsRoot() {
+  if (os.platform() != 'darwin') {
+    if (process.getuid() === 0) {
+      console.error('Its not recommended you run this as root unless the guide otherwise says to do so')
+    }
+  }
+}
+
+function requireRoot() {
+  if (process.getuid() !== 0) {
+    console.error('This now requires to be ran as root (currentUID:', process.getuid(), ', expected 0), try running the command with "sudo " in front')
+    process.exit()
+  }
+}
+
+// from https://www.codedrome.com/the-soundex-algorithm-in-javascript/
+function soundex(name) {
+  let s = [];
+  let si = 1;
+  let c;
+
+  //              ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  const mappings = "01230120022455012623010202";
+
+  s[0] = name[0].toUpperCase();
+
+  for(let i = 1, l = name.length; i < l; i++) {
+    c = (name[i].toUpperCase()).charCodeAt(0) - 65;
+
+    if(c >= 0 && c <= 25) {
+      if(mappings[c] != '0') {
+        if(mappings[c] != s[si-1]) {
+          s[si] = mappings[c];
+          si++;
+        }
+
+        if(si > 3) {
+          break;
+        }
+      }
+    }
+  }
+
+  if(si <= 3) {
+    while(si <= 3) {
+      s[si] = '0';
+      si++;
+    }
+  }
+
+  return s.join("");
 }

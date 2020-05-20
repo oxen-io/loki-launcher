@@ -2,6 +2,7 @@
 const fs = require('fs')
 const cp = require('child_process')
 const execSync = cp.execSync
+const spawn = cp.spawn
 const lokinet = require(__dirname + '/../lokinet')
 
 function rewriteServiceFile(serviceFile, entrypoint) {
@@ -23,7 +24,7 @@ function rewriteServiceFile(serviceFile, entrypoint) {
         console.log('ExecStart uses lokid directly')
         needsBinaryUpdate = true
         // replace ExecStart
-        tline = 'ExecStart=' + entrypoint + ' systemd-start';
+        tline = 'ExecStart=' + entrypoint + ' systemd-start'
       }
     }
     nLines.push(tline)
@@ -69,7 +70,7 @@ function rewriteServiceFile(serviceFile, entrypoint) {
 }
 
 // we actually currently don't use config at all... but we likely will evenutally
-function start(config, entrypoint) {
+async function start(config, entrypoint) {
   const lib = require(__dirname + '/../lib')
   // address issue #19
   lib.stopLauncher(config)
@@ -120,15 +121,90 @@ function isEnabled(config) {
     return
   }
   try {
-    const stdout = execSync('systemctl is-enabled lokid')
     // and probably should make sure it's using our entrypoint
     // incase there's multiple snode?
-    // FIXME:
-    // const stdout2 = execSync('systemctl show lokid')
-    return stdout.toString().match(/enabled/)
+    const stdoutShow = execSync('systemctl show lokid')
+    // console.log('stdoutShow', stdoutShow.toString())
+    if (stdoutShow.toString().includes(config.entrypoint)) {
+      const stdout = execSync('systemctl is-enabled lokid')
+      return stdout.toString().match(/enabled/)
+    } else {
+      console.log('System has systemd service but not for', config.entrypoint)
+      // console.log(stdoutShow.toString())
+    }
+    return false
   } catch (e) {
     return
   }
+}
+
+// from (MIT) https://github.com/nmorsman/node-systemd-notify/blob/master/notify.js
+function generateArgs(opts) {
+  const result = []
+
+  if (('ready' in opts) && (opts.ready === true)) {
+    result.push('--ready')
+  }
+
+  if ('pid' in opts) {
+    result.push(`--pid=${opts.pid}`)
+  }
+  else if (('ready' in opts) || ('status' in opts)) {
+    /**
+     * Always send PID to avoid possible race condition
+     * https://www.pluralsight.com/tech-blog/using-systemd-notify-with-nodejs/
+     */
+
+    result.push(`--pid=${process.pid}`)
+  }
+
+  if ('status' in opts) {
+    result.push(`--status=${opts.status}`)
+  }
+
+  if (('booted' in opts) && (opts.booted === true)) {
+    result.push('--booted')
+  }
+
+  return result
+}
+
+function notifySystemd(opts = {}, callback) {
+  return new Promise((resolve, reject) => {
+    const args = generateArgs(opts)
+    const cmd = spawn('systemd-notify', args)
+
+    let stdout = ''
+    let stderr = ''
+    let hasCalledBack = false
+
+    cmd.stdout.on('data', (d) => { stdout += d })
+    cmd.stderr.on('data', (d) => { stderr += d })
+
+    cmd.on('error', (err) => {
+      if (hasCalledBack) {
+        return null
+      }
+
+      hasCalledBack = true
+      return (typeof callback === 'function') ? callback(err) : reject(err)
+    })
+
+    cmd.on('close', (code) => {
+      if (hasCalledBack) {
+        return null
+      }
+
+      hasCalledBack = true
+
+      if (code !== 0) {
+        const err = stderr.trim() || stdout.trim()
+        return (typeof callback === 'function') ? callback(err) : reject(err)
+      }
+
+      return (typeof callback === 'function') ? callback(null, cmd) : resolve(cmd)
+    })
+  })
 }
 
 module.exports = {
@@ -136,4 +212,5 @@ module.exports = {
   launcherLogs: launcherLogs,
   isStartedWithSystemD: isActive,
   isSystemdEnabled: isEnabled,
+  notifySystemd: notifySystemd,
 }
