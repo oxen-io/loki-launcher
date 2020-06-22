@@ -1092,8 +1092,8 @@ function launchLokinet(config, instance, cb) {
     }
   })
 
-  lokinet.on('close', (code) => {
-    log(`lokinet process exited with code ${code} after`, (Date.now() - lokinet.startTime)+'ms')
+  lokinet.on('close', (code, signal) => {
+    log(`lokinet process exited with code ${code}/${signal} after`, (Date.now() - lokinet.startTime)+'ms')
     // code 0 means clean shutdown
     lokinet.killed = true
     if (networkConfig.onStop) {
