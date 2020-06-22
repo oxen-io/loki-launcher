@@ -115,6 +115,7 @@ function shutdown_storage() {
 }
 
 let shuttingDown = false
+let exitRequested = false
 let shutDownTimer = null
 let lokinetPidwatcher = false
 function shutdown_everything() {
@@ -457,8 +458,13 @@ function launcherStorageServer(config, args, cb) {
             // where it should have been restarted, so 5 in 15 mins will be our new tune
             // was 11 * 36
             if (lastLokidContactFailures.length == 5 && ts - lastLokidContactFailures[0] < 900 * 1000) {
-              console.log('we should restart lokid');
-              requestBlockchainRestart(config);
+              // now it's a race, between us detect lokid shutting down
+              // and us trying to restart it...
+              // mainly will help deadlocks
+              if (!exitRequested) {
+                console.log('we should restart lokid');
+                requestBlockchainRestart(config);
+              }
             }
             if (storageLogging) console.log(`STORAGE: blockchain tick contact failure`)
             storageServer.blockchainFailures.last_blockchain_tick = Date.now()
@@ -1250,6 +1256,12 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
   }
 
   loki_daemon.on('close', (code, signal) => {
+    if (loki_daemon === null) {
+      // was shutting down when it was restarted...
+      loki_daemon = {
+        shuttingDownRestart: true // set something we can modify behavior on
+      }
+    }
     console.warn(`BLOCKCHAIN: loki_daemon process exited with code ${code}/${signal} after`, (Date.now() - loki_daemon.startTime)+'ms')
     // invalid param gives a code 1
     // code 0 means clean shutdown
@@ -1464,6 +1476,13 @@ function startLokid(config, args) {
         if (loki_daemon) {
           loki_daemon.stdin.write(key)
         }
+      }
+      if (key === 'exit\n') {
+        console.log('detected exit')
+        // can't do this, this will prevent loki_daemon exit
+        // from shuttingdown everything
+        // shuttingDown = true
+        exitRequested = true
       }
     })
     stdin.on('error', function(err) {
