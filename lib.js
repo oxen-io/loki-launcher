@@ -643,14 +643,20 @@ async function getLauncherStatus(config, lokinet, offlineMessage, cb) {
     //console.log('Lokid is running, checking to make sure it\'s responding')
     //console.log('blockchain', config.blockchain)
     var responded = false
+    var p
     var blockchain_rpc_timer = setTimeout(function() {
       if (responded) return
       responded = true
-      ref.abort()
+      if (p && p.ref.abort) {
+        p.ref.abort()
+      } else {
+        console.warn('can not aborted http request, handle type:', typeof(p), typeof(p.ref), typeof(p.ref.abort))
+      }
       checklist.blockchain_rpc = offlineMessage
       checkDone('blockchain_rpc')
     }, 5000)
-    var ref = lokinet.httpGet(url, function(data) {
+    // returns a promise now..
+    var p = lokinet.httpGet(url, function(data) {
       if (responded) return
       responded = true
       clearTimeout(blockchain_rpc_timer)

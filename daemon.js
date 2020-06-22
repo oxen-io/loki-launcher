@@ -720,7 +720,8 @@ function startLokinet(config, args, cb) {
           if (lokinetProc) {
             // console.log('lokinet pid is', lokinetProc.pid, 'json is', pids.lokinet)
             if (lokinetProc.pid != pids.lokinet) {
-              console.warn('Lokinet pid got out of sync!')
+              console.warn('Updating lokinet PID')
+              lib.savePids(config, args, loki_daemon, lokinet, storageServer)
             }
           } else {
             console.log('no lokinet pid', lokinet)

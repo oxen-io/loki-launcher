@@ -64,8 +64,8 @@ module.exports = function(config, debug, timeout) {
       diskspace: false,
       rpcport: false,
     }
-    var blockchain_size = 15 //gb
-    var storage_size = 3.5 //gb
+    var blockchain_size = 20 //gb
+    var storage_size = 5 //gb
 
     var diskspaces = {}
     var log = [] // FIXME: rename to report

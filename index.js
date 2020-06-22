@@ -238,13 +238,18 @@ async function continueStart() {
             // can hang if lokid is popping blocks
             console.log('BLOCKCHAIN STATUS')
             var status = await statusSystem.checkBlockchain()
+            var pubkey = ''
+            if (status.pubkey) {
+              pubkey += status.pubkey
+            }
+            delete status.pubkey
             if (nodeVer >= 10) {
               console.table(status)
             } else {
               console.log(status)
             }
-            if (status.pubkey) {
-              console.log(`More info: https://lokisn.com/sn/${status.pubkey}`)
+            if (pubkey) {
+              console.log(`More info: https://lokisn.com/sn/${pubkey}`)
             }
           break;
           case 'storage':
