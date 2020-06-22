@@ -516,10 +516,10 @@ function launcherStorageServer(config, args, cb) {
     console.error('STORAGEP_ERR:', JSON.stringify(err))
   })
 
-  storageServer.on('close', (code) => {
+  storageServer.on('close', (code, signal) => {
     if (memoryWatcher !== null) clearInterval(memoryWatcher)
     if (watchdog !== null) clearInterval(watchdog)
-    console.log(`StorageServer process exited with code ${code} after`, (Date.now() - storageServer.startTime)+'ms')
+    console.log(`StorageServer process exited with code ${code}/${signal} after`, (Date.now() - storageServer.startTime)+'ms')
     storageServer.killed = true
     if (code == 1) {
       // these seem to be empty
@@ -803,8 +803,8 @@ function startLauncherDaemon(config, interactive, entryPoint, args, debug, cb) {
             stderr += data.toString()
           })
           //var launcherHasExited = false
-          function crashHandler(code) {
-            console.log('Background launcher died with', code, stdout, stderr)
+          function crashHandler(code, signal) {
+            console.log('Background launcher died with', code, signal, stdout, stderr)
             //launcherHasExited = true
             process.exit(1)
           }
@@ -1248,8 +1248,8 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
     })
   }
 
-  loki_daemon.on('close', (code) => {
-    console.warn(`BLOCKCHAIN: loki_daemon process exited with code ${code} after`, (Date.now() - loki_daemon.startTime)+'ms')
+  loki_daemon.on('close', (code, signal) => {
+    console.warn(`BLOCKCHAIN: loki_daemon process exited with code ${code}/${signal} after`, (Date.now() - loki_daemon.startTime)+'ms')
     // invalid param gives a code 1
     // code 0 means clean shutdown
     if (code === 0) {
