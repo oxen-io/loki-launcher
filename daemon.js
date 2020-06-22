@@ -1315,17 +1315,25 @@ function launchLokid(binary_path, lokid_options, interactive, config, args, cb) 
 
 var requestBlockchainRestartLock = false
 function requestBlockchainRestart(config, cb) {
+  if (shuttingDown) {
+    console.log('LAUNCHER: not going to restart lokid, we are shutting down')
+    return
+  }
   if (requestBlockchainRestartLock) {
     console.log('LAUNCHER: already restarting blockchain')
     return
   }
   requestBlockchainRestartLock = true
   var oldVal = config.blockchain.restart
-  var obj = getPids(config)
+  var obj = lib.getPids(config)
   config.blockchain.restart = 1
   console.log('LAUNCHER: requesting blockchain restart')
   shutdown_blockchain()
   waitfor_blockchain_shutdown(function() {
+    if (shuttingDown) {
+      console.log('LAUNCHER: not going to restart lokid, we are shutting down')
+      return
+    }
     console.log('BLOCKCHAIN: Restarting lokid.')
     launchLokid(config.blockchain.binary_path, obj.blockchain_startedOptions, config.launcher.interactive, config, obj.arg)
     requestBlockchainRestartLock = false
