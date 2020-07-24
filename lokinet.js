@@ -100,6 +100,8 @@ function getIfNameFromIP(ip) {
   return ''
 }
 
+// how do we abort protoClient externally and have more than one inflight...
+// we set a property in the promise object returned...
 function httpGet(url, cb) {
   const urlDetails = urlparser.parse(url)
   //console.log('httpGet url', urlDetails)
@@ -108,21 +110,24 @@ function httpGet(url, cb) {
   if (urlDetails.protocol == 'https:') {
     protoClient = https
   }
-  return new Promise(function(resolve, reject) {
+  var ref
+  var p = new Promise(function(resolve, reject) {
     // well somehow this can get hung on macos
     var abort = false
-    var startWatchdog = setInterval(function () {
+    var stopWatchdog = setInterval(function () {
       if (shuttingDown) {
         // [', url, ']
         log('hung httpGet but have shutdown request, calling back early and setting abort flag')
-        clearInterval(startWatchdog)
+        clearInterval(stopWatchdog)
+        // actually cancel the download
+        if (ref && ref.abort) ref.abort()
         abort = true
         if (cb) cb()
           else reject()
         return
       }
     }, 5000)
-    protoClient.get({
+    ref = protoClient.get({
       hostname: urlDetails.hostname,
       protocol: urlDetails.protocol,
       port: urlDetails.port,
@@ -133,7 +138,7 @@ function httpGet(url, cb) {
       }
     }, (resp) => {
       //log('httpGet setting up handlers')
-      clearInterval(startWatchdog)
+      clearInterval(stopWatchdog)
       resp.setEncoding('binary')
       let data = ''
       // A chunk of data has been recieved.
@@ -180,12 +185,14 @@ function httpGet(url, cb) {
       })
     }).on("error", (err) => {
       console.error("NETWORK: httpGet Error: " + err.message, 'port', urlDetails.port)
-      clearInterval(startWatchdog)
+      clearInterval(stopWatchdog)
       //console.log('err', err)
       if (cb) cb()
         else reject()
     })
   })
+  p.ref = ref
+  return p
 }
 
 function dynDNSHandler(data, cb) {
@@ -1092,8 +1099,8 @@ function launchLokinet(config, instance, cb) {
     }
   })
 
-  lokinet.on('close', (code) => {
-    log(`lokinet process exited with code ${code} after`, (Date.now() - lokinet.startTime)+'ms')
+  lokinet.on('close', (code, signal) => {
+    log(`lokinet process exited with code ${code}/${signal} after`, (Date.now() - lokinet.startTime)+'ms')
     // code 0 means clean shutdown
     lokinet.killed = true
     if (networkConfig.onStop) {
