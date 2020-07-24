@@ -1118,7 +1118,16 @@ function configureLokid(config, args) {
   }
 
   // logical core count
-  if (os.cpus().length > 16) {
+  let cpuCount = os.cpus().length
+  if (fs.existsSync('/sys/devices/system/cpu/online')) {
+    // 0-63
+    const cpuData = fs.readFileSync('/sys/devices/system/cpu/online')
+    cpuCount = parseInt(cpuData.toString().replace(/^0-/, '')) + 1
+  }
+  console.log('CPU Count', cpuCount)
+  // getconf _NPROCESSORS_ONLN
+  // /sys/devices/system/cpu/online
+  if (cpuCount > 16) {
     lokid_options.push('--max-concurrency=16')
   }
 
