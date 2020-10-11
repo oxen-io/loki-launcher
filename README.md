@@ -57,7 +57,7 @@ After it's installed, you can ask to prequalify your server to be a service node
 
 you can also ask it to download the Loki binaries if you don't already have them
 
-`loki-launcher download-binaries`
+`sudo loki-launcher download-binaries`
 
 # How to use without systemd
 
