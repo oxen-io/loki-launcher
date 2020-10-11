@@ -45,6 +45,10 @@ This will use npm to install the launcher
 
 `sudo npm install -g loki-launcher`
 
+This will download and install the Loki binaries for you if you don't already have them
+
+`sudo loki-launcher download-binaries`
+
 This will create any needed directories and make sure everything has the proper permissions to run as a specified user such as `snode` in this example
 
 `sudo loki-launcher set-perms snode`
@@ -54,10 +58,6 @@ Now make sure sure you running the following commands as the user specified or y
 After it's installed, you can ask to prequalify your server to be a service node
 
 `loki-launcher prequal`
-
-you can also ask it to download the Loki binaries if you don't already have them
-
-`sudo loki-launcher download-binaries`
 
 # How to use without systemd
 
